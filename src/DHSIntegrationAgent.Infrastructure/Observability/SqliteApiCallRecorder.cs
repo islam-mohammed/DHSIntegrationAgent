@@ -15,34 +15,41 @@ public sealed class SqliteApiCallRecorder : IApiCallRecorder
         _logger = logger;
     }
 
-    public async Task RecordAsync(ApiCallRecord record, CancellationToken ct)
+    public Task RecordAsync(ApiCallRecord record, CancellationToken ct)
     {
-        try
+        // Offload to background thread and use CancellationToken.None to ensure it persists
+        // even if the original request/pipeline is cancelled.
+        _ = Task.Run(async () =>
         {
-            await using var uow = await _uowFactory.CreateAsync(ct);
+            try
+            {
+                await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);
 
-            await uow.ApiCallLogs.InsertAsync(
-                endpointName: record.EndpointName,
-                correlationId: record.CorrelationId,
-                requestUtc: record.StartedUtc,
-                responseUtc: record.ResponseUtc,
-                durationMs: (int)record.ElapsedMs,
-                httpStatusCode: record.StatusCode,
-                succeeded: record.Succeeded,
-                errorMessage: record.ErrorMessage,
-                requestBytes: record.RequestBytes,
-                responseBytes: record.ResponseBytes,
-                wasGzipRequest: record.WasGzipRequest,
-                providerDhsCode: record.ProviderDhsCode,
-                cancellationToken: ct
-            );
+                await uow.ApiCallLogs.InsertAsync(
+                    endpointName: record.EndpointName,
+                    correlationId: record.CorrelationId,
+                    requestUtc: record.StartedUtc,
+                    responseUtc: record.ResponseUtc,
+                    durationMs: (int)record.ElapsedMs,
+                    httpStatusCode: record.StatusCode,
+                    succeeded: record.Succeeded,
+                    errorMessage: record.ErrorMessage,
+                    requestBytes: record.RequestBytes,
+                    responseBytes: record.ResponseBytes,
+                    wasGzipRequest: record.WasGzipRequest,
+                    providerDhsCode: record.ProviderDhsCode,
+                    cancellationToken: CancellationToken.None
+                );
 
-            await uow.CommitAsync(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to persist API call log to SQLite for {EndpointName} (CorrelationId={CorrelationId})",
-                record.EndpointName, record.CorrelationId);
-        }
+                await uow.CommitAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist API call log to SQLite for {EndpointName} (CorrelationId={CorrelationId})",
+                    record.EndpointName, record.CorrelationId);
+            }
+        }, CancellationToken.None);
+
+        return Task.CompletedTask;
     }
 }

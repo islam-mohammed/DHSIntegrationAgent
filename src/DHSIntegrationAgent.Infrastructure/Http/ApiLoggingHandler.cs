@@ -11,18 +11,18 @@ public sealed class ApiLoggingHandler : DelegatingHandler
     private readonly ILogger<ApiLoggingHandler> _logger;
     private readonly IApiCallRecorder _recorder;
 
-    private static readonly Dictionary<string, string> PathToAlias = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly IReadOnlyList<KeyValuePair<string, string>> Aliases = new[]
     {
-        { "api/Authentication/login", "Authentication_Login" },
-        { "api/Batch/CreateBatchRequest", "Batch_Create" },
-        { "api/Batch/GetBatchRequest", "Batch_Get" },
-        { "api/Provider/GetProviderConfigration", "Provider_GetConfig" },
-        { "api/DomainMapping/GetProviderDomainMapping", "DomainMapping_GetProviderMapping" },
-        { "api/DomainMapping/InsertMissMappingDomain", "DomainMapping_InsertMissing" },
-        { "api/DomainMapping/GetMissingDomainMappings", "DomainMapping_GetMissing" },
-        { "api/DomainMapping/GetProviderDomainMappingsWithMissing", "DomainMapping_GetWithMissing" },
-        { "api/Claims/SendClaim", "Claims_Send" },
-        { "api/Claims/GetHISProIdClaimsByBcrId", "Claims_GetCompletedIds" }
+        new KeyValuePair<string, string>("api/Authentication/login", "Authentication_Login"),
+        new KeyValuePair<string, string>("api/Batch/CreateBatchRequest", "Batch_Create"),
+        new KeyValuePair<string, string>("api/Batch/GetBatchRequest", "Batch_Get"),
+        new KeyValuePair<string, string>("api/Provider/GetProviderConfigration", "Provider_GetConfig"),
+        new KeyValuePair<string, string>("api/DomainMapping/GetProviderDomainMappingsWithMissing", "DomainMapping_GetWithMissing"),
+        new KeyValuePair<string, string>("api/DomainMapping/GetProviderDomainMapping", "DomainMapping_GetProviderMapping"),
+        new KeyValuePair<string, string>("api/DomainMapping/InsertMissMappingDomain", "DomainMapping_InsertMissing"),
+        new KeyValuePair<string, string>("api/DomainMapping/GetMissingDomainMappings", "DomainMapping_GetMissing"),
+        new KeyValuePair<string, string>("api/Claims/SendClaim", "Claims_Send"),
+        new KeyValuePair<string, string>("api/Claims/GetHISProIdClaimsByBcrId", "Claims_GetCompletedIds")
     };
 
     public ApiLoggingHandler(ILogger<ApiLoggingHandler> logger, IApiCallRecorder recorder)
@@ -95,9 +95,11 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
     private static string GetEndpointName(string url)
     {
-        foreach (var kvp in PathToAlias)
+        var path = GetCleanPath(url);
+
+        foreach (var kvp in Aliases)
         {
-            if (url.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
+            if (path.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
                 return kvp.Value;
         }
         return url;
@@ -105,28 +107,54 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
     private static string? ExtractProviderDhsCode(string url)
     {
-        if (url.Contains("api/Batch/GetBatchRequest/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
-        if (url.Contains("api/Provider/GetProviderConfigration/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
-        if (url.Contains("api/DomainMapping/GetProviderDomainMapping/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
-        if (url.Contains("api/DomainMapping/GetMissingDomainMappings/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
-        if (url.Contains("api/DomainMapping/GetProviderDomainMappingsWithMissing/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
+        var path = GetCleanPath(url);
+
+        if (path.Contains("api/Batch/GetBatchRequest", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(path);
+        if (path.Contains("api/Provider/GetProviderConfigration", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(path);
+        if (path.Contains("api/DomainMapping/GetProviderDomainMapping", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(path);
+        if (path.Contains("api/DomainMapping/GetMissingDomainMappings", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(path);
+        if (path.Contains("api/DomainMapping/GetProviderDomainMappingsWithMissing", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(path);
 
         return null;
     }
 
-    private static string? ExtractLastSegment(string url)
+    private static string GetCleanPath(string url)
     {
+        if (string.IsNullOrWhiteSpace(url)) return string.Empty;
+
         try
         {
-            var uri = new Uri(url);
-            var path = uri.AbsolutePath;
-            var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            return parts.LastOrDefault();
+            // Try to parse as absolute URI, then as relative
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            {
+                Uri.TryCreate("http://localhost/" + url.TrimStart('/'), UriKind.Absolute, out uri);
+            }
+
+            if (uri != null)
+            {
+                var path = uri.AbsolutePath;
+                // Strip trailing slash
+                if (path.Length > 1 && path.EndsWith('/')) path = path[..^1];
+                return path.TrimStart('/');
+            }
         }
         catch
         {
-            return null;
+            // fallback
         }
+
+        // Manual fallback: strip query string
+        int qIdx = url.IndexOf('?');
+        var result = qIdx >= 0 ? url[..qIdx] : url;
+        return result.Trim('/');
+    }
+
+    private static string? ExtractLastSegment(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return null;
+
+        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        return parts.LastOrDefault();
     }
 
     private static string EnsureCorrelationId(HttpRequestMessage request)
