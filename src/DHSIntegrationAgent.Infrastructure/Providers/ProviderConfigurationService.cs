@@ -393,13 +393,13 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
 
                 foreach (var cc in companyCodes)
                 {
-                    await uow.DomainMappings.UpsertDiscoveredAsync(
+                    await uow.MissingDomainMappings.UpsertAsync(
                         providerDhsCode,
                         cc,
                         domainName!,
                         domainTableId.Value,
                         sourceValue!,
-                        MappingStatus.Missing,
+                        DiscoverySource.Api,
                         now,
                         ct);
                     upserted++;

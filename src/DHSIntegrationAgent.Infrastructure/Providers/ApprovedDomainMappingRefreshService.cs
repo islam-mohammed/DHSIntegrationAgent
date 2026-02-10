@@ -198,13 +198,13 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
                 if (string.IsNullOrWhiteSpace(sourceValue))
                     continue;
 
-                await uow.DomainMappings.UpsertDiscoveredAsync(
+                await uow.MissingDomainMappings.UpsertAsync(
                     providerDhsCode,
                     companyCode,
                     domainName,
                     domainTableId,
                     sourceValue,
-                    MappingStatus.Missing,
+                    DiscoverySource.Api,
                     now,
                     ct);
             }
