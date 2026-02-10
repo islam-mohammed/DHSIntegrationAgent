@@ -1,3 +1,4 @@
+using DHSIntegrationAgent.Contracts.Observability;
 using System.Diagnostics;
 using DHSIntegrationAgent.Application.Observability;
 using Microsoft.Extensions.Logging;

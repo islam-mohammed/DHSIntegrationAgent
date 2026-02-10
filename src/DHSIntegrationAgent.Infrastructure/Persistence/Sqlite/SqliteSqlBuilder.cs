@@ -33,7 +33,7 @@ internal static class SqliteSqlBuilder
     /// WITH keys(ProviderDhsCode, ProIdClaim) AS (VALUES ($p0,$id0),($p1,$id1)...)
     /// Returns the CTE SQL (WITH ...).
     /// </summary>
-    public static string AddClaimKeysCte(DbCommand cmd, string cteName, IReadOnlyList<DHSIntegrationAgent.Application.Persistence.Repositories.ClaimKey> keys)
+    public static string AddClaimKeysCte(DbCommand cmd, string cteName, IReadOnlyList<DHSIntegrationAgent.Contracts.Persistence.ClaimKey> keys)
     {
         if (keys.Count == 0) throw new ArgumentException("keys cannot be empty", nameof(keys));
 

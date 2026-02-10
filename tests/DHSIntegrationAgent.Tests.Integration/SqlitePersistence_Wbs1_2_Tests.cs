@@ -1,3 +1,5 @@
+using DHSIntegrationAgent.Contracts.Claims;
+using DHSIntegrationAgent.Contracts.Persistence;
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
@@ -135,7 +137,7 @@ public sealed class SqlitePersistence_Wbs1_2_Tests
             // Assert: no overlap
             var leased1Ids = leased1.Select(x => x.ProIdClaim).ToHashSet();
             foreach (var id in leased2.Select(x => x.ProIdClaim))
-                Assert.Single(leased1Ids);
+                Assert.DoesNotContain(id, leased1Ids);
 
             // Assert: all leased rows are set to InFlight, and locked/lease fields are populated
             await using (var conn = await connFactory.OpenConnectionAsync(CancellationToken.None))

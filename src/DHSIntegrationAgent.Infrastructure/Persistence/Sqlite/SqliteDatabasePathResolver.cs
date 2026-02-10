@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using DHSIntegrationAgent.Application.Configuration;
+using DHSIntegrationAgent.Application.Abstractions;
 
 namespace DHSIntegrationAgent.Infrastructure.Persistence.Sqlite;
 

@@ -1,4 +1,4 @@
-﻿namespace DHSIntegrationAgent.Domain.State;
+namespace DHSIntegrationAgent.Domain.WorkStates;
 
 public enum AttachmentSourceType
 {

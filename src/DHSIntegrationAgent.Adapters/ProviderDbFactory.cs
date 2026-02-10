@@ -1,3 +1,4 @@
+using DHSIntegrationAgent.Contracts.Adapters;
 ﻿using System.Data.Common;
 using System.Text;
 using DHSIntegrationAgent.Application.Persistence;

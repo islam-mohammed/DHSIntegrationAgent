@@ -1,15 +1,6 @@
+using DHSIntegrationAgent.Contracts.Persistence;
+
 ﻿namespace DHSIntegrationAgent.Application.Persistence.Repositories;
-
-public sealed record PayerProfileRow(
-    string ProviderDhsCode,
-    string CompanyCode,
-    string? PayerCode,
-    string? PayerName,
-    bool IsActive);
-
-public sealed record PayerItem(
-    int PayerId,
-    string? PayerName);
 
 public interface IPayerProfileRepository
 {

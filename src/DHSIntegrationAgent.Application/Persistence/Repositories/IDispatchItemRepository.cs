@@ -1,14 +1,7 @@
+using DHSIntegrationAgent.Contracts.Persistence;
 ﻿using DHSIntegrationAgent.Domain.WorkStates;
 
 namespace DHSIntegrationAgent.Application.Persistence.Repositories;
-
-public sealed record DispatchItemRow(
-    string DispatchId,
-    string ProviderDhsCode,
-    int ProIdClaim,
-    int ItemOrder,
-    DispatchItemResult ItemResult,
-    string? ErrorMessage);
 
 public interface IDispatchItemRepository
 {

@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\DHSIntegrationAgent.Adapters\DHSIntegrationAgent.Adapters.csproj" />
     <ProjectReference Include="..\..\src\DHSIntegrationAgent.Application\DHSIntegrationAgent.Application.csproj" />
+    <ProjectReference Include="..\..\src\DHSIntegrationAgent.Contracts\DHSIntegrationAgent.Contracts.csproj" />
     <ProjectReference Include="..\..\src\DHSIntegrationAgent.Domain\DHSIntegrationAgent.Domain.csproj" />
     <ProjectReference Include="..\..\src\DHSIntegrationAgent.Infrastructure\DHSIntegrationAgent.Infrastructure.csproj" />
   </ItemGroup>

@@ -1,12 +1,6 @@
-﻿namespace DHSIntegrationAgent.Application.Persistence.Repositories;
+using DHSIntegrationAgent.Contracts.Persistence;
 
-public sealed record ClaimPayloadRow(
-    ClaimKey Key,
-    byte[] PayloadJsonPlaintext, // repo encrypts before storing
-    string PayloadSha256,
-    int PayloadVersion,
-    DateTimeOffset CreatedUtc,
-    DateTimeOffset UpdatedUtc);
+namespace DHSIntegrationAgent.Application.Persistence.Repositories;
 
 public interface IClaimPayloadRepository
 {

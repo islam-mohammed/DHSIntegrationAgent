@@ -1,3 +1,4 @@
+using DHSIntegrationAgent.Contracts.Claims;
 ﻿using System.Globalization;
 using System.Text.Json.Nodes;
 using DHSIntegrationAgent.Domain.Claims;

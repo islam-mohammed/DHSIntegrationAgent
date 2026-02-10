@@ -27,6 +27,11 @@ public static class InfrastructureServiceCollectionExtensions
         IConfiguration configuration)
     {
         // ------------------------------------------------------------
+        // Cross-cutting primitives
+        // ------------------------------------------------------------
+        services.AddSingleton<ISystemClock, SystemClock>();
+
+        // ------------------------------------------------------------
         // Observability
         // ------------------------------------------------------------
         services.AddSingleton<IApiCallRecorder, SqliteApiCallRecorder>();

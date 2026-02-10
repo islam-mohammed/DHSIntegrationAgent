@@ -1,6 +1,7 @@
 ﻿using System.IO.Compression;
 using System.Net.Http.Headers;
 using DHSIntegrationAgent.Application.Configuration;
+using DHSIntegrationAgent.Application.Abstractions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

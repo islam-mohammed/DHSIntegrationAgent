@@ -1,3 +1,4 @@
+using DHSIntegrationAgent.Contracts.DomainMapping;
 ﻿using System.Collections.ObjectModel;
 using System.Net.Http;
 using System.Windows;

@@ -1,3 +1,5 @@
+using DHSIntegrationAgent.Contracts.Security;
+
 ﻿namespace DHSIntegrationAgent.Application.Security;
 
 /// <summary>
@@ -11,12 +13,3 @@ public interface IAuthClient
     /// </summary>
     Task<AuthLoginResult> LoginAsync(string email, string password, string groupId, CancellationToken ct);
 }
-
-/// <summary>
-/// Normalized login result consumed by UI/business logic.
-/// Token is optional because some backends may not return a token.
-/// </summary>
-public sealed record AuthLoginResult(
-    bool Succeeded,
-    string? ErrorMessage,
-    string? Token);

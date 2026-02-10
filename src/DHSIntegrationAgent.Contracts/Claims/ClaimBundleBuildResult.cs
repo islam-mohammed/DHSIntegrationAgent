@@ -1,4 +1,6 @@
-﻿namespace DHSIntegrationAgent.Domain.Claims;
+using DHSIntegrationAgent.Domain.Claims;
+
+namespace DHSIntegrationAgent.Contracts.Claims;
 
 /// <summary>
 /// Result of building/normalizing a ClaimBundle.
@@ -11,12 +13,4 @@ public sealed record ClaimBundleBuildResult(
     string MonthKey,
     ClaimBundle? Bundle,
     IReadOnlyList<ClaimBundleValidationIssue> Issues
-);
-
-public sealed record ClaimBundleValidationIssue(
-    string IssueType,
-    string? FieldPath,
-    string? RawValue,
-    string Message,
-    bool IsBlocking
 );

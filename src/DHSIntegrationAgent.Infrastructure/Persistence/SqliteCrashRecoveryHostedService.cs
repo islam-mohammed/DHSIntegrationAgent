@@ -1,5 +1,6 @@
 ﻿using System.Data.Common;
 using DHSIntegrationAgent.Application.Configuration;
+using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;

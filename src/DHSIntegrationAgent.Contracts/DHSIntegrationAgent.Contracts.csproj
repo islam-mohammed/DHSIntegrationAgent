@@ -13,4 +13,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\DHSIntegrationAgent.Domain\DHSIntegrationAgent.Domain.csproj" />
+  </ItemGroup>
+
 </Project>
