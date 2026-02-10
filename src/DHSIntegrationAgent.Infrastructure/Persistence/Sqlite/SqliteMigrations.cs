@@ -7,13 +7,69 @@ internal static class SqliteMigrations
     internal sealed record Migration(int Version, string Name, IReadOnlyList<string> Statements);
 
     /// <summary>
-    /// Single consolidated schema version (v1) that includes all changes previously introduced in v1..v5.
+    /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 1;
+    public static readonly int CurrentSchemaVersion = 2;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
-        new Migration(1, "001_InitialSchema_v1", BuildV1())
+        new Migration(1, "001_InitialSchema_v1", BuildV1()),
+        new Migration(2, "002_SeparateDomainMappings", BuildV2())
+    };
+
+    /// <summary>
+    /// Migration 2: Separate DomainMapping into ApprovedDomainMapping and MissingDomainMapping.
+    /// Adds DiscoverySource flag to MissingDomainMapping.
+    /// </summary>
+    private static IReadOnlyList<string> BuildV2() => new List<string>
+    {
+        """
+        CREATE TABLE ApprovedDomainMapping (
+            DomainMappingId INTEGER PRIMARY KEY AUTOINCREMENT,
+            ProviderDhsCode  TEXT NOT NULL,
+            CompanyCode      TEXT NOT NULL,
+            DomainName       TEXT NOT NULL,
+            DomainTableId    INTEGER NOT NULL,
+            SourceValue      TEXT NOT NULL,
+            TargetValue      TEXT NOT NULL,
+            DiscoveredUtc    TEXT NOT NULL,
+            LastPostedUtc    TEXT NULL,
+            LastUpdatedUtc   TEXT NOT NULL,
+            Notes            TEXT NULL
+        );
+        """,
+        "CREATE UNIQUE INDEX UX_ApprovedDomainMapping_Key ON ApprovedDomainMapping(ProviderDhsCode, CompanyCode, DomainTableId, SourceValue);",
+
+        """
+        CREATE TABLE MissingDomainMapping (
+            MissingMappingId INTEGER PRIMARY KEY AUTOINCREMENT,
+            ProviderDhsCode  TEXT NOT NULL,
+            CompanyCode      TEXT NOT NULL,
+            DomainName       TEXT NOT NULL,
+            DomainTableId    INTEGER NOT NULL,
+            SourceValue      TEXT NOT NULL,
+            DiscoverySource  INTEGER NOT NULL, -- 0=Api, 1=Scanned
+            DiscoveredUtc    TEXT NOT NULL,
+            LastUpdatedUtc   TEXT NOT NULL,
+            Notes            TEXT NULL
+        );
+        """,
+        "CREATE UNIQUE INDEX UX_MissingDomainMapping_Key ON MissingDomainMapping(ProviderDhsCode, CompanyCode, DomainTableId, SourceValue);",
+
+        // Migrate existing data if table exists
+        """
+        INSERT INTO ApprovedDomainMapping (ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue, TargetValue, DiscoveredUtc, LastPostedUtc, LastUpdatedUtc, Notes)
+        SELECT ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue, COALESCE(TargetValue, ''), DiscoveredUtc, LastPostedUtc, LastUpdatedUtc, Notes
+        FROM DomainMapping WHERE MappingStatus = 2;
+        """,
+
+        """
+        INSERT INTO MissingDomainMapping (ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue, DiscoverySource, DiscoveredUtc, LastUpdatedUtc, Notes)
+        SELECT ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue, 0, DiscoveredUtc, LastUpdatedUtc, Notes
+        FROM DomainMapping WHERE MappingStatus = 0;
+        """,
+
+        "DROP TABLE DomainMapping;"
     };
 
     /// <summary>

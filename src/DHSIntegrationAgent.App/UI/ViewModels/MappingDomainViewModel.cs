@@ -40,10 +40,10 @@ public sealed class MappingDomainViewModel : ViewModelBase
                 {
                     ProviderDomainCode = mapping.ProviderDhsCode,
                     ProviderDomainValue = mapping.SourceValue,
-                    DhsDomainValue = mapping.TargetValue ?? "",
-                    IsDefault = 0, // No default field in DomainMapping table
+                    DhsDomainValue = mapping.TargetValue,
+                    IsDefault = 0, // No default field in ApprovedDomainMapping table
                     CodeValue = mapping.DomainName,
-                    DisplayValue = $"{mapping.DomainName} - {mapping.MappingStatus}"
+                    DisplayValue = $"{mapping.DomainName} - Approved"
                 });
             }
         }

@@ -1,4 +1,6 @@
 ﻿using System.Text.Json.Nodes;
+using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Domain.WorkStates;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Providers;
 using DHSIntegrationAgent.Infrastructure.Http.Clients;
@@ -11,15 +13,18 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
     private readonly ILogger<ApprovedDomainMappingRefreshService> _logger;
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly ProviderDomainMappingClient _client;
+    private readonly IDomainMappingClient _domainMappingClient;
 
     public ApprovedDomainMappingRefreshService(
         ILogger<ApprovedDomainMappingRefreshService> logger,
         ISqliteUnitOfWorkFactory uowFactory,
-        ProviderDomainMappingClient client)
+        ProviderDomainMappingClient client,
+        IDomainMappingClient domainMappingClient)
     {
         _logger = logger;
         _uowFactory = uowFactory;
         _client = client;
+        _domainMappingClient = domainMappingClient;
     }
 
     public async Task RefreshApprovedMappingsAsync(CancellationToken ct)
@@ -131,6 +136,87 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
         _logger.LogInformation(
             "RefreshApprovedMappings complete. ProviderDhsCode={ProviderDhsCode}, Items={Items}, Upserted={Upserted}, Skipped={Skipped}",
             providerDhsCode, arr.Count, upserted, skipped);
+    }
+
+    public async Task<ProviderDomainMappingsData?> RefreshAllMappingsAsync(CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        await using var uow = await _uowFactory.CreateAsync(ct);
+        var settings = await uow.AppSettings.GetAsync(ct);
+
+        var providerDhsCode = settings.ProviderDhsCode ?? "";
+        if (string.IsNullOrWhiteSpace(providerDhsCode))
+            throw new InvalidOperationException("AppSettings.ProviderDhsCode is required to refresh all domain mappings.");
+
+        var result = await _domainMappingClient.GetProviderDomainMappingsWithMissingAsync(providerDhsCode, ct);
+        if (!result.Succeeded || result.Data is null)
+        {
+            _logger.LogWarning("GetProviderDomainMappingsWithMissing failed. Error={Error}", result.Message);
+            return null;
+        }
+
+        var data = result.Data;
+        const string defaultCompanyCode = "DEFAULT";
+
+        // 1) Upsert approved mappings
+        if (data.DomainMappings is not null)
+        {
+            foreach (var item in data.DomainMappings)
+            {
+                var domainName = item.DomainName ?? item.DomainTableName ?? "";
+                var domainTableId = item.DomTable_ID;
+                var sourceValue = item.ProviderDomainValue ?? item.SourceValue ?? "";
+                var targetValue = item.CodeValue ?? item.DisplayValue ?? item.TargetValue ?? "";
+                var companyCode = item.CompanyCode ?? defaultCompanyCode;
+
+                if (domainTableId is null || string.IsNullOrWhiteSpace(sourceValue) || string.IsNullOrWhiteSpace(targetValue))
+                    continue;
+
+                await uow.DomainMappings.UpsertApprovedAsync(
+                    providerDhsCode,
+                    companyCode,
+                    domainName,
+                    domainTableId.Value,
+                    sourceValue,
+                    targetValue,
+                    now,
+                    ct);
+            }
+        }
+
+        // 2) Upsert missing mappings
+        if (data.MissingDomainMappings is not null)
+        {
+            foreach (var item in data.MissingDomainMappings)
+            {
+                var domainName = item.DomainTableName ?? item.DomainName ?? "";
+                var domainTableId = item.DomainTableId;
+                var sourceValue = item.ProviderCodeValue ?? item.SourceValue ?? "";
+                var companyCode = item.CompanyCode ?? defaultCompanyCode;
+
+                if (string.IsNullOrWhiteSpace(sourceValue))
+                    continue;
+
+                await uow.MissingDomainMappings.UpsertAsync(
+                    providerDhsCode,
+                    companyCode,
+                    domainName,
+                    domainTableId,
+                    sourceValue,
+                    DiscoverySource.Api,
+                    now,
+                    ct);
+            }
+        }
+
+        await uow.CommitAsync(ct);
+
+        _logger.LogInformation(
+            "RefreshAllMappings complete. ProviderDhsCode={ProviderDhsCode}, ApprovedCount={ApprovedCount}, MissingCount={MissingCount}",
+            providerDhsCode, data.DomainMappings?.Count ?? 0, data.MissingDomainMappings?.Count ?? 0);
+
+        return data;
     }
 
     private static string? TryGetString(JsonObject obj, string key)

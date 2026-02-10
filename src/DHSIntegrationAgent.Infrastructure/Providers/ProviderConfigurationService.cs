@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
+using DHSIntegrationAgent.Domain.WorkStates;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
 using DHSIntegrationAgent.Application.Providers;
@@ -101,6 +102,9 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
 
                 // ✅ Change Request: persist APPROVED domainMappings[] into SQLite DomainMapping
                 await TryUpsertApprovedDomainMappingsFromConfigAsync(uow, providerDhsCode, payload, now, ct);
+
+                // ✅ Change Request: persist MISSING domainMappings[] into SQLite DomainMapping
+                await TryUpsertMissingDomainMappingsFromConfigAsync(uow, providerDhsCode, payload, now, ct);
 
                 var ttlMinutes = lastKnownTtlMinutes;
 
@@ -321,6 +325,94 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to upsert approved domain mappings from provider configuration.");
+        }
+    }
+
+    private async Task TryUpsertMissingDomainMappingsFromConfigAsync(
+        ISqliteUnitOfWork uow,
+        string providerDhsCode,
+        JsonObject payload,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        try
+        {
+            var missing = GetCaseInsensitive(payload, "missingDomainMappings") as JsonArray;
+            if (missing is null || missing.Count == 0)
+            {
+                _logger.LogInformation("Provider configuration contains no missingDomainMappings to upsert. ProviderDhsCode={ProviderDhsCode}", providerDhsCode);
+                return;
+            }
+
+            // determine company codes (similar to approved mappings)
+            var companyCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var providerPayers = GetCaseInsensitive(payload, "providerPayers") as JsonArray;
+
+            if (providerPayers is not null)
+            {
+                foreach (var p in providerPayers.OfType<JsonObject>())
+                {
+                    var cc = GetString(p, "companyCode");
+                    if (!string.IsNullOrWhiteSpace(cc))
+                        companyCodes.Add(cc!);
+                }
+            }
+
+            if (companyCodes.Count == 0)
+                companyCodes.Add("DEFAULT");
+
+            var upserted = 0;
+            var skipped = 0;
+
+            foreach (var item in missing.OfType<JsonObject>())
+            {
+                var domainName =
+                    GetString(item, "domainTableName") ??
+                    GetString(item, "domainName") ??
+                    GetString(item, "domain") ??
+                    "";
+
+                var domainTableId =
+                    GetInt(item, "domainTableId") ??
+                    GetInt(item, "domainTableID") ??
+                    GetInt(item, "domainId");
+
+                var sourceValue =
+                    GetString(item, "providerCodeValue") ??
+                    GetString(item, "sourceValue") ??
+                    GetString(item, "providerValue") ??
+                    "";
+
+                if (string.IsNullOrWhiteSpace(domainName) ||
+                    domainTableId is null ||
+                    string.IsNullOrWhiteSpace(sourceValue))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                foreach (var cc in companyCodes)
+                {
+                    await uow.MissingDomainMappings.UpsertAsync(
+                        providerDhsCode,
+                        cc,
+                        domainName!,
+                        domainTableId.Value,
+                        sourceValue!,
+                        DiscoverySource.Api,
+                        now,
+                        ct);
+                    upserted++;
+                }
+            }
+
+            _logger.LogInformation(
+                "Missing domain mappings upsert complete. ProviderDhsCode={ProviderDhsCode}, Items={Items}, Upserted={Upserted}, Skipped={Skipped}",
+                providerDhsCode, missing.Count, upserted, skipped);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to upsert missing domain mappings from provider configuration.");
         }
     }
 

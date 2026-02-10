@@ -9,8 +9,7 @@ public sealed record DomainMappingRow(
     string DomainName,
     int DomainTableId,
     string SourceValue,
-    string? TargetValue,
-    MappingStatus MappingStatus,
+    string TargetValue,
     DateTimeOffset DiscoveredUtc,
     DateTimeOffset? LastPostedUtc,
     DateTimeOffset LastUpdatedUtc,
@@ -20,18 +19,8 @@ public interface IDomainMappingRepository
 {
     Task<IReadOnlyList<DomainMappingRow>> GetAllAsync(CancellationToken cancellationToken);
 
-    Task UpsertDiscoveredAsync(
-        string providerDhsCode,
-        string companyCode,
-        string domainName,
-        int domainTableId,
-        string sourceValue,
-        MappingStatus mappingStatus,
-        DateTimeOffset utcNow,
-        CancellationToken cancellationToken);
-
     /// <summary>
-    /// Persist APPROVED mapping values (source -> target) into DomainMapping table.
+    /// Persist APPROVED mapping values (source -> target) into ApprovedDomainMapping table.
     /// Used by ProviderConfigurationService on config refresh and by refresh workflows later.
     /// </summary>
     Task UpsertApprovedAsync(
@@ -44,10 +33,9 @@ public interface IDomainMappingRepository
         DateTimeOffset utcNow,
         CancellationToken cancellationToken);
 
-    Task UpdateStatusAsync(
+    Task UpdateAsync(
         long domainMappingId,
-        MappingStatus status,
-        string? targetValue,
+        string targetValue,
         DateTimeOffset utcNow,
         DateTimeOffset? lastPostedUtc,
         string? notes,
