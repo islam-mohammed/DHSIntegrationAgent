@@ -1,0 +1,18 @@
+﻿using DHSIntegrationAgent.Domain.WorkStates;
+
+namespace DHSIntegrationAgent.Application.Persistence.Repositories;
+
+public interface IBatchRepository
+{
+    Task<long?> TryGetBatchIdAsync(BatchKey key, CancellationToken cancellationToken);
+
+    Task<long> EnsureBatchAsync(
+        BatchKey key,
+        BatchStatus batchStatus,
+        DateTimeOffset utcNow,
+        CancellationToken cancellationToken);
+
+    Task SetBcrIdAsync(long batchId, string bcrId, DateTimeOffset utcNow, CancellationToken cancellationToken);
+
+    Task UpdateStatusAsync(long batchId, BatchStatus status, bool? hasResume, string? lastError, DateTimeOffset utcNow, CancellationToken cancellationToken);
+}

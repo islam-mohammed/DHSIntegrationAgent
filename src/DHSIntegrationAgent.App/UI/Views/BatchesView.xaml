@@ -1,0 +1,390 @@
+﻿<UserControl x:Class="DHSIntegrationAgent.App.UI.Views.BatchesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
+             xmlns:controls="clr-namespace:DHSIntegrationAgent.App.UI.Controls">
+
+    <UserControl.Resources>
+        <!-- Sample Data for Left Grid -->
+        <x:Array x:Key="SampleBatchData" Type="{x:Type sys:Object}">
+            <sys:String>Blue Cross Blue Shield|125|2024-01-15|2024-01-15|BCH-2024-001|2024-01-15 08:30|Completed|john.doe@company.com</sys:String>
+            <sys:String>Aetna Health Insurance|89|2024-01-16|2024-01-16|AET-2024-045|2024-01-16 10:15|In Progress|jane.smith@company.com</sys:String>
+        </x:Array>
+
+        <!-- Sample Data for Right Grid -->
+        <x:Array x:Key="SampleBatchDetailData" Type="{x:Type sys:Object}">
+            <sys:String>BCH-2024-001|125|100|25|80</sys:String>
+            <sys:String>AET-2024-045|89|65|24|73</sys:String>
+        </x:Array>
+    </UserControl.Resources>
+
+    <Grid Margin="18,18,18,18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title Section -->
+        <StackPanel Grid.Row="0" Margin="10,0,0,12">
+            <TextBlock Text="Batches" FontSize="20" FontWeight="SemiBold"/>
+            <TextBlock Text="Batch list with filtering and progress details." Foreground="{StaticResource BrushMuted}" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- Filter Section -->
+        <Border Grid.Row="1" 
+                Style="{StaticResource DashboardCardStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Payer Name Dropdown -->
+                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                    <TextBlock Text="Payer Name" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <ComboBox Style="{StaticResource RoundedComboBox}"
+                              ItemsSource="{Binding Payers}"
+                              SelectedItem="{Binding SelectedPayer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              DisplayMemberPath="PayerName">
+                        <ComboBox.ItemContainerStyle>
+                            <Style TargetType="ComboBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            </Style>
+                        </ComboBox.ItemContainerStyle>
+                    </ComboBox>
+                </StackPanel>
+
+                <!-- Start Date -->
+                <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                    <TextBlock Text="Start Date (Month/Year)" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <DatePicker SelectedDate="{Binding FilterStartDate, Mode=TwoWay}"
+                                SelectedDateFormat="Short" 
+                                Style="{StaticResource RoundedDatePicker}"/>
+                </StackPanel>
+
+                <!-- End Date -->
+                <StackPanel Grid.Column="2" Margin="0,0,12,0">
+                    <TextBlock Text="End Date" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                    <DatePicker SelectedDate="{Binding FilterEndDate, Mode=TwoWay}"
+                                SelectedDateFormat="Short"  
+                                Style="{StaticResource RoundedDatePicker}"/>
+                </StackPanel>
+
+                <!-- Buttons -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Grid.Column="3" VerticalAlignment="Bottom">
+                    <Button Cursor="Hand" 
+                            Width="100" 
+                            Style="{StaticResource IconTextBtn}"
+                            Command="{Binding SearchCommand}"
+                            IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}"
+                            Margin="0,0,10,0">
+                        <StackPanel Margin="10,0,15,0" Orientation="Horizontal" HorizontalAlignment="Left">
+                            <materialDesign:PackIcon Kind="Magnify" Width="17" Height="17" Margin="0,0,5,0"/>
+                            <TextBlock VerticalAlignment="Center" Foreground="#fff">Search</TextBlock>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Cursor="Hand" 
+                            Style="{StaticResource IconTextBtn2}" 
+                            Click="CreateBatch_Click"
+                            IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}">
+                        <StackPanel Margin="10,0,15,0" Orientation="Horizontal" HorizontalAlignment="Left">
+                            <materialDesign:PackIcon Kind="Plus" Width="17" Height="17" Margin="0,0,5,0"/>
+                            <TextBlock VerticalAlignment="Center" Foreground="#fff">Create Batch</TextBlock>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Content Grid -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*"/>
+                <ColumnDefinition Width=".70*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Grid - Batch List -->
+            <Border Style="{StaticResource DashboardCardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" 
+                               Text="Batch List" 
+                               FontSize="16" 
+                               FontWeight="SemiBold" 
+                               Margin="0,0,0,12"/>
+
+                    <DataGrid ColumnHeaderStyle="{StaticResource TableHeaderStyle}"
+                              RowStyle="{StaticResource TableRowStyle}"
+                              CellStyle="{StaticResource TableCellStyle}"
+                              Grid.Row="1"
+                              ItemsSource="{Binding Batches}"
+                              SelectedItem="{Binding SelectedBatch}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              SelectionMode="Single" 
+                              HeadersVisibility="Column" 
+                              Background="White"
+                              RowBackground="White"
+                              AlternatingRowBackground="#FFF9FAFB"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Auto"  
+                              GridLinesVisibility="None"
+                              HorizontalGridLinesBrush="Transparent"
+                              VerticalGridLinesBrush="Transparent"
+                              BorderThickness="0">
+ 
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Payer Name" 
+                                                Binding="{Binding PayerNameEn}" 
+                                                Width="*"
+                                                MinWidth="150"/>
+
+                            <DataGridTextColumn Header="Company Code" 
+                                                Binding="{Binding CompanyCode}" 
+                                                Width="120"/>
+
+                            <DataGridTextColumn Header="Total Claims" 
+                                                Binding="{Binding MidTableTotalClaim}" 
+                                                Width="100"/>
+
+                            <DataGridTextColumn Header="Month" 
+                                                Binding="{Binding BcrMonth}" 
+                                                Width="70"/>
+
+                            <DataGridTextColumn Header="Year" 
+                                                Binding="{Binding BcrYear}" 
+                                                Width="70"/>
+
+                            <DataGridTextColumn Header="Created On" 
+                                                Binding="{Binding BcrCreatedOn, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" 
+                                                Width="140"/>
+
+                            <!-- Status Column with Colored Badges -->
+                            <DataGridTemplateColumn Header="Status" Width="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border x:Name="StatusBorder"
+                                                Padding="10,5"
+                                                CornerRadius="8"
+                                                MinWidth="80"
+                                                HorizontalAlignment="Center">
+                                            <TextBlock x:Name="StatusText"
+                                                       Text="{Binding BatchStatus}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" 
+                                                       HorizontalAlignment="Center"/>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <!-- In-Progress Status -->
+                                            <DataTrigger Binding="{Binding BatchStatus}" Value="In-Progress">
+                                                <Setter TargetName="StatusBorder"
+                                                        Property="Background"
+                                                        Value="#FEF5E4"/>
+                                                <Setter TargetName="StatusText"
+                                                        Property="Foreground"
+                                                        Value="#f09100"/>
+                                            </DataTrigger>
+                                            <!-- Staged Status -->
+                                            <DataTrigger Binding="{Binding BatchStatus}" Value="Staged">
+                                                <Setter TargetName="StatusBorder"
+                                                        Property="Background"
+                                                        Value="#E0F3F3"/>
+                                                <Setter TargetName="StatusText"
+                                                        Property="Foreground"
+                                                        Value="#099"/>
+                                            </DataTrigger>
+                                            <!-- Enqueued Status -->
+                                            <DataTrigger Binding="{Binding BatchStatus}" Value="Enqueued">
+                                                <Setter TargetName="StatusBorder"
+                                                        Property="Background"
+                                                        Value="#FEF5E4"/>
+                                                <Setter TargetName="StatusText"
+                                                        Property="Foreground"
+                                                        Value="#f09100"/>
+                                            </DataTrigger>
+                                            <!-- Completed Status -->
+                                            <DataTrigger Binding="{Binding BatchStatus}" Value="Completed">
+                                                <Setter TargetName="StatusBorder"
+                                                        Property="Background"
+                                                        Value="#E8F5E9"/>
+                                                <Setter TargetName="StatusText"
+                                                        Property="Foreground"
+                                                        Value="#2E7D32"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Actions Column -->
+                            <DataGridTemplateColumn Header="Actions" Width="80">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button ToolTip="Show"
+                                                Cursor="Hand"
+                                                Style="{StaticResource GreenActionBtn}"> 
+                                            <materialDesign:PackIcon Kind="EyeOutline"
+                                                                     Width="16"
+                                                                     Height="16"
+                                                                     Foreground="#473762"/>
+                                        </Button>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <!-- Right Grid - Batch Progress Details -->
+            <Border Grid.Column="1" 
+                    Style="{StaticResource DashboardCardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" 
+                               Text="Batch Progress" 
+                               FontSize="16" 
+                               FontWeight="SemiBold" 
+                               Margin="0,0,0,12"/>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl>
+                            <!-- Sample Record 1 -->
+                            <Border BorderBrush="{StaticResource BrushBorder}" 
+                                    BorderThickness="0,0,0,1" 
+                                    Padding="0,0,0,16" 
+                                    Margin="0,0,0,16">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Batch Number" 
+                                                   FontSize="11" 
+                                                   Foreground="{StaticResource BrushMuted}"/>
+                                        <TextBlock Grid.Column="1" 
+                                                   Text="BCH-2024-001" 
+                                                   FontWeight="SemiBold" 
+                                                   FontSize="13"/>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Total Claims" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="125" FontWeight="SemiBold"/>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Sending Claims" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="100" FontWeight="SemiBold" Foreground="#FF10B981"/>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Remaining Claims" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="25" FontWeight="SemiBold" Foreground="#FFEF4444"/>
+                                    </Grid>
+
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,4">
+                                            <TextBlock Text="Progress" FontSize="11" Foreground="{StaticResource BrushMuted}"/>
+                                            <TextBlock Text="80%" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <ProgressBar Value="80" Height="8" Background="#FFE5E7EB" Foreground="{StaticResource BrushPrimary}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Sample Record 2 -->
+                            <Border BorderBrush="{StaticResource BrushBorder}" 
+                                    BorderThickness="0,0,0,1" 
+                                    Padding="0,0,0,16" 
+                                    Margin="0,0,0,16">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Batch Number" 
+                                                   FontSize="11" 
+                                                   Foreground="{StaticResource BrushMuted}"/>
+                                        <TextBlock Grid.Column="1" 
+                                                   Text="AET-2024-045" 
+                                                   FontWeight="SemiBold" 
+                                                   FontSize="13"/>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Total Claims" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="89" FontWeight="SemiBold"/>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Sending Claims" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="65" FontWeight="SemiBold" Foreground="#FF10B981"/>
+                                    </Grid>
+
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Remaining Claims" FontSize="12"/>
+                                        <TextBlock Grid.Column="1" Text="24" FontWeight="SemiBold" Foreground="#FFEF4444"/>
+                                    </Grid>
+
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,4">
+                                            <TextBlock Text="Progress" FontSize="11" Foreground="{StaticResource BrushMuted}"/>
+                                            <TextBlock Text="73%" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <ProgressBar Value="73" Height="8" Background="#FFE5E7EB" Foreground="{StaticResource BrushPrimary}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Loading Overlay -->
+        <controls:LoadingOverlay Grid.RowSpan="3" DataContext="{Binding}"/>
+    </Grid>
+</UserControl>

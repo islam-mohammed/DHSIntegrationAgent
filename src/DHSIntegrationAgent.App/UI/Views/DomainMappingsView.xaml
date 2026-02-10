@@ -1,0 +1,129 @@
+﻿<UserControl x:Class="DHSIntegrationAgent.App.UI.Views.DomainMappingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:DHSIntegrationAgent.App.UI.Views"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:controls="clr-namespace:DHSIntegrationAgent.App.UI.Controls">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Domain Mapping" FontSize="20" FontWeight="SemiBold"/>
+            <TextBlock Text="Monitor missing/posted/approved mappings (screen-only)." Foreground="{StaticResource BrushMuted}" Margin="0,4,0,0"/>
+        </StackPanel>
+        <TabControl Style="{StaticResource TabControlStyle}" Grid.Row="1" Background="White" BorderThickness="0" 
+            Margin="0" SelectionChanged="TabControl_SelectionChanged"> 
+            <!-- Tabs Item -->
+            <TabItem  Style="{StaticResource TabItemStyle}" >
+                <!-- Header    --> 
+                <TabItem.HeaderTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" > 
+                            <!-- Tab header icon -->
+                            <materialDesign:PackIcon Kind="AlertCircleOutline"
+                                            Style="{StaticResource TabHeaderIcon}" /> 
+                            <TextBlock Style="{StaticResource TabHeaderTitle}" Padding="0,0,15,4" Text="Missing Domain Mapping" FontWeight="SemiBold" FontSize="14"/>
+                        </StackPanel>
+                       
+                    </DataTemplate>
+                </TabItem.HeaderTemplate> 
+                <Grid Margin="15,15,15,15" Background="White">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!--  Tab Content   -->
+                    <Grid Grid.Row="0" Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Miss Mapped Domain" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="View domains that are missing mappings and need configuration."
+                               Foreground="{StaticResource BrushMuted}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+ 
+                            <Button   FontSize="13.5" Height="33" Margin="5,0" BorderBrush="#32729B"  Foreground="#32729B"
+                             Style="{StaticResource MaterialDesignOutlinedButton}" materialDesign:ButtonAssist.CornerRadius="5" 
+                             Command="{Binding RefreshCommand}"
+                             IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}"
+                             >
+                                <StackPanel  Margin="0,0,0,0" Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <materialDesign:PackIcon Kind="Sync" Width="17" Height="17" Margin="0,0,5,0"/>
+                                    <TextBlock  VerticalAlignment="Center" Foreground="#32729B" > Refresh</TextBlock>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Grid.Row="2" Background="{StaticResource BrushCard}" BorderBrush="{StaticResource BrushBorder}" BorderThickness="1" CornerRadius="{StaticResource Radius10}" Padding="12">
+                        <DataGrid  
+                            ColumnHeaderStyle="{StaticResource TableHeaderStyle}"
+                            RowStyle="{StaticResource TableRowStyle}"
+                            CellStyle="{StaticResource TableCellStyle}"
+                            ItemsSource="{Binding DomainMappings}" 
+                            AutoGenerateColumns="False" 
+                            IsReadOnly="True"
+                            CanUserAddRows="False"
+                            CanUserDeleteRows="False"
+                            SelectionMode="Single" 
+                            HeadersVisibility="Column"
+                            Background="White"
+                            RowBackground="White"
+                            AlternatingRowBackground="#FFF9FAFB"
+                            HorizontalScrollBarVisibility="Auto"
+                            VerticalScrollBarVisibility="Auto"  
+                            GridLinesVisibility="None"
+                            HorizontalGridLinesBrush="Transparent"
+                            VerticalGridLinesBrush="Transparent"
+                            BorderThickness="0">
+ 
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Provider Code Value" 
+                                   Binding="{Binding ProviderCode}" 
+                                   Width="*" 
+                                   MinWidth="200"/>
+
+                                <DataGridTextColumn Header="Provider Name Value" 
+                                   Binding="{Binding ProviderName}" 
+                                   Width="*" 
+                                   MinWidth="300"/>
+
+                                <DataGridTextColumn Header="Domain Table Name" 
+                                   Binding="{Binding DomainTableName}" 
+                                   Width="*" 
+                                   MinWidth="250"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Style="{StaticResource TabItemStyle}" > 
+                <TabItem.HeaderTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" >
+                            <!-- Tab header icon -->
+                            <materialDesign:PackIcon Kind="CheckCircleOutline"
+                                      Style="{StaticResource TabHeaderIcon}" />
+                            <TextBlock Style="{StaticResource TabHeaderTitle}" Padding="0,0,15,4" Text="Mapped Domain" FontWeight="SemiBold" FontSize="14"/> 
+                        </StackPanel>
+
+                    </DataTemplate>
+                </TabItem.HeaderTemplate>
+
+                <views:MappingDomainView  DataContext="{Binding MappingDomainViewModel}" Background="White"/>
+            </TabItem>
+        </TabControl>
+         
+        <!-- Loading Overlay -->
+         <controls:LoadingOverlay Grid.RowSpan="2" DataContext="{Binding}"/> 
+    </Grid>
+</UserControl>

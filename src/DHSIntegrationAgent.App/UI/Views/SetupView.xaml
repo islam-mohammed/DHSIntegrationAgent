@@ -1,0 +1,96 @@
+﻿<UserControl x:Class="DHSIntegrationAgent.App.UI.Views.SetupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="{StaticResource BrushBg}">
+
+        <Border Width="560"
+                Padding="28"
+                Background="{StaticResource BrushCard}"
+                BorderBrush="{StaticResource BrushBorder}"
+                BorderThickness="1"
+                CornerRadius="16"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+
+            <StackPanel>
+
+                <TextBlock Text="First-run Setup"
+                           FontSize="22"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,6"/>
+
+                <TextBlock Text="Enter GroupID and ProviderDhsCode once. You can change them later in Settings."
+                           Foreground="{StaticResource BrushMuted}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,18"/>
+
+                <!-- GroupID -->
+                <TextBlock Text="GroupID"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,6"/>
+                <TextBox Text="{Binding GroupId, UpdateSourceTrigger=PropertyChanged}"
+                         Tag="Example: d9a90b95-906e-434c-8ff7-ad1c976c9b50"/>
+                <TextBlock Text="{Binding GroupIdError}"
+                           Foreground="{StaticResource BrushDanger}"
+                           Margin="0,6,0,0"
+                           TextWrapping="Wrap"/>
+
+                <!-- ProviderDhsCode -->
+                <TextBlock Text="ProviderDhsCode"
+                           FontWeight="SemiBold"
+                           Margin="{StaticResource FieldSpacing}"/>
+                <TextBox Text="{Binding ProviderDhsCode, UpdateSourceTrigger=PropertyChanged}"
+                         Tag="Example: DHS001"/>
+                <TextBlock Text="{Binding ProviderDhsCodeError}"
+                           Foreground="{StaticResource BrushDanger}"
+                           Margin="0,6,0,0"
+                           TextWrapping="Wrap"/>
+
+                <!-- Save error -->
+                <TextBlock Text="{Binding SaveError}"
+                           Foreground="{StaticResource BrushDanger}"
+                           Margin="0,12,0,0"
+                           TextWrapping="Wrap"/>
+
+                <!-- Actions -->
+                <DockPanel Margin="0,18,0,0" LastChildFill="False">
+
+                    <!-- simple loading hint (no converter needed) -->
+                    <TextBlock DockPanel.Dock="Left"
+                               Foreground="{StaticResource BrushMuted}"
+                               VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value=""/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSaving}" Value="True">
+                                        <Setter Property="Text" Value="Saving…"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <Button DockPanel.Dock="Right"
+                            Width="140"
+                            IsDefault="True"
+                            Command="{Binding SaveCommand}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                <Setter Property="Content" Value="Save"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSaving}" Value="True">
+                                        <Setter Property="Content" Value="Saving…"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                </DockPanel>
+
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

@@ -1,0 +1,176 @@
+﻿<UserControl x:Class="DHSIntegrationAgent.App.UI.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:controls="clr-namespace:DHSIntegrationAgent.App.UI.Controls">
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid  Grid.Row="0" Margin="15">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Settings" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="Editable settings UI scaffold. Provider-configured knobs shown here too."
+                        Foreground="{StaticResource BrushMuted}" Margin="0,4,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <TextBlock Text="Loading..." 
+                        Foreground="{StaticResource BrushMuted}" 
+                        VerticalAlignment="Center" 
+                        Margin="0,0,12,0"
+                        Visibility="{Binding IsLoading, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+
+                            <StackPanel Grid.Column="1"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Bottom"
+                                 >
+
+                                <Button   FontSize="13.5" Height="33" Margin="5,0" BorderBrush="#32729B"  Foreground="#32729B"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}" materialDesign:ButtonAssist.CornerRadius="5" 
+                                    Command="{Binding LoadCommand}"
+                                    IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}">
+                                    <StackPanel  Margin="0,0,0,0" Orientation="Horizontal" HorizontalAlignment="Left">
+                                        <materialDesign:PackIcon Kind="Sync" Width="17" Height="17" Margin="0,0,5,0"/>
+                                        <TextBlock  VerticalAlignment="Center" Foreground="#32729B" > Refresh </TextBlock>
+                                    </StackPanel>
+                                </Button>
+                                <Button   FontSize="13.5" Height="33"  Margin="5,0" BorderBrush="#32729B"  Foreground="#32729B"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}" materialDesign:ButtonAssist.CornerRadius="5" 
+                                    Command="{Binding ReloadProviderConfigCommand}"
+                                    IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}">
+                                    <StackPanel  Margin="0,0,0,0" Orientation="Horizontal" HorizontalAlignment="Left">
+                                        <materialDesign:PackIcon Kind="Refresh" Width="17" Height="17" Margin="0,0,5,0"/>
+                                        <TextBlock  VerticalAlignment="Center" Foreground="#32729B" > Reload Config </TextBlock>
+                                    </StackPanel> 
+                                </Button>
+                                <Button FontSize="13.5"
+                                     Height="34" Margin="5,0,0,0" 
+                                     Cursor="Hand" Style="{StaticResource IconTextBtn}"
+                                      Command="{Binding SaveCommand}"
+                                     IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}">
+                                    <StackPanel  Margin="15,0,15,0" Orientation="Horizontal" HorizontalAlignment="Left">
+                                        <materialDesign:PackIcon Kind="ContentSaveOutline" Width="17" Height="17" Margin="0,0,5,0"/>
+                                        <TextBlock  VerticalAlignment="Center" Foreground="#fff" > Save </TextBlock>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel> 
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ================= CONTENT ================= -->
+                    <Grid Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- ===== Identity Card ===== -->
+                        <Border Grid.Row="0" Grid.Column="0"
+                            Style="{StaticResource DashboardCardStyle}"
+                            Margin="10,0,10,12">
+
+                            <StackPanel>
+                                <TextBlock Text="Identity"
+                               FontWeight="SemiBold"
+                               FontSize="16"
+                               Margin="0,0,0,16"/>
+                                <StackPanel Margin="8">
+                                    <TextBlock Text="Group ID" Style="{StaticResource FormLabel}"/>
+                                    <TextBox Margin="0,0,0,16"
+materialDesign:HintAssist.Hint="Enter Group ID" Text="{Binding GroupId}"/>
+
+                                    <TextBlock Text="Provider DHS Code" Style="{StaticResource FormLabel}"/>
+                                    <TextBox 
+materialDesign:HintAssist.Hint="Enter Provider Code"  Text="{Binding ProviderDhsCode}"/>
+                                </StackPanel> 
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ===== Scheduling Card ===== -->
+                        <Border Grid.Row="0" Grid.Column="1"
+                    Margin="10,0,10,12" 
+                            Style="{StaticResource DashboardCardStyle}">
+
+                            <StackPanel>
+                                <TextBlock Text="Scheduling"
+                               FontWeight="SemiBold"
+                               FontSize="16"
+                               Margin="0,0,0,16"/>
+                                <StackPanel Margin="8">
+                                    <TextBlock  Style="{StaticResource FormLabel}" Text="Fetch Interval (Minutes)"/>
+                                    <TextBox  Text="{Binding FetchIntervalMinutes}" Margin="0,0,0,16"/>
+
+                                    <TextBlock Style="{StaticResource FormLabel}" Text="Config Cache TTL (Minutes)"/>
+                                    <TextBox  Text="{Binding ConfigCacheTtlMinutes}"/>
+                                </StackPanel> 
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ===== Provider Configuration (Read Only) ===== -->
+                        <Border Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                            Style="{StaticResource DashboardCardStyle}">
+
+                            <StackPanel>
+                                <TextBlock Text="Provider Configuration"
+                               FontWeight="SemiBold"
+                               FontSize="16"
+                               Margin="0,0,0,16"/>
+
+                                <UniformGrid Columns="3" Rows="2" HorizontalAlignment="Stretch">
+
+                                    <StackPanel Margin="8">
+                                        <TextBlock Style="{StaticResource FormLabel}" Text="Lease Duration (Seconds)"/>
+                                        <TextBox Text="{Binding LeaseDurationSeconds}"  />
+                                    </StackPanel>
+
+                                    <StackPanel Margin="8">
+                                        <TextBlock Style="{StaticResource FormLabel}" Text="Stream Interval (Seconds)"/>
+                                        <TextBox  Text="{Binding StreamAIntervalSeconds}" />
+                                    </StackPanel>
+
+                                    <StackPanel Margin="8">
+                                        <TextBlock Style="{StaticResource FormLabel}" Text="Resume Poll Interval"/>
+                                        <TextBox Text="{Binding ResumePollIntervalSeconds}" />
+                                    </StackPanel>
+
+                                    <StackPanel Margin="8">
+                                        <TextBlock Style="{StaticResource FormLabel}" Text="API Timeout (Seconds)"/>
+                                        <TextBox Text="{Binding ApiTimeoutSeconds}" />
+                                    </StackPanel>
+
+                                    <StackPanel Margin="8">
+                                        <TextBlock Style="{StaticResource FormLabel}" Text="Manual Retry Cooldown"/>
+                                        <TextBox Text="{Binding ManualRetryCooldownMinutes}"/>
+                                    </StackPanel>
+
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+
+                    </Grid>
+
+                </Grid>
+            </StackPanel>
+    </ScrollViewer>
+
+    <!-- Loading Overlay -->
+    <controls:LoadingOverlay DataContext="{Binding}"/>
+    </Grid>
+</UserControl>
