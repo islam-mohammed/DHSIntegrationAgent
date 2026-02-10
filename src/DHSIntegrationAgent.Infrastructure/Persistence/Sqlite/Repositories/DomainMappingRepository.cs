@@ -15,7 +15,6 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
             SELECT
                 DomainMappingId,
                 ProviderDhsCode,
-                CompanyCode,
                 DomainName,
                 DomainTableId,
                 SourceValue,
@@ -36,15 +35,14 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
             results.Add(new DomainMappingRow(
                 DomainMappingId: reader.GetInt64(0),
                 ProviderDhsCode: reader.GetString(1),
-                CompanyCode: reader.GetString(2),
-                DomainName: reader.GetString(3),
-                DomainTableId: reader.GetInt32(4),
-                SourceValue: reader.GetString(5),
-                TargetValue: reader.GetString(6),
-                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(7)),
-                LastPostedUtc: reader.IsDBNull(8) ? null : SqliteUtc.FromIso(reader.GetString(8)),
-                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(9)),
-                Notes: reader.IsDBNull(10) ? null : reader.GetString(10)
+                DomainName: reader.GetString(2),
+                DomainTableId: reader.GetInt32(3),
+                SourceValue: reader.GetString(4),
+                TargetValue: reader.GetString(5),
+                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(6)),
+                LastPostedUtc: reader.IsDBNull(7) ? null : SqliteUtc.FromIso(reader.GetString(7)),
+                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(8)),
+                Notes: reader.IsDBNull(9) ? null : reader.GetString(9)
             ));
         }
 
@@ -53,7 +51,6 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
 
     public async Task UpsertApprovedAsync(
         string providerDhsCode,
-        string companyCode,
         string domainName,
         int domainTableId,
         string sourceValue,
@@ -64,10 +61,10 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         await using var cmd = CreateCommand(
             """
             INSERT INTO ApprovedDomainMapping
-            (ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue, TargetValue, DiscoveredUtc, LastUpdatedUtc)
+            (ProviderDhsCode, DomainName, DomainTableId, SourceValue, TargetValue, DiscoveredUtc, LastUpdatedUtc)
             VALUES
-            ($p, $c, $dn, $dt, $sv, $tv, $now, $now)
-            ON CONFLICT(ProviderDhsCode, CompanyCode, DomainTableId, SourceValue)
+            ($p, $dn, $dt, $sv, $tv, $now, $now)
+            ON CONFLICT(ProviderDhsCode, DomainTableId, SourceValue)
             DO UPDATE SET
                 DomainName = excluded.DomainName,
                 TargetValue = excluded.TargetValue,
@@ -76,7 +73,6 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
 
         var nowIso = SqliteUtc.ToIso(utcNow);
         SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
-        SqliteSqlBuilder.AddParam(cmd, "$c", companyCode);
         SqliteSqlBuilder.AddParam(cmd, "$dn", domainName);
         SqliteSqlBuilder.AddParam(cmd, "$dt", domainTableId);
         SqliteSqlBuilder.AddParam(cmd, "$sv", sourceValue);

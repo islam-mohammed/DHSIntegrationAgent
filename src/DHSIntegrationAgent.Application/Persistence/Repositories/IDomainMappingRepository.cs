@@ -5,7 +5,6 @@ namespace DHSIntegrationAgent.Application.Persistence.Repositories;
 public sealed record DomainMappingRow(
     long DomainMappingId,
     string ProviderDhsCode,
-    string CompanyCode,
     string DomainName,
     int DomainTableId,
     string SourceValue,
@@ -25,7 +24,6 @@ public interface IDomainMappingRepository
     /// </summary>
     Task UpsertApprovedAsync(
         string providerDhsCode,
-        string companyCode,
         string domainName,
         int domainTableId,
         string sourceValue,

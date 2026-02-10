@@ -9,7 +9,6 @@ namespace DHSIntegrationAgent.Application.Persistence.Repositories;
 public sealed record MissingDomainMappingRow(
     long MissingMappingId,
     string ProviderDhsCode,
-    string CompanyCode,
     string DomainName,
     int DomainTableId,
     string SourceValue,
@@ -22,7 +21,6 @@ public interface IMissingDomainMappingRepository
 {
     Task UpsertAsync(
         string providerDhsCode,
-        string companyCode,
         string domainName,
         int domainTableId,
         string sourceValue,
