@@ -58,6 +58,7 @@ public sealed class ApiCallLogPersistenceTests
 
         try
         {
+            // Test with absolute URL (automatically combined by HttpClient)
             var response = await client.GetAsync("api/Batch/GetBatchRequest/PROV_LOG_TEST");
 
             await using var uow = await sp.GetRequiredService<ISqliteUnitOfWorkFactory>().CreateAsync(default);
@@ -71,6 +72,77 @@ public sealed class ApiCallLogPersistenceTests
             Assert.Equal(200, log.HttpStatusCode);
             Assert.NotNull(log.ResponseUtc);
             Assert.True(log.DurationMs >= 0);
+        }
+        finally
+        {
+            await app.StopAsync();
+            if (File.Exists(dbPath))
+            {
+                try { File.Delete(dbPath); } catch { }
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ApiLoggingHandler_SavesEvenOnCancellation()
+    {
+        var dbPath = Path.Combine(Path.GetTempPath(), $"apicalllog_cancel_{Guid.NewGuid():N}.db");
+        var baseUrl = "http://127.0.0.1:54322/";
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var mockEnv = new MockHostEnvironment { EnvironmentName = "Development" };
+        services.AddSingleton<IHostEnvironment>(mockEnv);
+
+        var cfg = new ConfigurationBuilder()
+            .AddInMemoryCollection(new[]
+            {
+                new KeyValuePair<string, string?>("Api:BaseUrl", baseUrl),
+                new KeyValuePair<string, string?>("App:DatabasePath", dbPath),
+                new KeyValuePair<string, string?>("App:EnvironmentName", "Development"),
+            })
+            .Build();
+
+        services.AddDhsApplication(cfg);
+        services.AddDhsInfrastructure(cfg);
+
+        await using var sp = services.BuildServiceProvider();
+
+        var migrator = sp.GetRequiredService<ISqliteMigrator>();
+        await migrator.MigrateAsync(default);
+
+        var httpFactory = sp.GetRequiredService<IHttpClientFactory>();
+        var client = httpFactory.CreateClient("BackendApi");
+
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseKestrel().UseUrls(baseUrl);
+        var app = builder.Build();
+        app.MapGet("/api/Batch/GetBatchRequest/{provider}", async () => {
+            await Task.Delay(2000);
+            return Results.Ok(new { success = true });
+        });
+        await app.StartAsync();
+
+        try
+        {
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(500);
+
+            // This should throw TaskCanceledException
+            await Assert.ThrowsAsync<TaskCanceledException>(async () =>
+                await client.GetAsync("api/Batch/GetBatchRequest/PROV_CANCEL_TEST", cts.Token));
+
+            // Give a tiny bit of time for the background-ish (but awaited) record task to complete
+            // though it's awaited in ApiLoggingHandler, the Commit is awaited too.
+
+            await using var uow = await sp.GetRequiredService<ISqliteUnitOfWorkFactory>().CreateAsync(default);
+            var logs = await uow.ApiCallLogs.GetRecentApiCallsAsync(10, default);
+
+            var log = logs.FirstOrDefault(l => l.ProviderDhsCode == "PROV_CANCEL_TEST");
+            Assert.NotNull(log);
+            Assert.False(log.Succeeded);
+            Assert.Equal("Batch_Get", log.EndpointName);
         }
         finally
         {

@@ -19,7 +19,10 @@ public sealed class SqliteApiCallRecorder : IApiCallRecorder
     {
         try
         {
-            await using var uow = await _uowFactory.CreateAsync(ct);
+            // We use CancellationToken.None here because we want to ensure the API call is logged
+            // even if the original request's cancellation token has been triggered.
+            // Logging is a side-effect that should be completed for audit purposes.
+            await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);
 
             await uow.ApiCallLogs.InsertAsync(
                 endpointName: record.EndpointName,
@@ -34,10 +37,13 @@ public sealed class SqliteApiCallRecorder : IApiCallRecorder
                 responseBytes: record.ResponseBytes,
                 wasGzipRequest: record.WasGzipRequest,
                 providerDhsCode: record.ProviderDhsCode,
-                cancellationToken: ct
+                cancellationToken: CancellationToken.None
             );
 
-            await uow.CommitAsync(ct);
+            await uow.CommitAsync(CancellationToken.None);
+
+            _logger.LogDebug("Successfully persisted API call log for {EndpointName} (CorrelationId={CorrelationId})",
+                record.EndpointName, record.CorrelationId);
         }
         catch (Exception ex)
         {

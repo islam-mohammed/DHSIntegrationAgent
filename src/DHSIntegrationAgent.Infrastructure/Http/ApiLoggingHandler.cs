@@ -84,7 +84,9 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                 WasGzipRequest: wasGzip
             );
 
-            await _recorder.RecordAsync(record, ct);
+            // Use CancellationToken.None to ensure we log even if the request was canceled/aborted.
+            // Persistence of logs is critical for auditing.
+            await _recorder.RecordAsync(record, CancellationToken.None);
 
             _logger.LogInformation(
                 "API {EndpointName} ({Method} {Url}) -> {Status} in {Elapsed}ms (corr={CorrelationId}, succeeded={Succeeded})",
@@ -95,16 +97,31 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
     private static string GetEndpointName(string url)
     {
+        if (string.IsNullOrWhiteSpace(url)) return "Unknown";
+
         foreach (var kvp in PathToAlias)
         {
             if (url.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
                 return kvp.Value;
         }
+
+        // Fallback: return the path part if possible, otherwise full URL
+        try
+        {
+            if (Uri.TryCreate(url, UriKind.RelativeOrAbsolute, out var uri))
+            {
+                return uri.IsAbsoluteUri ? uri.AbsolutePath : url;
+            }
+        }
+        catch { }
+
         return url;
     }
 
     private static string? ExtractProviderDhsCode(string url)
     {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+
         if (url.Contains("api/Batch/GetBatchRequest/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
         if (url.Contains("api/Provider/GetProviderConfigration/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
         if (url.Contains("api/DomainMapping/GetProviderDomainMapping/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
@@ -118,8 +135,17 @@ public sealed class ApiLoggingHandler : DelegatingHandler
     {
         try
         {
-            var uri = new Uri(url);
-            var path = uri.AbsolutePath;
+            string path;
+            if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+            {
+                path = uri.AbsolutePath;
+            }
+            else
+            {
+                // Handle relative URL by stripping query string
+                path = url.Split('?')[0];
+            }
+
             var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
             return parts.LastOrDefault();
         }
