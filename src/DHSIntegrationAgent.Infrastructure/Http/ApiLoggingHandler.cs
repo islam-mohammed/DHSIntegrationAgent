@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using DHSIntegrationAgent.Application.Observability;
 using Microsoft.Extensions.Logging;
 
@@ -10,6 +10,20 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
     private readonly ILogger<ApiLoggingHandler> _logger;
     private readonly IApiCallRecorder _recorder;
+
+    private static readonly Dictionary<string, string> PathToAlias = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "api/Authentication/login", "Authentication_Login" },
+        { "api/Batch/CreateBatchRequest", "Batch_Create" },
+        { "api/Batch/GetBatchRequest", "Batch_Get" },
+        { "api/Provider/GetProviderConfigration", "Provider_GetConfig" },
+        { "api/DomainMapping/GetProviderDomainMapping", "DomainMapping_GetProviderMapping" },
+        { "api/DomainMapping/InsertMissMappingDomain", "DomainMapping_InsertMissing" },
+        { "api/DomainMapping/GetMissingDomainMappings", "DomainMapping_GetMissing" },
+        { "api/DomainMapping/GetProviderDomainMappingsWithMissing", "DomainMapping_GetWithMissing" },
+        { "api/Claims/SendClaim", "Claims_Send" },
+        { "api/Claims/GetHISProIdClaimsByBcrId", "Claims_GetCompletedIds" }
+    };
 
     public ApiLoggingHandler(ILogger<ApiLoggingHandler> logger, IApiCallRecorder recorder)
     {
@@ -24,6 +38,7 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
         var correlationId = EnsureCorrelationId(request);
         long? reqBytes = request.Content?.Headers.ContentLength;
+        bool wasGzip = request.Content?.Headers.ContentEncoding.Any(e => e.Equals("gzip", StringComparison.OrdinalIgnoreCase)) ?? false;
 
         HttpResponseMessage? response = null;
         Exception? error = null;
@@ -41,30 +56,76 @@ public sealed class ApiLoggingHandler : DelegatingHandler
         finally
         {
             sw.Stop();
+            var responseUtc = DateTimeOffset.UtcNow;
 
             int? statusCode = response is null ? null : (int)response.StatusCode;
             long? respBytes = response?.Content?.Headers.ContentLength;
             var url = request.RequestUri?.ToString() ?? "";
 
+            var endpointName = GetEndpointName(url);
+            var providerDhsCode = ExtractProviderDhsCode(url);
+            var succeeded = error == null && response is { IsSuccessStatusCode: true };
+
             var record = new ApiCallRecord(
                 CorrelationId: correlationId,
                 HttpMethod: request.Method.Method,
                 Url: url,
+                EndpointName: endpointName,
+                ProviderDhsCode: providerDhsCode,
                 StartedUtc: startedUtc,
+                ResponseUtc: responseUtc,
                 ElapsedMs: sw.ElapsedMilliseconds,
                 StatusCode: statusCode,
+                Succeeded: succeeded,
+                ErrorType: error?.GetType().Name,
+                ErrorMessage: error is null ? null : SanitizeError(error.Message),
                 RequestBytes: reqBytes,
                 ResponseBytes: respBytes,
-                ErrorType: error?.GetType().Name,
-                ErrorMessage: error is null ? null : SanitizeError(error.Message)
+                WasGzipRequest: wasGzip
             );
 
             await _recorder.RecordAsync(record, ct);
 
             _logger.LogInformation(
-                "API {Method} {Url} -> {Status} in {Elapsed}ms (corr={CorrelationId})",
-                record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId
+                "API {EndpointName} ({Method} {Url}) -> {Status} in {Elapsed}ms (corr={CorrelationId}, succeeded={Succeeded})",
+                record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.Succeeded
             );
+        }
+    }
+
+    private static string GetEndpointName(string url)
+    {
+        foreach (var kvp in PathToAlias)
+        {
+            if (url.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
+                return kvp.Value;
+        }
+        return url;
+    }
+
+    private static string? ExtractProviderDhsCode(string url)
+    {
+        if (url.Contains("api/Batch/GetBatchRequest/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
+        if (url.Contains("api/Provider/GetProviderConfigration/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
+        if (url.Contains("api/DomainMapping/GetProviderDomainMapping/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
+        if (url.Contains("api/DomainMapping/GetMissingDomainMappings/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
+        if (url.Contains("api/DomainMapping/GetProviderDomainMappingsWithMissing/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
+
+        return null;
+    }
+
+    private static string? ExtractLastSegment(string url)
+    {
+        try
+        {
+            var uri = new Uri(url);
+            var path = uri.AbsolutePath;
+            var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            return parts.LastOrDefault();
+        }
+        catch
+        {
+            return null;
         }
     }
 

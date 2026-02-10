@@ -29,7 +29,7 @@ public static class InfrastructureServiceCollectionExtensions
         // ------------------------------------------------------------
         // Observability
         // ------------------------------------------------------------
-        services.AddSingleton<IApiCallRecorder, LoggerApiCallRecorder>();
+        services.AddSingleton<IApiCallRecorder, SqliteApiCallRecorder>();
 
         // ------------------------------------------------------------
         // Auth header provider (currently no-op header provider)
