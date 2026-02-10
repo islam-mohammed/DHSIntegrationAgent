@@ -101,6 +101,8 @@ public sealed class HttpPipeline_Wbs2_1_Tests
             // Logging is needed because ApiLoggingHandler depends on ILogger<>
             services.AddLogging(lb => lb.AddDebug().AddConsole().SetMinimumLevel(LogLevel.Information));
 
+            services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(new MockHostEnv());
+
             // Minimal configuration to satisfy options + HttpClient registration
             var cfg = new ConfigurationBuilder()
                 .AddInMemoryCollection(new[]
@@ -203,4 +205,12 @@ public sealed class HttpPipeline_Wbs2_1_Tests
     }
 
     private sealed record CapturedRequest(string ContentEncoding, string CorrelationId, string DecodedBody);
+
+    private sealed class MockHostEnv : Microsoft.Extensions.Hosting.IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Development";
+        public string ApplicationName { get; set; } = "Tests";
+        public string ContentRootPath { get; set; } = "";
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = null!;
+    }
 }
