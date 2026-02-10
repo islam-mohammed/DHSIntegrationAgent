@@ -73,6 +73,13 @@ public enum UploadStatus
     Failed = 4
 }
 
+// 4.9 DiscoverySource (MissingDomainMapping.DiscoverySource)
+public enum DiscoverySource
+{
+    Api = 0,
+    Scanned = 1
+}
+
 // 4.8 AttachmentSourceType (Attachment.AttachmentSourceType)
 public enum AttachmentSourceType
 {

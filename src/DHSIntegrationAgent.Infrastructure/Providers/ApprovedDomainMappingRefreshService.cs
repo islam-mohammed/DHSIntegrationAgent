@@ -58,10 +58,6 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
             return;
         }
 
-        // Determine company codes from AppSettings/config if your API doesn’t include it.
-        // Here we default to DEFAULT if missing (consistent with config loader behavior).
-        const string defaultCompanyCode = "DEFAULT";
-
         var upserted = 0;
         var skipped = 0;
 
@@ -92,11 +88,6 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
                 TryGetString(item, "mappedValue") ??
                 "";
 
-            var companyCode =
-                TryGetString(item, "companyCode") ??
-                TryGetString(item, "CompanyCode") ??
-                defaultCompanyCode;
-
             if (string.IsNullOrWhiteSpace(domainName) ||
                 domainTableId is null ||
                 string.IsNullOrWhiteSpace(sourceValue) ||
@@ -115,7 +106,6 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
 
             await uow.DomainMappings.UpsertApprovedAsync(
                 providerDhsCode,
-                companyCode!,
                 domainName!,
                 domainTableId.Value,
                 sourceValue!,

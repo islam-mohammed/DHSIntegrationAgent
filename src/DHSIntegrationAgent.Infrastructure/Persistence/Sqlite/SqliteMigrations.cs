@@ -9,12 +9,27 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 2;
+    public static readonly int CurrentSchemaVersion = 3;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
         new Migration(1, "001_InitialSchema_v1", BuildV1()),
-        new Migration(2, "002_SeparateDomainMappings", BuildV2())
+        new Migration(2, "002_SeparateDomainMappings", BuildV2()),
+        new Migration(3, "003_AddMetadataToDomainMappings", BuildV3())
+    };
+
+    /// <summary>
+    /// Migration 3: Add missing metadata columns to separate domain mapping tables.
+    /// </summary>
+    private static IReadOnlyList<string> BuildV3() => new List<string>
+    {
+        "ALTER TABLE ApprovedDomainMapping ADD COLUMN ProviderDomainCode TEXT NULL;",
+        "ALTER TABLE ApprovedDomainMapping ADD COLUMN IsDefault INTEGER NULL;",
+        "ALTER TABLE ApprovedDomainMapping ADD COLUMN CodeValue TEXT NULL;",
+        "ALTER TABLE ApprovedDomainMapping ADD COLUMN DisplayValue TEXT NULL;",
+
+        "ALTER TABLE MissingDomainMapping ADD COLUMN ProviderNameValue TEXT NULL;",
+        "ALTER TABLE MissingDomainMapping ADD COLUMN DomainTableName TEXT NULL;"
     };
 
     /// <summary>

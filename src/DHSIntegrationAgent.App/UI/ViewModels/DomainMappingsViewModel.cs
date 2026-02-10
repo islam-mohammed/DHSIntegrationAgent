@@ -4,6 +4,7 @@ using System.Windows;
 using DHSIntegrationAgent.App.UI.Mvvm;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
+using DHSIntegrationAgent.Application.Providers;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
 
@@ -11,6 +12,7 @@ public sealed class DomainMappingsViewModel : ViewModelBase
 {
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly IDomainMappingClient _domainMappingClient;
+    private readonly IProviderConfigurationService _configService;
     private bool _isLoading;
 
     public ObservableCollection<MappingRow> MissingMappings { get; } = new();
@@ -28,16 +30,24 @@ public sealed class DomainMappingsViewModel : ViewModelBase
 
     public DomainMappingsViewModel(
         ISqliteUnitOfWorkFactory uowFactory,
-        IDomainMappingClient domainMappingClient)
+        IDomainMappingClient domainMappingClient,
+        IProviderConfigurationService configService)
     {
         _uowFactory = uowFactory;
         _domainMappingClient = domainMappingClient;
+        _configService = configService;
 
-        RefreshCommand = new AsyncRelayCommand(LoadMissingMappingsAsync);
+        RefreshCommand = new AsyncRelayCommand(RefreshAllAsync);
         LoadMissingMappingsCommand = new AsyncRelayCommand(LoadMissingMappingsAsync);
         PostNowCommand = new RelayCommand(() => { /* screen-only */ });
 
-        MappingDomainViewModel = new MappingDomainViewModel(uowFactory);
+        MappingDomainViewModel = new MappingDomainViewModel(uowFactory, configService);
+    }
+
+    public async Task RefreshAllAsync()
+    {
+        await LoadMissingMappingsAsync();
+        await MappingDomainViewModel.RefreshAsync();
     }
 
     public async Task LoadMissingMappingsAsync()
@@ -46,9 +56,6 @@ public sealed class DomainMappingsViewModel : ViewModelBase
         {
             IsLoading = true;
             DomainMappings.Clear();
-
-            // Temporary delay to see loading indicator (REMOVE AFTER TESTING)
-            await Task.Delay(2000);
 
             // Get ProviderDhsCode from ProviderProfile
             await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);

@@ -1,4 +1,4 @@
-﻿using System.Data.Common;
+using System.Data.Common;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
 using DHSIntegrationAgent.Domain.WorkStates;
 
@@ -8,157 +8,237 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
 {
     public DomainMappingRepository(DbConnection conn, DbTransaction tx) : base(conn, tx) { }
 
-    public async Task<IReadOnlyList<DomainMappingRow>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ApprovedDomainMappingRow>> GetAllApprovedAsync(CancellationToken cancellationToken)
     {
         await using var cmd = CreateCommand(
             """
             SELECT
                 DomainMappingId,
                 ProviderDhsCode,
-                CompanyCode,
                 DomainName,
                 DomainTableId,
                 SourceValue,
                 TargetValue,
-                MappingStatus,
                 DiscoveredUtc,
                 LastPostedUtc,
                 LastUpdatedUtc,
-                Notes
-            FROM DomainMapping
+                Notes,
+                ProviderDomainCode,
+                IsDefault,
+                CodeValue,
+                DisplayValue
+            FROM ApprovedDomainMapping
             ORDER BY DomainMappingId DESC;
             """);
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        var results = new List<DomainMappingRow>();
+        var results = new List<ApprovedDomainMappingRow>();
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            results.Add(new DomainMappingRow(
+            results.Add(new ApprovedDomainMappingRow(
                 DomainMappingId: reader.GetInt64(0),
                 ProviderDhsCode: reader.GetString(1),
-                CompanyCode: reader.GetString(2),
-                DomainName: reader.GetString(3),
-                DomainTableId: reader.GetInt32(4),
-                SourceValue: reader.GetString(5),
-                TargetValue: reader.IsDBNull(6) ? null : reader.GetString(6),
-                MappingStatus: (MappingStatus)reader.GetInt32(7),
-                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(8)),
-                LastPostedUtc: reader.IsDBNull(9) ? null : SqliteUtc.FromIso(reader.GetString(9)),
-                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(10)),
-                Notes: reader.IsDBNull(11) ? null : reader.GetString(11)
+                DomainName: reader.GetString(2),
+                DomainTableId: reader.GetInt32(3),
+                SourceValue: reader.GetString(4),
+                TargetValue: reader.GetString(5),
+                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(6)),
+                LastPostedUtc: reader.IsDBNull(7) ? null : SqliteUtc.FromIso(reader.GetString(7)),
+                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(8)),
+                Notes: reader.IsDBNull(9) ? null : reader.GetString(9),
+                ProviderDomainCode: reader.IsDBNull(10) ? null : reader.GetString(10),
+                IsDefault: reader.IsDBNull(11) ? null : reader.GetInt32(11) != 0,
+                CodeValue: reader.IsDBNull(12) ? null : reader.GetString(12),
+                DisplayValue: reader.IsDBNull(13) ? null : reader.GetString(13)
             ));
         }
 
         return results;
     }
 
-    public async Task UpsertDiscoveredAsync(
-        string providerDhsCode,
-        string companyCode,
-        string domainName,
-        int domainTableId,
-        string sourceValue,
-        MappingStatus mappingStatus,
-        DateTimeOffset utcNow,
-        CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<MissingDomainMappingRow>> GetAllMissingAsync(CancellationToken cancellationToken)
     {
         await using var cmd = CreateCommand(
             """
-            INSERT INTO DomainMapping
-            (ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue,
-             MappingStatus, DiscoveredUtc, LastUpdatedUtc,
-             ProviderCodeValue, ProviderNameValue, DomainTableName)
+            SELECT
+                MissingMappingId,
+                ProviderDhsCode,
+                DomainName,
+                DomainTableId,
+                SourceValue,
+                DiscoverySource,
+                DiscoveredUtc,
+                LastUpdatedUtc,
+                Notes,
+                ProviderNameValue,
+                DomainTableName
+            FROM MissingDomainMapping
+            ORDER BY MissingMappingId DESC;
+            """);
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var results = new List<MissingDomainMappingRow>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            results.Add(new MissingDomainMappingRow(
+                MissingMappingId: reader.GetInt64(0),
+                ProviderDhsCode: reader.GetString(1),
+                DomainName: reader.GetString(2),
+                DomainTableId: reader.GetInt32(3),
+                SourceValue: reader.GetString(4),
+                DiscoverySource: (DiscoverySource)reader.GetInt32(5),
+                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(6)),
+                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(7)),
+                Notes: reader.IsDBNull(8) ? null : reader.GetString(8),
+                ProviderNameValue: reader.IsDBNull(9) ? null : reader.GetString(9),
+                DomainTableName: reader.IsDBNull(10) ? null : reader.GetString(10)
+            ));
+        }
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<DomainMappingRow>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        var approved = await GetAllApprovedAsync(cancellationToken);
+        var missing = await GetAllMissingAsync(cancellationToken);
+
+        var results = new List<DomainMappingRow>();
+
+        foreach (var a in approved)
+        {
+            results.Add(new DomainMappingRow(
+                DomainMappingId: a.DomainMappingId,
+                ProviderDhsCode: a.ProviderDhsCode,
+                CompanyCode: "DEFAULT",
+                DomainName: a.DomainName,
+                DomainTableId: a.DomainTableId,
+                SourceValue: a.SourceValue,
+                TargetValue: a.TargetValue,
+                MappingStatus: MappingStatus.Approved,
+                DiscoveredUtc: a.DiscoveredUtc,
+                LastPostedUtc: a.LastPostedUtc,
+                LastUpdatedUtc: a.LastUpdatedUtc,
+                Notes: a.Notes
+            ));
+        }
+
+        foreach (var m in missing)
+        {
+            results.Add(new DomainMappingRow(
+                DomainMappingId: m.MissingMappingId,
+                ProviderDhsCode: m.ProviderDhsCode,
+                CompanyCode: "DEFAULT",
+                DomainName: m.DomainName,
+                DomainTableId: m.DomainTableId,
+                SourceValue: m.SourceValue,
+                TargetValue: null,
+                MappingStatus: MappingStatus.Missing,
+                DiscoveredUtc: m.DiscoveredUtc,
+                LastPostedUtc: null,
+                LastUpdatedUtc: m.LastUpdatedUtc,
+                Notes: m.Notes
+            ));
+        }
+
+        return results.OrderByDescending(x => x.LastUpdatedUtc).ToList();
+    }
+
+    public async Task UpsertDiscoveredAsync(
+        string providerDhsCode,
+        string domainName,
+        int domainTableId,
+        string sourceValue,
+        DiscoverySource discoverySource,
+        DateTimeOffset utcNow,
+        CancellationToken cancellationToken,
+        string? providerNameValue = null,
+        string? domainTableName = null)
+    {
+        if (await IsAlreadyApprovedAsync(providerDhsCode, domainTableId, sourceValue, cancellationToken))
+            return;
+
+        await using var cmd = CreateCommand(
+            """
+            INSERT INTO MissingDomainMapping
+            (ProviderDhsCode, DomainName, DomainTableId, SourceValue, DiscoverySource, DiscoveredUtc, LastUpdatedUtc,
+             ProviderNameValue, DomainTableName)
             VALUES
-            ($p, $c, $dn, $dt, $sv,
-             $ms, $now, $now,
-             $pcv, $pnv, $dtn)
-            ON CONFLICT(ProviderDhsCode, CompanyCode, DomainTableId, SourceValue)
+            ($p, $dn, $dt, $sv, $ds, $now, $now, $pnv, $dtn)
+            ON CONFLICT(ProviderDhsCode, DomainTableId, SourceValue)
             DO UPDATE SET
                 DomainName = excluded.DomainName,
-                -- do not downgrade Approved rows
-                MappingStatus = CASE
-                    WHEN DomainMapping.MappingStatus = $approved THEN $approved
-                    ELSE excluded.MappingStatus
-                END,
-                ProviderCodeValue = COALESCE(DomainMapping.ProviderCodeValue, excluded.ProviderCodeValue),
-                ProviderNameValue = COALESCE(DomainMapping.ProviderNameValue, excluded.ProviderNameValue),
-                DomainTableName = COALESCE(DomainMapping.DomainTableName, excluded.DomainTableName),
-                LastUpdatedUtc = excluded.LastUpdatedUtc;
+                DiscoverySource = excluded.DiscoverySource,
+                LastUpdatedUtc = excluded.LastUpdatedUtc,
+                ProviderNameValue = COALESCE(excluded.ProviderNameValue, MissingDomainMapping.ProviderNameValue),
+                DomainTableName = COALESCE(excluded.DomainTableName, MissingDomainMapping.DomainTableName);
             """);
 
         var nowIso = SqliteUtc.ToIso(utcNow);
         SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
-        SqliteSqlBuilder.AddParam(cmd, "$c", companyCode);
         SqliteSqlBuilder.AddParam(cmd, "$dn", domainName);
         SqliteSqlBuilder.AddParam(cmd, "$dt", domainTableId);
         SqliteSqlBuilder.AddParam(cmd, "$sv", sourceValue);
-        SqliteSqlBuilder.AddParam(cmd, "$ms", (int)mappingStatus);
+        SqliteSqlBuilder.AddParam(cmd, "$ds", (int)discoverySource);
         SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
-
-        // discovered missing uses the scanned value as both code/name until user maps it
-        SqliteSqlBuilder.AddParam(cmd, "$pcv", sourceValue);
-        SqliteSqlBuilder.AddParam(cmd, "$pnv", sourceValue);
-        SqliteSqlBuilder.AddParam(cmd, "$dtn", domainName);
-
-        SqliteSqlBuilder.AddParam(cmd, "$approved", (int)MappingStatus.Approved);
+        SqliteSqlBuilder.AddParam(cmd, "$pnv", providerNameValue);
+        SqliteSqlBuilder.AddParam(cmd, "$dtn", domainTableName);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public async Task UpsertApprovedAsync(
         string providerDhsCode,
-        string companyCode,
         string domainName,
         int domainTableId,
         string sourceValue,
         string targetValue,
         DateTimeOffset utcNow,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? providerDomainCode = null,
+        bool? isDefault = null,
+        string? codeValue = null,
+        string? displayValue = null)
     {
-        int? parsedDhs = int.TryParse(targetValue, out var tmp) ? tmp : null;
-
         await using var cmd = CreateCommand(
             """
-            INSERT INTO DomainMapping
-            (ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue,
-             TargetValue, MappingStatus, DiscoveredUtc, LastUpdatedUtc,
-             ProviderDomainCode, ProviderDomainValue, DhsDomainValue)
+            INSERT INTO ApprovedDomainMapping
+            (ProviderDhsCode, DomainName, DomainTableId, SourceValue, TargetValue, DiscoveredUtc, LastUpdatedUtc,
+             ProviderDomainCode, IsDefault, CodeValue, DisplayValue)
             VALUES
-            ($p, $c, $dn, $dt, $sv,
-             $tv, $ms, $now, $now,
-             $pdc, $pdv, $ddv)
-            ON CONFLICT(ProviderDhsCode, CompanyCode, DomainTableId, SourceValue)
+            ($p, $dn, $dt, $sv, $tv, $now, $now, $pdc, $def, $cv, $dv)
+            ON CONFLICT(ProviderDhsCode, DomainTableId, SourceValue)
             DO UPDATE SET
                 DomainName = excluded.DomainName,
                 TargetValue = excluded.TargetValue,
-                MappingStatus = excluded.MappingStatus,
-                ProviderDomainCode = COALESCE(excluded.ProviderDomainCode, DomainMapping.ProviderDomainCode),
-                ProviderDomainValue = COALESCE(excluded.ProviderDomainValue, DomainMapping.ProviderDomainValue),
-                DhsDomainValue = COALESCE(excluded.DhsDomainValue, DomainMapping.DhsDomainValue),
-                LastUpdatedUtc = excluded.LastUpdatedUtc;
+                LastUpdatedUtc = excluded.LastUpdatedUtc,
+                ProviderDomainCode = COALESCE(excluded.ProviderDomainCode, ApprovedDomainMapping.ProviderDomainCode),
+                IsDefault = COALESCE(excluded.IsDefault, ApprovedDomainMapping.IsDefault),
+                CodeValue = COALESCE(excluded.CodeValue, ApprovedDomainMapping.CodeValue),
+                DisplayValue = COALESCE(excluded.DisplayValue, ApprovedDomainMapping.DisplayValue);
             """);
 
         var nowIso = SqliteUtc.ToIso(utcNow);
         SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
-        SqliteSqlBuilder.AddParam(cmd, "$c", companyCode);
         SqliteSqlBuilder.AddParam(cmd, "$dn", domainName);
         SqliteSqlBuilder.AddParam(cmd, "$dt", domainTableId);
         SqliteSqlBuilder.AddParam(cmd, "$sv", sourceValue);
         SqliteSqlBuilder.AddParam(cmd, "$tv", targetValue);
-        SqliteSqlBuilder.AddParam(cmd, "$ms", (int)MappingStatus.Approved);
         SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
-
-        SqliteSqlBuilder.AddParam(cmd, "$pdc", domainName);
-        SqliteSqlBuilder.AddParam(cmd, "$pdv", sourceValue);
-        SqliteSqlBuilder.AddParam(cmd, "$ddv", parsedDhs);
+        SqliteSqlBuilder.AddParam(cmd, "$pdc", providerDomainCode);
+        SqliteSqlBuilder.AddParam(cmd, "$def", isDefault is null ? null : (isDefault.Value ? 1 : 0));
+        SqliteSqlBuilder.AddParam(cmd, "$cv", codeValue);
+        SqliteSqlBuilder.AddParam(cmd, "$dv", displayValue);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+        await RemoveFromMissingAsync(providerDhsCode, domainTableId, sourceValue, cancellationToken);
     }
 
     public async Task UpsertApprovedFromProviderConfigAsync(
         string providerDhsCode,
-        string companyCode,
         int domTableId,
         string domainName,
         string providerDomainCode,
@@ -170,56 +250,22 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         DateTimeOffset utcNow,
         CancellationToken cancellationToken)
     {
-        await using var cmd = CreateCommand(
-            """
-            INSERT INTO DomainMapping
-            (ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue,
-             TargetValue, MappingStatus, DiscoveredUtc, LastUpdatedUtc,
-             ProviderDomainCode, ProviderDomainValue, DhsDomainValue, IsDefault, CodeValue, DisplayValue)
-            VALUES
-            ($p, $c, $dn, $dt, $sv,
-             $tv, $ms, $now, $now,
-             $pdc, $pdv, $ddv, $def, $cv, $dv)
-            ON CONFLICT(ProviderDhsCode, CompanyCode, DomainTableId, SourceValue)
-            DO UPDATE SET
-                DomainName = excluded.DomainName,
-                TargetValue = excluded.TargetValue,
-                MappingStatus = excluded.MappingStatus,
-                ProviderDomainCode = excluded.ProviderDomainCode,
-                ProviderDomainValue = excluded.ProviderDomainValue,
-                DhsDomainValue = excluded.DhsDomainValue,
-                IsDefault = excluded.IsDefault,
-                CodeValue = excluded.CodeValue,
-                DisplayValue = excluded.DisplayValue,
-                LastUpdatedUtc = excluded.LastUpdatedUtc;
-            """);
-
-        var nowIso = SqliteUtc.ToIso(utcNow);
-        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
-        SqliteSqlBuilder.AddParam(cmd, "$c", companyCode);
-        SqliteSqlBuilder.AddParam(cmd, "$dn", domainName);
-        SqliteSqlBuilder.AddParam(cmd, "$dt", domTableId);
-
-        // DomainMapping table uses SourceValue as the provider-domain value for approved items
-        SqliteSqlBuilder.AddParam(cmd, "$sv", providerDomainValue);
-
-        SqliteSqlBuilder.AddParam(cmd, "$tv", dhsDomainValue.ToString());
-        SqliteSqlBuilder.AddParam(cmd, "$ms", (int)MappingStatus.Approved);
-        SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
-
-        SqliteSqlBuilder.AddParam(cmd, "$pdc", providerDomainCode);
-        SqliteSqlBuilder.AddParam(cmd, "$pdv", providerDomainValue);
-        SqliteSqlBuilder.AddParam(cmd, "$ddv", dhsDomainValue);
-        SqliteSqlBuilder.AddParam(cmd, "$def", isDefault is null ? null : (isDefault.Value ? 1 : 0));
-        SqliteSqlBuilder.AddParam(cmd, "$cv", codeValue);
-        SqliteSqlBuilder.AddParam(cmd, "$dv", displayValue);
-
-        await cmd.ExecuteNonQueryAsync(cancellationToken);
+        await UpsertApprovedAsync(
+            providerDhsCode,
+            domainName,
+            domTableId,
+            providerDomainValue,
+            dhsDomainValue.ToString(),
+            utcNow,
+            cancellationToken,
+            providerDomainCode,
+            isDefault,
+            codeValue,
+            displayValue);
     }
 
     public async Task UpsertMissingFromProviderConfigAsync(
         string providerDhsCode,
-        string companyCode,
         int domainTableId,
         string domainName,
         string providerCodeValue,
@@ -228,57 +274,20 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         DateTimeOffset utcNow,
         CancellationToken cancellationToken)
     {
-        // Server "missing" are old/known-by-server => treat as Posted to avoid repost loops.
-        // Merge rule: never downgrade Approved.
-        await using var cmd = CreateCommand(
-            """
-            INSERT INTO DomainMapping
-            (ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue,
-             TargetValue, MappingStatus, DiscoveredUtc, LastUpdatedUtc, LastPostedUtc,
-             ProviderCodeValue, ProviderNameValue, DomainTableName)
-            VALUES
-            ($p, $c, $dn, $dt, $sv,
-             NULL, $ms, $now, $now, $now,
-             $pcv, $pnv, $dtn)
-            ON CONFLICT(ProviderDhsCode, CompanyCode, DomainTableId, SourceValue)
-            DO UPDATE SET
-                DomainName = excluded.DomainName,
-                MappingStatus = CASE
-                    WHEN DomainMapping.MappingStatus = $approved THEN $approved
-                    ELSE DomainMapping.MappingStatus
-                END,
-                ProviderCodeValue = COALESCE(DomainMapping.ProviderCodeValue, excluded.ProviderCodeValue),
-                ProviderNameValue = COALESCE(DomainMapping.ProviderNameValue, excluded.ProviderNameValue),
-                DomainTableName = COALESCE(DomainMapping.DomainTableName, excluded.DomainTableName),
-                LastPostedUtc = COALESCE(DomainMapping.LastPostedUtc, excluded.LastPostedUtc),
-                LastUpdatedUtc = excluded.LastUpdatedUtc;
-            """);
-
-        var nowIso = SqliteUtc.ToIso(utcNow);
-
-        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
-        SqliteSqlBuilder.AddParam(cmd, "$c", companyCode);
-        SqliteSqlBuilder.AddParam(cmd, "$dn", domainName);
-        SqliteSqlBuilder.AddParam(cmd, "$dt", domainTableId);
-
-        // DomainMapping table uses SourceValue as the providerCodeValue for missing items
-        SqliteSqlBuilder.AddParam(cmd, "$sv", providerCodeValue);
-
-        SqliteSqlBuilder.AddParam(cmd, "$ms", (int)MappingStatus.Posted);
-        SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
-
-        SqliteSqlBuilder.AddParam(cmd, "$pcv", providerCodeValue);
-        SqliteSqlBuilder.AddParam(cmd, "$pnv", providerNameValue);
-        SqliteSqlBuilder.AddParam(cmd, "$dtn", domainTableName);
-
-        SqliteSqlBuilder.AddParam(cmd, "$approved", (int)MappingStatus.Approved);
-
-        await cmd.ExecuteNonQueryAsync(cancellationToken);
+        await UpsertDiscoveredAsync(
+            providerDhsCode,
+            domainName,
+            domainTableId,
+            providerCodeValue,
+            DiscoverySource.Api,
+            utcNow,
+            cancellationToken,
+            providerNameValue,
+            domainTableName);
     }
 
-    public async Task UpdateStatusAsync(
+    public async Task UpdateApprovedStatusAsync(
         long domainMappingId,
-        MappingStatus status,
         string? targetValue,
         DateTimeOffset utcNow,
         DateTimeOffset? lastPostedUtc,
@@ -287,16 +296,14 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
     {
         await using var cmd = CreateCommand(
             """
-            UPDATE DomainMapping
-            SET MappingStatus = $ms,
-                TargetValue = $tv,
+            UPDATE ApprovedDomainMapping
+            SET TargetValue = COALESCE($tv, TargetValue),
                 LastPostedUtc = COALESCE($lp, LastPostedUtc),
                 LastUpdatedUtc = $now,
                 Notes = $notes
             WHERE DomainMappingId = $id;
             """);
 
-        SqliteSqlBuilder.AddParam(cmd, "$ms", (int)status);
         SqliteSqlBuilder.AddParam(cmd, "$tv", targetValue);
         SqliteSqlBuilder.AddParam(cmd, "$lp", lastPostedUtc is null ? null : SqliteUtc.ToIso(lastPostedUtc.Value));
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
@@ -304,5 +311,28 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         SqliteSqlBuilder.AddParam(cmd, "$id", domainMappingId);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private async Task<bool> IsAlreadyApprovedAsync(string providerDhsCode, int domainTableId, string sourceValue, CancellationToken ct)
+    {
+        await using var cmd = CreateCommand(
+            "SELECT 1 FROM ApprovedDomainMapping WHERE ProviderDhsCode = $p AND DomainTableId = $dt AND SourceValue = $sv LIMIT 1;");
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$dt", domainTableId);
+        SqliteSqlBuilder.AddParam(cmd, "$sv", sourceValue);
+
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result != null;
+    }
+
+    private async Task RemoveFromMissingAsync(string providerDhsCode, int domainTableId, string sourceValue, CancellationToken ct)
+    {
+        await using var cmd = CreateCommand(
+            "DELETE FROM MissingDomainMapping WHERE ProviderDhsCode = $p AND DomainTableId = $dt AND SourceValue = $sv;");
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$dt", domainTableId);
+        SqliteSqlBuilder.AddParam(cmd, "$sv", sourceValue);
+
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 }
