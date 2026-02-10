@@ -1,7 +1,37 @@
-﻿using DHSIntegrationAgent.Domain.WorkStates;
+using DHSIntegrationAgent.Domain.WorkStates;
 
 namespace DHSIntegrationAgent.Application.Persistence.Repositories;
 
+public sealed record ApprovedDomainMappingRow(
+    long DomainMappingId,
+    string ProviderDhsCode,
+    string DomainName,
+    int DomainTableId,
+    string SourceValue,
+    string TargetValue,
+    DateTimeOffset DiscoveredUtc,
+    DateTimeOffset? LastPostedUtc,
+    DateTimeOffset LastUpdatedUtc,
+    string? Notes,
+    string? ProviderDomainCode,
+    bool? IsDefault,
+    string? CodeValue,
+    string? DisplayValue);
+
+public sealed record MissingDomainMappingRow(
+    long MissingMappingId,
+    string ProviderDhsCode,
+    string DomainName,
+    int DomainTableId,
+    string SourceValue,
+    DiscoverySource DiscoverySource,
+    DateTimeOffset DiscoveredUtc,
+    DateTimeOffset LastUpdatedUtc,
+    string? Notes,
+    string? ProviderNameValue,
+    string? DomainTableName);
+
+// Deprecated: kept for backward compatibility if still needed for MappingRow types
 public sealed record DomainMappingRow(
     long DomainMappingId,
     string ProviderDhsCode,
@@ -18,39 +48,37 @@ public sealed record DomainMappingRow(
 
 public interface IDomainMappingRepository
 {
+    Task<IReadOnlyList<ApprovedDomainMappingRow>> GetAllApprovedAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<MissingDomainMappingRow>> GetAllMissingAsync(CancellationToken cancellationToken);
+
     Task<IReadOnlyList<DomainMappingRow>> GetAllAsync(CancellationToken cancellationToken);
 
     Task UpsertDiscoveredAsync(
         string providerDhsCode,
-        string companyCode,
         string domainName,
         int domainTableId,
         string sourceValue,
-        MappingStatus mappingStatus,
+        DiscoverySource discoverySource,
         DateTimeOffset utcNow,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? providerNameValue = null,
+        string? domainTableName = null);
 
-    /// <summary>
-    /// Minimal upsert used by some flows: approved mapping (source -> target).
-    /// </summary>
     Task UpsertApprovedAsync(
         string providerDhsCode,
-        string companyCode,
         string domainName,
         int domainTableId,
         string sourceValue,
         string targetValue,
         DateTimeOffset utcNow,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? providerDomainCode = null,
+        bool? isDefault = null,
+        string? codeValue = null,
+        string? displayValue = null);
 
-    /// <summary>
-    /// Upsert APPROVED mappings coming from Provider Configuration:
-    /// DomainMappingDto keys:
-    /// domTable_ID, providerDomainCode, providerDomainValue, dhsDomainValue, isDefault, codeValue, displayValue
-    /// </summary>
     Task UpsertApprovedFromProviderConfigAsync(
         string providerDhsCode,
-        string companyCode,
         int domTableId,
         string domainName,
         string providerDomainCode,
@@ -62,15 +90,8 @@ public interface IDomainMappingRepository
         DateTimeOffset utcNow,
         CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Upsert MISSING mappings coming from Provider Configuration:
-    /// MissingDomainMappingDto keys:
-    /// providerCodeValue, providerNameValue, domainTableId, domainTableName
-    /// Merge rule: never downgrade Approved and never delete local scan-discovered missing.
-    /// </summary>
     Task UpsertMissingFromProviderConfigAsync(
         string providerDhsCode,
-        string companyCode,
         int domainTableId,
         string domainName,
         string providerCodeValue,
@@ -79,9 +100,8 @@ public interface IDomainMappingRepository
         DateTimeOffset utcNow,
         CancellationToken cancellationToken);
 
-    Task UpdateStatusAsync(
+    Task UpdateApprovedStatusAsync(
         long domainMappingId,
-        MappingStatus status,
         string? targetValue,
         DateTimeOffset utcNow,
         DateTimeOffset? lastPostedUtc,

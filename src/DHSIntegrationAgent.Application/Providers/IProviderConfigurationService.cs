@@ -15,6 +15,11 @@ public interface IProviderConfigurationService
     /// - If refresh fails => return last cached (if any) with IsStale=true
     /// </summary>
     Task<ProviderConfigurationSnapshot> LoadAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Refreshes both approved and missing domain mappings from the specialized endpoint.
+    /// </summary>
+    Task RefreshDomainMappingsAsync(string providerDhsCode, CancellationToken ct);
 }
 
 /// <summary>

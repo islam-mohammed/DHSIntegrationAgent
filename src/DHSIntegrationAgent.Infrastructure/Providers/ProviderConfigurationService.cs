@@ -22,6 +22,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly ProviderConfigurationClient _client;
     private readonly IColumnEncryptor _encryptor;
+    private readonly Application.Abstractions.IDomainMappingClient _domainMappingClient;
 
     private readonly SemaphoreSlim _loadGate = new(1, 1);
 
@@ -29,12 +30,67 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         ILogger<ProviderConfigurationService> logger,
         ISqliteUnitOfWorkFactory uowFactory,
         ProviderConfigurationClient client,
-        IColumnEncryptor encryptor)
+        IColumnEncryptor encryptor,
+        Application.Abstractions.IDomainMappingClient domainMappingClient)
     {
         _logger = logger;
         _uowFactory = uowFactory;
         _client = client;
         _encryptor = encryptor;
+        _domainMappingClient = domainMappingClient;
+    }
+
+    public async Task RefreshDomainMappingsAsync(string providerDhsCode, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var result = await _domainMappingClient.GetProviderDomainMappingsWithMissingAsync(providerDhsCode, ct);
+
+        if (!result.Succeeded || result.Data == null)
+        {
+            var err = result.Message ?? "Failed to refresh domain mappings from API.";
+            _logger.LogWarning("RefreshDomainMappingsAsync failed: {Error}", err);
+            return;
+        }
+
+        await using var uow = await _uowFactory.CreateAsync(ct);
+
+        if (result.Data.DomainMappings != null)
+        {
+            foreach (var m in result.Data.DomainMappings)
+            {
+                await uow.DomainMappings.UpsertApprovedFromProviderConfigAsync(
+                    providerDhsCode,
+                    m.DomTable_ID,
+                    m.ProviderDomainCode ?? $"DomTable_{m.DomTable_ID}",
+                    m.ProviderDomainCode ?? "",
+                    m.ProviderDomainValue ?? "",
+                    m.DhsDomainValue,
+                    m.IsDefault,
+                    m.CodeValue,
+                    m.DisplayValue,
+                    now,
+                    ct);
+            }
+        }
+
+        if (result.Data.MissingDomainMappings != null)
+        {
+            foreach (var m in result.Data.MissingDomainMappings)
+            {
+                await uow.DomainMappings.UpsertMissingFromProviderConfigAsync(
+                    providerDhsCode,
+                    m.DomainTableId,
+                    m.DomainTableName ?? $"DomTable_{m.DomainTableId}",
+                    m.ProviderCodeValue ?? "",
+                    m.ProviderNameValue ?? "",
+                    m.DomainTableName,
+                    now,
+                    ct);
+            }
+        }
+
+        await uow.CommitAsync(ct);
+        _logger.LogInformation("Successfully refreshed domain mappings for {ProviderDhsCode}", providerDhsCode);
     }
 
     public async Task<ProviderConfigurationSnapshot> LoadAsync(CancellationToken ct)
@@ -409,7 +465,6 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             if (mappings is null || mappings.Count == 0)
                 return;
 
-            var companyCodes = ExtractCompanyCodes(payload);
             var upserted = 0;
             var skipped = 0;
 
@@ -434,24 +489,20 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                     ? providerDomainCode
                     : $"DomTable_{domTableId.Value}";
 
-                foreach (var cc in companyCodes)
-                {
-                    await uow.DomainMappings.UpsertApprovedFromProviderConfigAsync(
-                        providerDhsCode: providerDhsCode,
-                        companyCode: cc,
-                        domTableId: domTableId.Value,
-                        domainName: domainName,
-                        providerDomainCode: providerDomainCode,
-                        providerDomainValue: providerDomainValue,
-                        dhsDomainValue: dhsDomainValue.Value,
-                        isDefault: isDefault,
-                        codeValue: codeValue,
-                        displayValue: displayValue,
-                        utcNow: now,
-                        cancellationToken: ct);
+                await uow.DomainMappings.UpsertApprovedFromProviderConfigAsync(
+                    providerDhsCode: providerDhsCode,
+                    domTableId: domTableId.Value,
+                    domainName: domainName,
+                    providerDomainCode: providerDomainCode,
+                    providerDomainValue: providerDomainValue,
+                    dhsDomainValue: dhsDomainValue.Value,
+                    isDefault: isDefault,
+                    codeValue: codeValue,
+                    displayValue: displayValue,
+                    utcNow: now,
+                    cancellationToken: ct);
 
-                    upserted++;
-                }
+                upserted++;
             }
 
             _logger.LogInformation(
@@ -477,7 +528,6 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             if (missing is null || missing.Count == 0)
                 return;
 
-            var companyCodes = ExtractCompanyCodes(payload);
             var upserted = 0;
             var skipped = 0;
 
@@ -499,21 +549,17 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                     ? domainTableName!
                     : $"DomTable_{domainTableId.Value}";
 
-                foreach (var cc in companyCodes)
-                {
-                    await uow.DomainMappings.UpsertMissingFromProviderConfigAsync(
-                        providerDhsCode: providerDhsCode,
-                        companyCode: cc,
-                        domainTableId: domainTableId.Value,
-                        domainName: domainName,
-                        providerCodeValue: providerCodeValue,
-                        providerNameValue: providerNameValue,
-                        domainTableName: domainTableName,
-                        utcNow: now,
-                        cancellationToken: ct);
+                await uow.DomainMappings.UpsertMissingFromProviderConfigAsync(
+                    providerDhsCode: providerDhsCode,
+                    domainTableId: domainTableId.Value,
+                    domainName: domainName,
+                    providerCodeValue: providerCodeValue,
+                    providerNameValue: providerNameValue,
+                    domainTableName: domainTableName,
+                    utcNow: now,
+                    cancellationToken: ct);
 
-                    upserted++;
-                }
+                upserted++;
             }
 
             _logger.LogInformation(
@@ -524,26 +570,6 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         {
             _logger.LogWarning(ex, "Failed to upsert missingDomainMappings from provider configuration.");
         }
-    }
-
-    private static IReadOnlyCollection<string> ExtractCompanyCodes(JsonObject payload)
-    {
-        var companyCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (GetCaseInsensitive(payload, "providerPayers") is JsonArray payersArr)
-        {
-            foreach (var p in payersArr.OfType<JsonObject>())
-            {
-                var cc = GetString(p, "companyCode");
-                if (!string.IsNullOrWhiteSpace(cc))
-                    companyCodes.Add(cc!);
-            }
-        }
-
-        if (companyCodes.Count == 0)
-            companyCodes.Add("DEFAULT");
-
-        return companyCodes;
     }
 
     private static JsonObject? TryExtractPayloadObject(string httpJson)
