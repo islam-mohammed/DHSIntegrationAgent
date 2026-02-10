@@ -1,6 +1,7 @@
 ﻿using System.Data.Common;
 using System.IO;
 using DHSIntegrationAgent.Application.Configuration;
+using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;

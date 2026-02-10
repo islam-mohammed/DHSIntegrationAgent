@@ -1,3 +1,4 @@
+using DHSIntegrationAgent.Contracts.Persistence;
 ﻿using DHSIntegrationAgent.Application.Persistence.Repositories;
 
 namespace DHSIntegrationAgent.Tests.Integration

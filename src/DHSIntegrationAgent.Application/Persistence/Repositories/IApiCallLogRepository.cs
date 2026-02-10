@@ -1,3 +1,5 @@
+using DHSIntegrationAgent.Contracts.Persistence;
+
 ﻿namespace DHSIntegrationAgent.Application.Persistence.Repositories;
 
 public interface IApiCallLogRepository
@@ -19,19 +21,3 @@ public interface IApiCallLogRepository
 
     Task<IReadOnlyList<ApiCallLogItem>> GetRecentApiCallsAsync(int limit, CancellationToken cancellationToken);
 }
-
-public record ApiCallLogItem(
-    int ApiCallLogId,
-    string? ProviderDhsCode,
-    string EndpointName,
-    string? CorrelationId,
-    DateTimeOffset RequestUtc,
-    DateTimeOffset? ResponseUtc,
-    int? DurationMs,
-    int? HttpStatusCode,
-    bool Succeeded,
-    string? ErrorMessage,
-    long? RequestBytes,
-    long? ResponseBytes,
-    bool WasGzipRequest
-);

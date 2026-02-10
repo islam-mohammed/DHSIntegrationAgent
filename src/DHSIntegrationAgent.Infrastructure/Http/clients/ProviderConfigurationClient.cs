@@ -1,3 +1,4 @@
+using DHSIntegrationAgent.Contracts.Providers;
 ﻿using System.Net;
 
 namespace DHSIntegrationAgent.Infrastructure.Http.Clients;

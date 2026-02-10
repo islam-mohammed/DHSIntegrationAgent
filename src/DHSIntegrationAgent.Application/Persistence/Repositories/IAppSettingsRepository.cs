@@ -1,15 +1,6 @@
-﻿namespace DHSIntegrationAgent.Application.Persistence.Repositories;
+using DHSIntegrationAgent.Contracts.Persistence;
 
-public sealed record AppSettingsRow(
-    string? GroupId,
-    string? ProviderDhsCode,
-    int ConfigCacheTtlMinutes,
-    int FetchIntervalMinutes,
-    int ManualRetryCooldownMinutes,
-    int LeaseDurationSeconds,
-    int StreamAIntervalSeconds,
-    int ResumePollIntervalSeconds,
-    int ApiTimeoutSeconds);
+﻿namespace DHSIntegrationAgent.Application.Persistence.Repositories;
 
 public interface IAppSettingsRepository
 {

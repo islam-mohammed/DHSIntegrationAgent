@@ -1,4 +1,4 @@
-namespace DHSIntegrationAgent.Application.Observability;
+namespace DHSIntegrationAgent.Contracts.Observability;
 
 public sealed record ApiCallRecord(
     string CorrelationId,

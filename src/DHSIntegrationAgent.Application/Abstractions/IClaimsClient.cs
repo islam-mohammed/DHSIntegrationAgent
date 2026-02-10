@@ -1,3 +1,5 @@
+using DHSIntegrationAgent.Contracts.Claims;
+
 ﻿namespace DHSIntegrationAgent.Application.Abstractions;
 
 /// <summary>
@@ -13,16 +15,3 @@ public interface IClaimsClient
     /// </summary>
     Task<SendClaimResult> SendClaimAsync(string claimBundlesJsonArray, CancellationToken ct);
 }
-
-/// <summary>
-/// Normalized result for SendClaim.
-/// Backend contract (per Stream Specs):
-/// response.data.successClaimsProidClaim[] and response.data.failClaimsProidClaim[].
-/// </summary>
-public sealed record SendClaimResult(
-    bool Succeeded,
-    string? ErrorMessage,
-    IReadOnlyList<long> SuccessClaimsProIdClaim,
-    IReadOnlyList<long> FailClaimsProIdClaim,
-    int? HttpStatusCode
-);

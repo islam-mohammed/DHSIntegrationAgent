@@ -1,7 +1,8 @@
-﻿namespace DHSIntegrationAgent.Application.Observability
+using DHSIntegrationAgent.Contracts.Observability;
+
+namespace DHSIntegrationAgent.Application.Observability;
+
+public interface IApiCallRecorder
 {
-    public interface IApiCallRecorder
-    {
-        Task RecordAsync(ApiCallRecord record, CancellationToken ct);
-    }
+    Task RecordAsync(ApiCallRecord record, CancellationToken ct);
 }

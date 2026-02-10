@@ -1,4 +1,4 @@
-﻿namespace DHSIntegrationAgent.Application.Configuration;
+namespace DHSIntegrationAgent.Application.Abstractions;
 
 public interface ISystemClock
 {

@@ -1,6 +1,6 @@
-﻿using DHSIntegrationAgent.Domain.WorkStates;
+using DHSIntegrationAgent.Domain.WorkStates;
 
-namespace DHSIntegrationAgent.Application.Persistence.Repositories;
+namespace DHSIntegrationAgent.Contracts.Claims;
 
 public sealed record ClaimLeaseRequest(
     string ProviderDhsCode,

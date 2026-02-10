@@ -1,7 +1,9 @@
+using DHSIntegrationAgent.Contracts.Security;
 ﻿using System.Net;
 using System.Text;
 using System.Text.Json;
 using DHSIntegrationAgent.Application.Configuration;
+using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Security;
 using Microsoft.Extensions.Options;
 
@@ -32,12 +34,12 @@ public sealed class AuthClient : IAuthClient
         _apiOptions = apiOptions;
     }
 
-    public async Task<AuthLoginResult> LoginAsync(string email, string groupID, string password, CancellationToken ct)
+    public async Task<AuthLoginResult> LoginAsync(string email, string password, string groupID, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("BackendApi");
         const string path = "api/Authentication/login";
 
-        var requestBody = new LoginRequest(email, password, groupID);
+        var requestBody = new LoginRequest(email, groupID, password);
 
         HttpContent content;
 

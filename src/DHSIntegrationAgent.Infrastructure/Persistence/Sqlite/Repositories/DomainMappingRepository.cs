@@ -1,3 +1,4 @@
+using DHSIntegrationAgent.Contracts.Persistence;
 using System.Data.Common;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
 using DHSIntegrationAgent.Domain.WorkStates;

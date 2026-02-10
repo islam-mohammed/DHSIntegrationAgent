@@ -1,5 +1,6 @@
 ﻿using DHSIntegrationAgent.App.UI.Mvvm;
 using DHSIntegrationAgent.Application.Configuration;
+using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;

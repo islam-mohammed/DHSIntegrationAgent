@@ -1,3 +1,5 @@
+using DHSIntegrationAgent.Contracts.Observability;
+using DHSIntegrationAgent.Contracts.Persistence;
 using System.Net;
 using System.Text;
 using DHSIntegrationAgent.Application;

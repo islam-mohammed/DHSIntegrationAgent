@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\DHSIntegrationAgent.Contracts\DHSIntegrationAgent.Contracts.csproj" />
     <ProjectReference Include="..\DHSIntegrationAgent.Domain\DHSIntegrationAgent.Domain.csproj" />
   </ItemGroup>
 

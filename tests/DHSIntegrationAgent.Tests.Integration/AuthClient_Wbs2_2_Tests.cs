@@ -50,7 +50,7 @@ public sealed class AuthClient_Wbs2_2_Tests
         var password = "A_123456a";
         var groupId = "d9a90b95-906e-434c-8ff7-ad1c976c9b50";
 
-        var result = await sut.LoginAsync(email, groupId, password, CancellationToken.None);
+        var result = await sut.LoginAsync(email, password, groupId, CancellationToken.None);
 
         Assert.True(result.Succeeded);
 

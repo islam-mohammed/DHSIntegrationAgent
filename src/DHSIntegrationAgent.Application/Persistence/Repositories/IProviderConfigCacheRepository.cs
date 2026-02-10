@@ -1,12 +1,6 @@
-﻿namespace DHSIntegrationAgent.Application.Persistence.Repositories;
+using DHSIntegrationAgent.Contracts.Persistence;
 
-public sealed record ProviderConfigCacheRow(
-    string ProviderDhsCode,
-    string ConfigJson,
-    DateTimeOffset FetchedUtc,
-    DateTimeOffset ExpiresUtc,
-    string? ETag,
-    string? LastError);
+namespace DHSIntegrationAgent.Application.Persistence.Repositories;
 
 public interface IProviderConfigCacheRepository
 {

@@ -1,3 +1,5 @@
+using DHSIntegrationAgent.Contracts.DomainMapping;
+using DHSIntegrationAgent.Contracts.Providers;
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;

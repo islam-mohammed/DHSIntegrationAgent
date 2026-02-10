@@ -1,3 +1,4 @@
+using DHSIntegrationAgent.Contracts.Providers;
 ﻿using System.Text.Json.Nodes;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Providers;

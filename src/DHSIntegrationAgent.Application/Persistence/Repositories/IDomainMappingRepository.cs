@@ -1,50 +1,7 @@
+using DHSIntegrationAgent.Contracts.Persistence;
 using DHSIntegrationAgent.Domain.WorkStates;
 
 namespace DHSIntegrationAgent.Application.Persistence.Repositories;
-
-public sealed record ApprovedDomainMappingRow(
-    long DomainMappingId,
-    string ProviderDhsCode,
-    string DomainName,
-    int DomainTableId,
-    string SourceValue,
-    string TargetValue,
-    DateTimeOffset DiscoveredUtc,
-    DateTimeOffset? LastPostedUtc,
-    DateTimeOffset LastUpdatedUtc,
-    string? Notes,
-    string? ProviderDomainCode,
-    bool? IsDefault,
-    string? CodeValue,
-    string? DisplayValue);
-
-public sealed record MissingDomainMappingRow(
-    long MissingMappingId,
-    string ProviderDhsCode,
-    string DomainName,
-    int DomainTableId,
-    string SourceValue,
-    DiscoverySource DiscoverySource,
-    DateTimeOffset DiscoveredUtc,
-    DateTimeOffset LastUpdatedUtc,
-    string? Notes,
-    string? ProviderNameValue,
-    string? DomainTableName);
-
-// Deprecated: kept for backward compatibility if still needed for MappingRow types
-public sealed record DomainMappingRow(
-    long DomainMappingId,
-    string ProviderDhsCode,
-    string CompanyCode,
-    string DomainName,
-    int DomainTableId,
-    string SourceValue,
-    string? TargetValue,
-    MappingStatus MappingStatus,
-    DateTimeOffset DiscoveredUtc,
-    DateTimeOffset? LastPostedUtc,
-    DateTimeOffset LastUpdatedUtc,
-    string? Notes);
 
 public interface IDomainMappingRepository
 {
