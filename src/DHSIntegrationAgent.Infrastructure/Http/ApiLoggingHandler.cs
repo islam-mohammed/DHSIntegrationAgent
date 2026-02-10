@@ -37,6 +37,11 @@ public sealed class ApiLoggingHandler : DelegatingHandler
         var sw = Stopwatch.StartNew();
 
         var correlationId = EnsureCorrelationId(request);
+        var url = request.RequestUri?.ToString() ?? "";
+        var method = request.Method.Method;
+
+        _logger.LogInformation("API request started: {Method} {Url} (corr={CorrelationId})", method, url, correlationId);
+
         long? reqBytes = request.Content?.Headers.ContentLength;
         bool wasGzip = request.Content?.Headers.ContentEncoding.Any(e => e.Equals("gzip", StringComparison.OrdinalIgnoreCase)) ?? false;
 
@@ -60,7 +65,6 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
             int? statusCode = response is null ? null : (int)response.StatusCode;
             long? respBytes = response?.Content?.Headers.ContentLength;
-            var url = request.RequestUri?.ToString() ?? "";
 
             var endpointName = GetEndpointName(url);
             var providerDhsCode = ExtractProviderDhsCode(url);
@@ -68,7 +72,7 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
             var record = new ApiCallRecord(
                 CorrelationId: correlationId,
-                HttpMethod: request.Method.Method,
+                HttpMethod: method,
                 Url: url,
                 EndpointName: endpointName,
                 ProviderDhsCode: providerDhsCode,
@@ -84,12 +88,11 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                 WasGzipRequest: wasGzip
             );
 
-            // Use CancellationToken.None to ensure we log even if the request was canceled/aborted.
-            // Persistence of logs is critical for auditing.
+            // Using CancellationToken.None to ensure logs are recorded even if the HTTP request was canceled.
             await _recorder.RecordAsync(record, CancellationToken.None);
 
             _logger.LogInformation(
-                "API {EndpointName} ({Method} {Url}) -> {Status} in {Elapsed}ms (corr={CorrelationId}, succeeded={Succeeded})",
+                "API request completed: {EndpointName} ({Method} {Url}) -> {Status} in {Elapsed}ms (corr={CorrelationId}, succeeded={Succeeded})",
                 record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.Succeeded
             );
         }
@@ -99,9 +102,12 @@ public sealed class ApiLoggingHandler : DelegatingHandler
     {
         if (string.IsNullOrWhiteSpace(url)) return "Unknown";
 
+        // Strip query string and trailing slashes for matching
+        var cleanUrl = url.Split('?')[0].TrimEnd('/');
+
         foreach (var kvp in PathToAlias)
         {
-            if (url.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
+            if (cleanUrl.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
                 return kvp.Value;
         }
 
@@ -122,11 +128,14 @@ public sealed class ApiLoggingHandler : DelegatingHandler
     {
         if (string.IsNullOrWhiteSpace(url)) return null;
 
-        if (url.Contains("api/Batch/GetBatchRequest/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
-        if (url.Contains("api/Provider/GetProviderConfigration/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
-        if (url.Contains("api/DomainMapping/GetProviderDomainMapping/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
-        if (url.Contains("api/DomainMapping/GetMissingDomainMappings/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
-        if (url.Contains("api/DomainMapping/GetProviderDomainMappingsWithMissing/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(url);
+        // Strip query string for parsing
+        var cleanUrl = url.Split('?')[0];
+
+        if (cleanUrl.Contains("api/Batch/GetBatchRequest/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(cleanUrl);
+        if (cleanUrl.Contains("api/Provider/GetProviderConfigration/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(cleanUrl);
+        if (cleanUrl.Contains("api/DomainMapping/GetProviderDomainMapping/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(cleanUrl);
+        if (cleanUrl.Contains("api/DomainMapping/GetMissingDomainMappings/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(cleanUrl);
+        if (cleanUrl.Contains("api/DomainMapping/GetProviderDomainMappingsWithMissing/", StringComparison.OrdinalIgnoreCase)) return ExtractLastSegment(cleanUrl);
 
         return null;
     }
@@ -142,8 +151,7 @@ public sealed class ApiLoggingHandler : DelegatingHandler
             }
             else
             {
-                // Handle relative URL by stripping query string
-                path = url.Split('?')[0];
+                path = url;
             }
 
             var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
