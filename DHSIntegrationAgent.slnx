@@ -1,6 +1,6 @@
 <Solution>
   <Folder Name="/docs/">
-    <File Path="configuration.md" />
+    <File Path="../../Users/islam/Downloads/doc.md" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/DHSIntegrationAgent.Adapters/DHSIntegrationAgent.Adapters.csproj" />
@@ -16,69 +16,4 @@
     <Project Path="tests/DHSIntegrationAgent.Tests.Integration/DHSIntegrationAgent.Tests.Integration.csproj" />
     <Project Path="tests/DHSIntegrationAgent.Tests.Unit/DHSIntegrationAgent.Tests.Unit.csproj" />
   </Folder>
-  <Properties Name="TeamFoundationVersionControl">
-    <Property Name="SccAuxPath0" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccAuxPath1" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccAuxPath2" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccAuxPath3" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccAuxPath4" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccAuxPath5" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccAuxPath6" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccAuxPath7" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccAuxPath8" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccAuxPath9" Value="https://dev.azure.com/dhsplatform" />
-    <Property Name="SccEnterpriseProvider" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccLocalPath0" Value="src\\DHSIntegrationAgent.Adapters" />
-    <Property Name="SccLocalPath1" Value="src\\DHSIntegrationAgent.App" />
-    <Property Name="SccLocalPath2" Value="src\\DHSIntegrationAgent.Application" />
-    <Property Name="SccLocalPath3" Value="src\\DHSIntegrationAgent.Contracts" />
-    <Property Name="SccLocalPath4" Value="src\\DHSIntegrationAgent.Domain" />
-    <Property Name="SccLocalPath5" Value="src\\DHSIntegrationAgent.Infrastructure" />
-    <Property Name="SccLocalPath6" Value="src\\DHSIntegrationAgent.Workers" />
-    <Property Name="SccLocalPath7" Value="tests\\DHSIntegrationAgent.Tests.Integration" />
-    <Property Name="SccLocalPath8" Value="tests\\DHSIntegrationAgent.Tests.Unit" />
-    <Property Name="SccLocalPath9" Value="src\\DHSIntegrationAgent.Bootstrapper" />
-    <Property Name="SccNumberOfProjects" Value="10" />
-    <Property Name="SccProjectName0" Value="src/DHSIntegrationAgent.Adapters" />
-    <Property Name="SccProjectName1" Value="src/DHSIntegrationAgent.App" />
-    <Property Name="SccProjectName2" Value="src/DHSIntegrationAgent.Application" />
-    <Property Name="SccProjectName3" Value="src/DHSIntegrationAgent.Contracts" />
-    <Property Name="SccProjectName4" Value="src/DHSIntegrationAgent.Domain" />
-    <Property Name="SccProjectName5" Value="src/DHSIntegrationAgent.Infrastructure" />
-    <Property Name="SccProjectName6" Value="src/DHSIntegrationAgent.Workers" />
-    <Property Name="SccProjectName7" Value="tests/DHSIntegrationAgent.Tests.Integration" />
-    <Property Name="SccProjectName8" Value="tests/DHSIntegrationAgent.Tests.Unit" />
-    <Property Name="SccProjectName9" Value="src/DHSIntegrationAgent.Bootstrapper" />
-    <Property Name="SccProjectTopLevelParentUniqueName0" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectTopLevelParentUniqueName1" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectTopLevelParentUniqueName2" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectTopLevelParentUniqueName3" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectTopLevelParentUniqueName4" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectTopLevelParentUniqueName5" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectTopLevelParentUniqueName6" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectTopLevelParentUniqueName7" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectTopLevelParentUniqueName8" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectTopLevelParentUniqueName9" Value="DHSIntegrationAgent.slnx" />
-    <Property Name="SccProjectUniqueName0" Value="src\\DHSIntegrationAgent.Adapters\\DHSIntegrationAgent.Adapters.csproj" />
-    <Property Name="SccProjectUniqueName1" Value="src\\DHSIntegrationAgent.App\\DHSIntegrationAgent.App.csproj" />
-    <Property Name="SccProjectUniqueName2" Value="src\\DHSIntegrationAgent.Application\\DHSIntegrationAgent.Application.csproj" />
-    <Property Name="SccProjectUniqueName3" Value="src\\DHSIntegrationAgent.Contracts\\DHSIntegrationAgent.Contracts.csproj" />
-    <Property Name="SccProjectUniqueName4" Value="src\\DHSIntegrationAgent.Domain\\DHSIntegrationAgent.Domain.csproj" />
-    <Property Name="SccProjectUniqueName5" Value="src\\DHSIntegrationAgent.Infrastructure\\DHSIntegrationAgent.Infrastructure.csproj" />
-    <Property Name="SccProjectUniqueName6" Value="src\\DHSIntegrationAgent.Workers\\DHSIntegrationAgent.Workers.csproj" />
-    <Property Name="SccProjectUniqueName7" Value="tests\\DHSIntegrationAgent.Tests.Integration\\DHSIntegrationAgent.Tests.Integration.csproj" />
-    <Property Name="SccProjectUniqueName8" Value="tests\\DHSIntegrationAgent.Tests.Unit\\DHSIntegrationAgent.Tests.Unit.csproj" />
-    <Property Name="SccProjectUniqueName9" Value="src\\DHSIntegrationAgent.Bootstrapper\\DHSIntegrationAgent.Bootstrapper.csproj" />
-    <Property Name="SccProvider0" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccProvider1" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccProvider2" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccProvider3" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccProvider4" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccProvider5" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccProvider6" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccProvider7" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccProvider8" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccProvider9" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
-    <Property Name="SccTeamFoundationServer" Value="https://dev.azure.com/dhsplatform" />
-  </Properties>
 </Solution>
