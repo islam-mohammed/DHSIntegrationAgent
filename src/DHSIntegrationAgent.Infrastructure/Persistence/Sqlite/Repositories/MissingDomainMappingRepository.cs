@@ -10,7 +10,6 @@ internal sealed class MissingDomainMappingRepository : SqliteRepositoryBase, IMi
 
     public async Task UpsertAsync(
         string providerDhsCode,
-        string companyCode,
         string domainName,
         int domainTableId,
         string sourceValue,
@@ -21,10 +20,10 @@ internal sealed class MissingDomainMappingRepository : SqliteRepositoryBase, IMi
         await using var cmd = CreateCommand(
             """
             INSERT INTO MissingDomainMapping
-            (ProviderDhsCode, CompanyCode, DomainName, DomainTableId, SourceValue, DiscoverySource, DiscoveredUtc, LastUpdatedUtc)
+            (ProviderDhsCode, DomainName, DomainTableId, SourceValue, DiscoverySource, DiscoveredUtc, LastUpdatedUtc)
             VALUES
-            ($p, $c, $dn, $dt, $sv, $ds, $now, $now)
-            ON CONFLICT(ProviderDhsCode, CompanyCode, DomainTableId, SourceValue)
+            ($p, $dn, $dt, $sv, $ds, $now, $now)
+            ON CONFLICT(ProviderDhsCode, DomainTableId, SourceValue)
             DO UPDATE SET
                 DomainName = excluded.DomainName,
                 DiscoverySource = excluded.DiscoverySource,
@@ -33,7 +32,6 @@ internal sealed class MissingDomainMappingRepository : SqliteRepositoryBase, IMi
 
         var nowIso = SqliteUtc.ToIso(utcNow);
         SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
-        SqliteSqlBuilder.AddParam(cmd, "$c", companyCode);
         SqliteSqlBuilder.AddParam(cmd, "$dn", domainName);
         SqliteSqlBuilder.AddParam(cmd, "$dt", domainTableId);
         SqliteSqlBuilder.AddParam(cmd, "$sv", sourceValue);
@@ -50,7 +48,6 @@ internal sealed class MissingDomainMappingRepository : SqliteRepositoryBase, IMi
             SELECT
                 MissingMappingId,
                 ProviderDhsCode,
-                CompanyCode,
                 DomainName,
                 DomainTableId,
                 SourceValue,
@@ -73,14 +70,13 @@ internal sealed class MissingDomainMappingRepository : SqliteRepositoryBase, IMi
             results.Add(new MissingDomainMappingRow(
                 MissingMappingId: reader.GetInt64(0),
                 ProviderDhsCode: reader.GetString(1),
-                CompanyCode: reader.GetString(2),
-                DomainName: reader.GetString(3),
-                DomainTableId: reader.GetInt32(4),
-                SourceValue: reader.GetString(5),
-                DiscoverySource: (DiscoverySource)reader.GetInt32(6),
-                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(7)),
-                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(8)),
-                Notes: reader.IsDBNull(9) ? null : reader.GetString(9)
+                DomainName: reader.GetString(2),
+                DomainTableId: reader.GetInt32(3),
+                SourceValue: reader.GetString(4),
+                DiscoverySource: (DiscoverySource)reader.GetInt32(5),
+                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(6)),
+                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(7)),
+                Notes: reader.IsDBNull(8) ? null : reader.GetString(8)
             ));
         }
 

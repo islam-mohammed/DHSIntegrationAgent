@@ -220,23 +220,6 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 return;
             }
 
-            // determine company codes (if not present on item)
-            var companyCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var providerPayers = GetCaseInsensitive(payload, "providerPayers") as JsonArray;
-
-            if (providerPayers is not null)
-            {
-                foreach (var p in providerPayers.OfType<JsonObject>())
-                {
-                    var cc = GetString(p, "companyCode");
-                    if (!string.IsNullOrWhiteSpace(cc))
-                        companyCodes.Add(cc!);
-                }
-            }
-
-            if (companyCodes.Count == 0)
-                companyCodes.Add("DEFAULT");
-
             var upserted = 0;
             var skipped = 0;
 
@@ -268,9 +251,6 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                     GetString(item, "mappedValue") ??
                     "";
 
-                var itemCompanyCode =
-                    GetString(item, "companyCode");
-
                 if (string.IsNullOrWhiteSpace(domainName) ||
                     domainTableId is null ||
                     string.IsNullOrWhiteSpace(sourceValue) ||
@@ -287,35 +267,15 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                     continue;
                 }
 
-                if (!string.IsNullOrWhiteSpace(itemCompanyCode))
-                {
-                    await uow.DomainMappings.UpsertApprovedAsync(
-                        providerDhsCode,
-                        itemCompanyCode!,
-                        domainName!,
-                        domainTableId.Value,
-                        sourceValue!,
-                        targetValue!,
-                        now,
-                        ct);
-                    upserted++;
-                }
-                else
-                {
-                    foreach (var cc in companyCodes)
-                    {
-                        await uow.DomainMappings.UpsertApprovedAsync(
-                            providerDhsCode,
-                            cc,
-                            domainName!,
-                            domainTableId.Value,
-                            sourceValue!,
-                            targetValue!,
-                            now,
-                            ct);
-                        upserted++;
-                    }
-                }
+                await uow.DomainMappings.UpsertApprovedAsync(
+                    providerDhsCode,
+                    domainName!,
+                    domainTableId.Value,
+                    sourceValue!,
+                    targetValue!,
+                    now,
+                    ct);
+                upserted++;
             }
 
             _logger.LogInformation(
@@ -343,23 +303,6 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 _logger.LogInformation("Provider configuration contains no missingDomainMappings to upsert. ProviderDhsCode={ProviderDhsCode}", providerDhsCode);
                 return;
             }
-
-            // determine company codes (similar to approved mappings)
-            var companyCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var providerPayers = GetCaseInsensitive(payload, "providerPayers") as JsonArray;
-
-            if (providerPayers is not null)
-            {
-                foreach (var p in providerPayers.OfType<JsonObject>())
-                {
-                    var cc = GetString(p, "companyCode");
-                    if (!string.IsNullOrWhiteSpace(cc))
-                        companyCodes.Add(cc!);
-                }
-            }
-
-            if (companyCodes.Count == 0)
-                companyCodes.Add("DEFAULT");
 
             var upserted = 0;
             var skipped = 0;
@@ -391,19 +334,15 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                     continue;
                 }
 
-                foreach (var cc in companyCodes)
-                {
-                    await uow.MissingDomainMappings.UpsertAsync(
-                        providerDhsCode,
-                        cc,
-                        domainName!,
-                        domainTableId.Value,
-                        sourceValue!,
-                        DiscoverySource.Api,
-                        now,
-                        ct);
-                    upserted++;
-                }
+                await uow.MissingDomainMappings.UpsertAsync(
+                    providerDhsCode,
+                    domainName!,
+                    domainTableId.Value,
+                    sourceValue!,
+                    DiscoverySource.Api,
+                    now,
+                    ct);
+                upserted++;
             }
 
             _logger.LogInformation(

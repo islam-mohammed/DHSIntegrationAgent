@@ -63,10 +63,6 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
             return;
         }
 
-        // Determine company codes from AppSettings/config if your API doesn’t include it.
-        // Here we default to DEFAULT if missing (consistent with config loader behavior).
-        const string defaultCompanyCode = "DEFAULT";
-
         var upserted = 0;
         var skipped = 0;
 
@@ -97,11 +93,6 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
                 TryGetString(item, "mappedValue") ??
                 "";
 
-            var companyCode =
-                TryGetString(item, "companyCode") ??
-                TryGetString(item, "CompanyCode") ??
-                defaultCompanyCode;
-
             if (string.IsNullOrWhiteSpace(domainName) ||
                 domainTableId is null ||
                 string.IsNullOrWhiteSpace(sourceValue) ||
@@ -120,7 +111,6 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
 
             await uow.DomainMappings.UpsertApprovedAsync(
                 providerDhsCode,
-                companyCode!,
                 domainName!,
                 domainTableId.Value,
                 sourceValue!,
@@ -157,7 +147,6 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
         }
 
         var data = result.Data;
-        const string defaultCompanyCode = "DEFAULT";
 
         // 1) Upsert approved mappings
         if (data.DomainMappings is not null)
@@ -168,14 +157,12 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
                 var domainTableId = item.DomTable_ID;
                 var sourceValue = item.ProviderDomainValue ?? item.SourceValue ?? "";
                 var targetValue = item.CodeValue ?? item.DisplayValue ?? item.TargetValue ?? "";
-                var companyCode = item.CompanyCode ?? defaultCompanyCode;
 
                 if (domainTableId is null || string.IsNullOrWhiteSpace(sourceValue) || string.IsNullOrWhiteSpace(targetValue))
                     continue;
 
                 await uow.DomainMappings.UpsertApprovedAsync(
                     providerDhsCode,
-                    companyCode,
                     domainName,
                     domainTableId.Value,
                     sourceValue,
@@ -193,14 +180,12 @@ public sealed class ApprovedDomainMappingRefreshService : IApprovedDomainMapping
                 var domainName = item.DomainTableName ?? item.DomainName ?? "";
                 var domainTableId = item.DomainTableId;
                 var sourceValue = item.ProviderCodeValue ?? item.SourceValue ?? "";
-                var companyCode = item.CompanyCode ?? defaultCompanyCode;
 
                 if (string.IsNullOrWhiteSpace(sourceValue))
                     continue;
 
                 await uow.MissingDomainMappings.UpsertAsync(
                     providerDhsCode,
-                    companyCode,
                     domainName,
                     domainTableId,
                     sourceValue,
