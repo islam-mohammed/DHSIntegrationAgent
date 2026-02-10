@@ -15,7 +15,6 @@ public interface ISqliteUnitOfWork : IAsyncDisposable
     IClaimPayloadRepository ClaimPayloads { get; }
 
     IDomainMappingRepository DomainMappings { get; }
-    IMissingDomainMappingRepository MissingDomainMappings { get; }
 
     IDispatchRepository Dispatches { get; }
     IDispatchItemRepository DispatchItems { get; }

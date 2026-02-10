@@ -33,11 +33,13 @@ public sealed record ProviderConfigurationSnapshot(
 /// <summary>
 /// We only parse the subset that is stable/needed now (WBS 2.3):
 /// - providerPayers list (CompanyCode + optional PayerCode + names)
-/// - domainMappings kept as JsonArray for later steps (scan rules + baseline mappings)
+/// - domainMappings (approved) kept as JsonArray for later steps
+/// - missingDomainMappings kept as JsonArray for later steps
 /// </summary>
 public sealed record ProviderConfigurationParsed(
     IReadOnlyList<ProviderPayerDto> ProviderPayers,
-    JsonArray? DomainMappings
+    JsonArray? DomainMappings,
+    JsonArray? MissingDomainMappings
 );
 
 public sealed record ProviderPayerDto(

@@ -98,27 +98,6 @@ public sealed class DomainMappingClient : IDomainMappingClient
         return FailMissing($"GetMissingDomainMappings failed (HTTP {(int)resp.StatusCode}).", (int)resp.StatusCode);
     }
 
-    public async Task<GetProviderDomainMappingsWithMissingResult> GetProviderDomainMappingsWithMissingAsync(string providerDhsCode, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(providerDhsCode))
-            return FailWithMissing("providerDhsCode is required.", 400);
-
-        var client = _httpClientFactory.CreateClient("BackendApi");
-
-        var path = $"api/DomainMapping/GetProviderDomainMappingsWithMissing/{Uri.EscapeDataString(providerDhsCode)}";
-        using var resp = await client.GetAsync(path, ct);
-        var body = await resp.Content.ReadAsStringAsync(ct);
-
-        if (resp.StatusCode == HttpStatusCode.OK)
-            return ParseWithMissing(body);
-
-        var parsed = ParseWithMissing(body);
-        if (parsed.Succeeded || parsed.Data is not null || (parsed.Errors is not null && parsed.Errors.Count > 0))
-            return parsed with { StatusCode = (int)resp.StatusCode };
-
-        return FailWithMissing($"GetProviderDomainMappingsWithMissing failed (HTTP {(int)resp.StatusCode}).", (int)resp.StatusCode);
-    }
-
     private static InsertMissMappingDomainResult ParseInsert(string json)
     {
         try
@@ -158,27 +137,6 @@ public sealed class DomainMappingClient : IDomainMappingClient
                 SkippedItems: Array.Empty<string>()));
 
     private static GetMissingDomainMappingsResult FailMissing(string error, int statusCode)
-        => new(
-            Succeeded: false,
-            StatusCode: statusCode,
-            Message: error,
-            Errors: new List<string> { error },
-            Data: null);
-
-    private static GetProviderDomainMappingsWithMissingResult ParseWithMissing(string json)
-    {
-        try
-        {
-            var result = JsonSerializer.Deserialize<GetProviderDomainMappingsWithMissingResult>(json, JsonOptions);
-            return result ?? FailWithMissing("Failed to deserialize API response.", 500);
-        }
-        catch (Exception ex)
-        {
-            return FailWithMissing($"Failed to deserialize API response: {ex.Message}", 500);
-        }
-    }
-
-    private static GetProviderDomainMappingsWithMissingResult FailWithMissing(string error, int statusCode)
         => new(
             Succeeded: false,
             StatusCode: statusCode,

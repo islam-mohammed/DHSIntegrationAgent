@@ -1,5 +1,3 @@
-using DHSIntegrationAgent.Application.Abstractions;
-
 ﻿namespace DHSIntegrationAgent.Application.Providers;
 
 /// <summary>
@@ -14,10 +12,4 @@ public interface IApprovedDomainMappingRefreshService
     /// and upserts approved mappings into SQLite.
     /// </summary>
     Task RefreshApprovedMappingsAsync(CancellationToken ct);
-
-    /// <summary>
-    /// Calls backend endpoint /api/DomainMapping/GetProviderDomainMappingsWithMissing/{providerDhsCode}
-    /// and upserts both approved and missing mappings into SQLite.
-    /// </summary>
-    Task<ProviderDomainMappingsData?> RefreshAllMappingsAsync(CancellationToken ct);
 }

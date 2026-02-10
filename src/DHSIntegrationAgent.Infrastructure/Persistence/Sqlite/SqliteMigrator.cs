@@ -1,4 +1,5 @@
-﻿using System.Data.Common;
+﻿using System;
+using System.Data.Common;
 using DHSIntegrationAgent.Application.Configuration;
 using DHSIntegrationAgent.Application.Persistence;
 using Microsoft.Extensions.Logging;
@@ -86,8 +87,10 @@ internal sealed class SqliteMigrator : ISqliteMigrator
 
         await ExecAsync(conn, tx,
             """
-            INSERT INTO AppSettings (Id, GroupID, ProviderDhsCode, ConfigCacheTtlMinutes, FetchIntervalMinutes, ManualRetryCooldownMinutes, LeaseDurationSeconds, CreatedUtc, UpdatedUtc)
-            VALUES (1, NULL, NULL, 1440, 5, 10, 120, $now, $now);
+            INSERT INTO AppSettings
+            (Id, GroupID, ProviderDhsCode, CreatedUtc, UpdatedUtc)
+            VALUES
+            (1, NULL, NULL, $now, $now);
             """,
             ct,
             ("$now", now));
@@ -139,29 +142,27 @@ internal sealed class SqliteMigrator : ISqliteMigrator
     private static async Task<bool> TableExistsAsync(DbConnection conn, string tableName, CancellationToken ct)
     {
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$name LIMIT 1;";
+        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=$name;";
         var p = cmd.CreateParameter();
         p.ParameterName = "$name";
         p.Value = tableName;
         cmd.Parameters.Add(p);
-
         var obj = await cmd.ExecuteScalarAsync(ct);
-        return obj is not null;
+        return obj is not null && obj != DBNull.Value;
     }
 
     private static async Task<bool> AnyUserTablesExistAsync(DbConnection conn, CancellationToken ct)
     {
         await using var cmd = conn.CreateCommand();
-        cmd.CommandText =
-            """
-            SELECT 1
-            FROM sqlite_master
-            WHERE type='table'
-              AND name NOT LIKE 'sqlite_%'
-            LIMIT 1;
-            """;
+        cmd.CommandText = """
+                          SELECT 1
+                          FROM sqlite_master
+                          WHERE type='table'
+                            AND name NOT LIKE 'sqlite_%'
+                          LIMIT 1;
+                          """;
         var obj = await cmd.ExecuteScalarAsync(ct);
-        return obj is not null;
+        return obj is not null && obj != DBNull.Value;
     }
 
     private static async Task ExecAsync(
@@ -183,6 +184,29 @@ internal sealed class SqliteMigrator : ISqliteMigrator
             cmd.Parameters.Add(p);
         }
 
-        await cmd.ExecuteNonQueryAsync(ct);
+        try
+        {
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        catch (DbException ex) when (IsIgnorableMigrationError(ex, sql))
+        {
+            // Safe no-op: column already exists. Keeps migrations idempotent across dev DBs.
+        }
+    }
+
+    private static bool IsIgnorableMigrationError(DbException ex, string sql)
+    {
+        var message = ex.Message ?? string.Empty;
+        var trimmed = sql.TrimStart();
+
+        // SQLite: "duplicate column name: <Column>"
+        if (message.Contains("duplicate column name", StringComparison.OrdinalIgnoreCase) &&
+            trimmed.StartsWith("ALTER TABLE", StringComparison.OrdinalIgnoreCase) &&
+            trimmed.Contains("ADD COLUMN", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
     }
 }

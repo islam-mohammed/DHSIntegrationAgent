@@ -80,10 +80,3 @@ public enum AttachmentSourceType
     RawBytesInLocation = 1,
     Base64InAttachBit = 2
 }
-
-// 4.9 DiscoverySource (MissingDomainMapping.DiscoverySource)
-public enum DiscoverySource
-{
-    Api = 0,
-    Scanned = 1
-}

@@ -40,7 +40,6 @@ internal sealed class SqliteUnitOfWork : ISqliteUnitOfWork
 
         // Mapping + dispatch repos
         DomainMappings = new DomainMappingRepository(_conn, _tx);
-        MissingDomainMappings = new MissingDomainMappingRepository(_conn, _tx);
         Dispatches = new DispatchRepository(_conn, _tx);
         DispatchItems = new DispatchItemRepository(_conn, _tx);
 
@@ -62,7 +61,6 @@ internal sealed class SqliteUnitOfWork : ISqliteUnitOfWork
     public IClaimPayloadRepository ClaimPayloads { get; }
 
     public IDomainMappingRepository DomainMappings { get; }
-    public IMissingDomainMappingRepository MissingDomainMappings { get; }
 
     public IDispatchRepository Dispatches { get; }
     public IDispatchItemRepository DispatchItems { get; }

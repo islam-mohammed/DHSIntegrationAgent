@@ -53,21 +53,6 @@ internal static class SqliteMigrations
         );
         """,
         "CREATE UNIQUE INDEX UX_MissingDomainMapping_Key ON MissingDomainMapping(ProviderDhsCode, DomainTableId, SourceValue);",
-
-        // Migrate existing data if table exists
-        """
-        INSERT INTO ApprovedDomainMapping (ProviderDhsCode, DomainName, DomainTableId, SourceValue, TargetValue, DiscoveredUtc, LastPostedUtc, LastUpdatedUtc, Notes)
-        SELECT DISTINCT ProviderDhsCode, DomainName, DomainTableId, SourceValue, COALESCE(TargetValue, ''), DiscoveredUtc, LastPostedUtc, LastUpdatedUtc, Notes
-        FROM DomainMapping WHERE MappingStatus = 2;
-        """,
-
-        """
-        INSERT INTO MissingDomainMapping (ProviderDhsCode, DomainName, DomainTableId, SourceValue, DiscoverySource, DiscoveredUtc, LastUpdatedUtc, Notes)
-        SELECT DISTINCT ProviderDhsCode, DomainName, DomainTableId, SourceValue, 0, DiscoveredUtc, LastUpdatedUtc, Notes
-        FROM DomainMapping WHERE MappingStatus = 0;
-        """,
-
-        "DROP TABLE DomainMapping;"
     };
 
     /// <summary>
@@ -184,28 +169,6 @@ internal static class SqliteMigrations
         """,
         "CREATE UNIQUE INDEX UX_PayerProfile_Provider_Company ON PayerProfile(ProviderDhsCode, CompanyCode);",
         "CREATE INDEX IX_PayerProfile_Provider_IsActive ON PayerProfile(ProviderDhsCode, IsActive);",
-
-        // -----------------------
-        // 5.7 DomainMapping
-        // -----------------------
-        """
-        CREATE TABLE DomainMapping (
-            DomainMappingId INTEGER PRIMARY KEY AUTOINCREMENT,
-            ProviderDhsCode  TEXT NOT NULL,
-            DomainName       TEXT NOT NULL,
-            DomainTableId    INTEGER NOT NULL,
-            SourceValue      TEXT NOT NULL,
-            TargetValue      TEXT NULL,
-            MappingStatus    INTEGER NOT NULL,
-            DiscoveredUtc    TEXT NOT NULL,
-            LastPostedUtc    TEXT NULL,
-            LastUpdatedUtc   TEXT NOT NULL,
-            Notes            TEXT NULL
-        );
-        """,
-        "CREATE UNIQUE INDEX UX_DomainMapping_Key ON DomainMapping(ProviderDhsCode, DomainTableId, SourceValue);",
-        "CREATE INDEX IX_DomainMapping_Status ON DomainMapping(MappingStatus);",
-        "CREATE INDEX IX_DomainMapping_DomainName ON DomainMapping(DomainName);",
 
         // -----------------------
         // 5.8 Batch

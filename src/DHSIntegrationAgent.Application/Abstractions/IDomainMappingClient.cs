@@ -14,10 +14,6 @@ public interface IDomainMappingClient
     Task<GetMissingDomainMappingsResult> GetMissingDomainMappingsAsync(
         string providerDhsCode,
         CancellationToken ct);
-
-    Task<GetProviderDomainMappingsWithMissingResult> GetProviderDomainMappingsWithMissingAsync(
-        string providerDhsCode,
-        CancellationToken ct);
 }
 
 public sealed record InsertMissMappingDomainRequest(
@@ -58,36 +54,5 @@ public sealed record MissingDomainMappingItem(
     string? ProviderCodeValue,
     string? ProviderNameValue,
     int DomainTableId,
-    string? DomainTableName,
-    string? DomainName,
-    string? CompanyCode,
-    string? SourceValue
-);
-
-public sealed record DomainMappingItem(
-    int? DomTable_ID,
-    string? ProviderDomainCode,
-    string? ProviderDomainValue,
-    int? DhsDomainValue,
-    bool? IsDefault,
-    string? CodeValue,
-    string? DisplayValue,
-    string? DomainName,
-    string? DomainTableName,
-    string? CompanyCode,
-    string? SourceValue,
-    string? TargetValue
-);
-
-public sealed record ProviderDomainMappingsData(
-    IReadOnlyList<DomainMappingItem>? DomainMappings,
-    IReadOnlyList<MissingDomainMappingItem>? MissingDomainMappings
-);
-
-public sealed record GetProviderDomainMappingsWithMissingResult(
-    bool Succeeded,
-    int StatusCode,
-    string? Message,
-    IReadOnlyList<string>? Errors,
-    ProviderDomainMappingsData? Data
+    string? DomainTableName
 );
