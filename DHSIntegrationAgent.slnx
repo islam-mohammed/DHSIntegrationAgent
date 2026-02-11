@@ -1,6 +1,6 @@
 <Solution>
   <Folder Name="/docs/">
-    <File Path="../../Users/islam/Downloads/doc.md" />
+    <File Path="docs/doc.md" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/DHSIntegrationAgent.Adapters/DHSIntegrationAgent.Adapters.csproj" />
