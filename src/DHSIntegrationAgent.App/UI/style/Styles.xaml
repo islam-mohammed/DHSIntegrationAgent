@@ -217,7 +217,7 @@
                                 </DatePickerTextBox>
 
                                 <!-- Calendar Button -->
- 
+
                                 <Button x:Name="PART_Button"
                                     Width="30"
                                     Focusable="False"
@@ -274,7 +274,7 @@
                                             </Border>
                                         </ControlTemplate>
                                     </Button.Template>
-                                   
+
 
                                 </Button>
                             </Grid>
@@ -380,7 +380,7 @@
             </Setter.Value>
         </Setter>
     </Style>
- 
+
     <!-- Sidebar Button -->
     <Style x:Key="SidebarButton" TargetType="Button">
         <Setter Property="Foreground" Value="White"/>
@@ -547,7 +547,7 @@
     <Style x:Key="BaseActionBtn" TargetType="Button"  BasedOn="{StaticResource MaterialDesignOutlinedButton}">
         <Setter Property="Foreground" Value="#473762"/>
         <Setter Property="Background" Value="#ECEBEF"/>
-        <Setter Property="Padding" Value="0"/> 
+        <Setter Property="Padding" Value="0"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="HorizontalAlignment" Value="Center"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -564,7 +564,7 @@
                         <ContentPresenter
 		                  HorizontalAlignment="Center"
 		                  VerticalAlignment="Center"/>
-                    </Border> 
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -640,15 +640,15 @@
     </Style>
     <!-- TabHeaderIcon -->
     <Style x:Key="TabHeaderTitle" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#333"/>
-            <!--  default color not active -->
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=TabItem}, Path=IsSelected}" Value="True">
-                    <Setter Property="Foreground" Value="White"/>
-                    <!-- color on select -->
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
+        <Setter Property="Foreground" Value="#333"/>
+        <!--  default color not active -->
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=TabItem}, Path=IsSelected}" Value="True">
+                <Setter Property="Foreground" Value="White"/>
+                <!-- color on select -->
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
     <!-- TabHeaderIcon -->
     <Style x:Key="TabHeaderIcon" TargetType="materialDesign:PackIcon">
         <Setter Property="Foreground" Value="#333"/>
@@ -675,7 +675,7 @@
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="BorderBrush" Value="#FFF3F4F6"/>
     </Style>
-    
+
     <!-- TableRowStyle -->
     <Style  x:Key="TableRowStyle" TargetType="DataGridRow">
         <Setter Property="Background" Value="White"/>
@@ -692,8 +692,8 @@
                 <Setter Property="Background" Value="#FFF3F4F6"/>
             </Trigger>
         </Style.Triggers>
-    </Style> 
-    
+    </Style>
+
     <!-- TableCellStyle -->
     <Style  x:Key="TableCellStyle" TargetType="DataGridCell">
         <Setter Property="Padding" Value="8,6"/>
@@ -720,10 +720,63 @@
     </Style>
 
 
+    <!-- Outline Primary Button -->
+    <Style x:Key="OutlinePrimButton"
+       TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="#32729B"/>
+        <Setter Property="BorderBrush" Value="#32729B"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="15">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 
 
+    <!-- Card Style -->
+    <Style TargetType="materialDesign:Card" x:Key="ContactCardStyle">
+        <Setter Property="Margin" Value="10"/>
+        <Setter Property="Padding" Value="20"/>
+        <Setter Property="Height" Value="80"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Background" Value="#FFF8F8F8"/>
 
+        <Setter Property="Cursor" Value="Hand"/>
 
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="materialDesign:Card">
+                    <Border Background="{TemplateBinding Background}" 
+                  CornerRadius="6"
+                  >
+                        <ContentPresenter/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Icon Style -->
+    <!--<Style TargetType="PackIcon" x:Key="ContactIconStyle">
+        <Setter Property="Width" Value="32"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="VerticalAlignment" Value="Top"/>
+        <Setter Property="Foreground" Value="#000"/>
+        <Setter Property="Margin" Value="0,0,15,0"/>
+    </Style>-->
 
     <!-- أي Button في المشروع سيأخذ هذا الشكل تلقائيًا.  -->
     <Style TargetType="Button">

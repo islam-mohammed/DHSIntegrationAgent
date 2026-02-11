@@ -1,7 +1,4 @@
 <Solution>
-  <Folder Name="/docs/">
-    <File Path="docs/doc.md" />
-  </Folder>
   <Folder Name="/src/">
     <Project Path="src/DHSIntegrationAgent.Adapters/DHSIntegrationAgent.Adapters.csproj" />
     <Project Path="src/DHSIntegrationAgent.App/DHSIntegrationAgent.App.csproj" />
@@ -16,4 +13,50 @@
     <Project Path="tests/DHSIntegrationAgent.Tests.Integration/DHSIntegrationAgent.Tests.Integration.csproj" />
     <Project Path="tests/DHSIntegrationAgent.Tests.Unit/DHSIntegrationAgent.Tests.Unit.csproj" />
   </Folder>
+  <Properties Name="TeamFoundationVersionControl">
+    <Property Name="SccEnterpriseProvider" Value="{4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}" />
+    <Property Name="SccLocalPath0" Value="." />
+    <Property Name="SccLocalPath1" Value="src\\DHSIntegrationAgent.Adapters" />
+    <Property Name="SccLocalPath10" Value="tests\\DHSIntegrationAgent.Tests.Unit" />
+    <Property Name="SccLocalPath2" Value="src\\DHSIntegrationAgent.App" />
+    <Property Name="SccLocalPath3" Value="src\\DHSIntegrationAgent.Application" />
+    <Property Name="SccLocalPath4" Value="src\\DHSIntegrationAgent.Bootstrapper" />
+    <Property Name="SccLocalPath5" Value="src\\DHSIntegrationAgent.Contracts" />
+    <Property Name="SccLocalPath6" Value="src\\DHSIntegrationAgent.Domain" />
+    <Property Name="SccLocalPath7" Value="src\\DHSIntegrationAgent.Infrastructure" />
+    <Property Name="SccLocalPath8" Value="src\\DHSIntegrationAgent.Workers" />
+    <Property Name="SccLocalPath9" Value="tests\\DHSIntegrationAgent.Tests.Integration" />
+    <Property Name="SccNumberOfProjects" Value="11" />
+    <Property Name="SccProjectName1" Value="src/DHSIntegrationAgent.Adapters" />
+    <Property Name="SccProjectName10" Value="tests/DHSIntegrationAgent.Tests.Unit" />
+    <Property Name="SccProjectName2" Value="src/DHSIntegrationAgent.App" />
+    <Property Name="SccProjectName3" Value="src/DHSIntegrationAgent.Application" />
+    <Property Name="SccProjectName4" Value="src/DHSIntegrationAgent.Bootstrapper" />
+    <Property Name="SccProjectName5" Value="src/DHSIntegrationAgent.Contracts" />
+    <Property Name="SccProjectName6" Value="src/DHSIntegrationAgent.Domain" />
+    <Property Name="SccProjectName7" Value="src/DHSIntegrationAgent.Infrastructure" />
+    <Property Name="SccProjectName8" Value="src/DHSIntegrationAgent.Workers" />
+    <Property Name="SccProjectName9" Value="tests/DHSIntegrationAgent.Tests.Integration" />
+    <Property Name="SccProjectTopLevelParentUniqueName1" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectTopLevelParentUniqueName10" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectTopLevelParentUniqueName2" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectTopLevelParentUniqueName3" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectTopLevelParentUniqueName4" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectTopLevelParentUniqueName5" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectTopLevelParentUniqueName6" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectTopLevelParentUniqueName7" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectTopLevelParentUniqueName8" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectTopLevelParentUniqueName9" Value="DHSIntegrationAgent.slnx" />
+    <Property Name="SccProjectUniqueName1" Value="src\\DHSIntegrationAgent.Adapters\\DHSIntegrationAgent.Adapters.csproj" />
+    <Property Name="SccProjectUniqueName10" Value="tests\\DHSIntegrationAgent.Tests.Unit\\DHSIntegrationAgent.Tests.Unit.csproj" />
+    <Property Name="SccProjectUniqueName2" Value="src\\DHSIntegrationAgent.App\\DHSIntegrationAgent.App.csproj" />
+    <Property Name="SccProjectUniqueName3" Value="src\\DHSIntegrationAgent.Application\\DHSIntegrationAgent.Application.csproj" />
+    <Property Name="SccProjectUniqueName4" Value="src\\DHSIntegrationAgent.Bootstrapper\\DHSIntegrationAgent.Bootstrapper.csproj" />
+    <Property Name="SccProjectUniqueName5" Value="src\\DHSIntegrationAgent.Contracts\\DHSIntegrationAgent.Contracts.csproj" />
+    <Property Name="SccProjectUniqueName6" Value="src\\DHSIntegrationAgent.Domain\\DHSIntegrationAgent.Domain.csproj" />
+    <Property Name="SccProjectUniqueName7" Value="src\\DHSIntegrationAgent.Infrastructure\\DHSIntegrationAgent.Infrastructure.csproj" />
+    <Property Name="SccProjectUniqueName8" Value="src\\DHSIntegrationAgent.Workers\\DHSIntegrationAgent.Workers.csproj" />
+    <Property Name="SccProjectUniqueName9" Value="tests\\DHSIntegrationAgent.Tests.Integration\\DHSIntegrationAgent.Tests.Integration.csproj" />
+    <Property Name="SccTeamFoundationServer" Value="https://dev.azure.com/dhsplatform" />
+  </Properties>
 </Solution>

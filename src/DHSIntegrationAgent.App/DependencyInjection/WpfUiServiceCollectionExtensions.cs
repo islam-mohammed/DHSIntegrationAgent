@@ -24,6 +24,7 @@ public static class WpfUiServiceCollectionExtensions
         services.AddTransient<AttachmentsViewModel>();
         services.AddTransient<DiagnosticsViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddTransient<ContactViewModel>();
 
         // Modal ViewModels
         services.AddTransient<CreateBatchViewModel>();
