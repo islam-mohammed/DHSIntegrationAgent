@@ -104,13 +104,11 @@ SELECT
     SUM(TotalDeductible) AS TotalDeductible
 FROM {headerTable}
 WHERE CompanyCode = @CompanyCode
-  AND provider_dhsCode = TRY_CONVERT(int, @ProviderDhsCode)
   AND {dateCol} >= @StartDate
   AND {dateCol} <= @EndDate
   AND (IsFetched IS NULL OR IsFetched = 0);";
 
         cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
-        cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
         cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
         cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
 
