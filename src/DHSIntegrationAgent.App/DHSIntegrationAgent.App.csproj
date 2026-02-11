@@ -6,8 +6,8 @@
     <None Remove="UI\imgs\DHSLogo.png" />
     <None Remove="UI\imgs\logo.png" />
     <None Remove="UI\imgs\logo.svg" />
-    <None Remove="UI\imgs\MotalabatechLogo.png" />
     <None Remove="UI\imgs\MotLogo.png" />
+    <None Remove="UI\imgs\user2.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -49,6 +49,9 @@
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
     <Resource Include="UI\imgs\MotLogo.png">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Resource>
+    <Resource Include="UI\imgs\user2.png">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </Resource>
   </ItemGroup>
