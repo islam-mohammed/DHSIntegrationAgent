@@ -110,8 +110,8 @@ public sealed class StreamAWorker : IWorker
             progress.Report(new WorkerProgressReport(Id, $"Obtaining BcrId for batch {batch.BatchId}..."));
 
             // Need total claims count for CreateBatchRequest
-            var startDate = ParseMonthKey(batch.MonthKey);
-            var endDate = startDate.AddMonths(1).AddTicks(-1);
+            var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
+            var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
             var totalClaims = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
 
             var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaims, batch.ProviderDhsCode);
@@ -131,8 +131,8 @@ public sealed class StreamAWorker : IWorker
         // 2. Fetch and Stage Claims
         progress.Report(new WorkerProgressReport(Id, $"Fetching claims for batch {batch.BatchId}..."));
 
-        var batchStartDate = ParseMonthKey(batch.MonthKey);
-        var batchEndDate = batchStartDate.AddMonths(1).AddTicks(-1);
+        var batchStartDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
+        var batchEndDate = batch.EndDateUtc ?? batchStartDate.AddMonths(1).AddTicks(-1);
 
         int? lastSeen = null;
         int pageSize = 100;

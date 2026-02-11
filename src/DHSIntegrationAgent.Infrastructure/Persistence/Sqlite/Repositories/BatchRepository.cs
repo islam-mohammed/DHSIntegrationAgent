@@ -15,12 +15,18 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             """
             SELECT BatchId
             FROM Batch
-            WHERE ProviderDhsCode = $p AND CompanyCode = $c AND MonthKey = $m
+            WHERE ProviderDhsCode = $p
+              AND CompanyCode = $c
+              AND MonthKey = $m
+              AND (StartDateUtc = $s OR (StartDateUtc IS NULL AND $s IS NULL))
+              AND (EndDateUtc = $e OR (EndDateUtc IS NULL AND $e IS NULL))
             LIMIT 1;
             """);
         SqliteSqlBuilder.AddParam(cmd, "$p", key.ProviderDhsCode);
         SqliteSqlBuilder.AddParam(cmd, "$c", key.CompanyCode);
         SqliteSqlBuilder.AddParam(cmd, "$m", key.MonthKey);
+        SqliteSqlBuilder.AddParam(cmd, "$s", SqliteUtc.ToIso(key.StartDateUtc));
+        SqliteSqlBuilder.AddParam(cmd, "$e", SqliteUtc.ToIso(key.EndDateUtc));
 
         var obj = await cmd.ExecuteScalarAsync(cancellationToken);
         return obj is null || obj == DBNull.Value ? null : Convert.ToInt64(obj);
@@ -31,13 +37,15 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         await using (var insert = CreateCommand(
             """
             INSERT OR IGNORE INTO Batch
-            (ProviderDhsCode, CompanyCode, MonthKey, BatchStatus, HasResume, CreatedUtc, UpdatedUtc)
-            VALUES ($p, $c, $m, $status, 0, $now, $now);
+            (ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc, BatchStatus, HasResume, CreatedUtc, UpdatedUtc)
+            VALUES ($p, $c, $m, $s, $e, $status, 0, $now, $now);
             """))
         {
             SqliteSqlBuilder.AddParam(insert, "$p", key.ProviderDhsCode);
             SqliteSqlBuilder.AddParam(insert, "$c", key.CompanyCode);
             SqliteSqlBuilder.AddParam(insert, "$m", key.MonthKey);
+            SqliteSqlBuilder.AddParam(insert, "$s", SqliteUtc.ToIso(key.StartDateUtc));
+            SqliteSqlBuilder.AddParam(insert, "$e", SqliteUtc.ToIso(key.EndDateUtc));
             SqliteSqlBuilder.AddParam(insert, "$status", (int)batchStatus);
             SqliteSqlBuilder.AddParam(insert, "$now", SqliteUtc.ToIso(utcNow));
             await insert.ExecuteNonQueryAsync(cancellationToken);
@@ -87,7 +95,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
     {
         await using var cmd = CreateCommand(
             """
-            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError
+            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError
             FROM Batch
             WHERE BatchStatus = $status;
             """);
@@ -104,12 +112,14 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
                 CompanyCode: reader.GetString(2),
                 PayerCode: reader.IsDBNull(3) ? null : reader.GetString(3),
                 MonthKey: reader.GetString(4),
-                BcrId: reader.IsDBNull(5) ? null : reader.GetString(5),
-                BatchStatus: (BatchStatus)reader.GetInt32(6),
-                HasResume: reader.GetInt32(7) != 0,
-                CreatedUtc: SqliteUtc.FromIso(reader.GetString(8)),
-                UpdatedUtc: SqliteUtc.FromIso(reader.GetString(9)),
-                LastError: reader.IsDBNull(10) ? null : reader.GetString(10)
+                StartDateUtc: reader.IsDBNull(5) ? null : SqliteUtc.FromIso(reader.GetString(5)),
+                EndDateUtc: reader.IsDBNull(6) ? null : SqliteUtc.FromIso(reader.GetString(6)),
+                BcrId: reader.IsDBNull(7) ? null : reader.GetString(7),
+                BatchStatus: (BatchStatus)reader.GetInt32(8),
+                HasResume: reader.GetInt32(9) != 0,
+                CreatedUtc: SqliteUtc.FromIso(reader.GetString(10)),
+                UpdatedUtc: SqliteUtc.FromIso(reader.GetString(11)),
+                LastError: reader.IsDBNull(12) ? null : reader.GetString(12)
             ));
         }
 
