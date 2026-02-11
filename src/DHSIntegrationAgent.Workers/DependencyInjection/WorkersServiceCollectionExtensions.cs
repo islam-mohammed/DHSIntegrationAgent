@@ -1,4 +1,5 @@
 ﻿using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Application.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -10,6 +11,12 @@ public static class WorkersServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // Infrastructure services for workers
+        services.AddSingleton<BaselineDomainScanner>();
+
+        // Worker implementations
+        services.AddSingleton<IWorker, StreamAWorker>();
+
         // Real engine that orchestrates background workers.
         services.AddSingleton<WorkerEngine>();
         services.AddSingleton<IWorkerEngine>(sp => sp.GetRequiredService<WorkerEngine>());

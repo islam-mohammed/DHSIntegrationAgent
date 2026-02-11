@@ -177,7 +177,39 @@
             </Border>
 
             <!-- Active Screen -->
-            <ContentControl Grid.Column="1" Content="{Binding CurrentViewModel}" />
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Notification Bar -->
+                <Border Grid.Row="0" Background="#FFF9C4" BorderBrush="#FBC02D" BorderThickness="0,0,0,1" Padding="15,10"
+                        Visibility="{Binding ShowMissingDomainsNotification, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <materialDesign:PackIcon Kind="AlertCircle" Foreground="#F57F17" Width="20" Height="20" Margin="0,0,10,0"/>
+                            <TextBlock Text="{Binding MissingDomainsMessage}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#424242"/>
+                        </StackPanel>
+
+                        <Button Grid.Column="1" Style="{StaticResource MaterialDesignFlatButton}"
+                                Content="Go to Domain Mappings" Command="{Binding GoDomainMappingsCommand}"
+                                Foreground="#1976D2" FontWeight="Bold" Margin="0,0,10,0"/>
+
+                        <Button Grid.Column="2" Style="{StaticResource MaterialDesignFlatButton}"
+                                Content="Dismiss" Command="{Binding DismissNotificationCommand}"
+                                Foreground="#757575"/>
+                    </Grid>
+                </Border>
+
+                <ContentControl Grid.Row="1" Content="{Binding CurrentViewModel}" />
+            </Grid>
         </Grid>
     </DockPanel>
 </Window>

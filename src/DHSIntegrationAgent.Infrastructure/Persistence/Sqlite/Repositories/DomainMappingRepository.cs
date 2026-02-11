@@ -314,6 +314,21 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<bool> ExistsAsync(string providerDhsCode, int domainTableId, string sourceValue, CancellationToken ct)
+    {
+        if (await IsAlreadyApprovedAsync(providerDhsCode, domainTableId, sourceValue, ct))
+            return true;
+
+        await using var cmd = CreateCommand(
+            "SELECT 1 FROM MissingDomainMapping WHERE ProviderDhsCode = $p AND DomainTableId = $dt AND SourceValue = $sv LIMIT 1;");
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$dt", domainTableId);
+        SqliteSqlBuilder.AddParam(cmd, "$sv", sourceValue);
+
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result != null;
+    }
+
     private async Task<bool> IsAlreadyApprovedAsync(string providerDhsCode, int domainTableId, string sourceValue, CancellationToken ct)
     {
         await using var cmd = CreateCommand(

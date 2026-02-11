@@ -64,4 +64,6 @@ public interface IDomainMappingRepository
         DateTimeOffset? lastPostedUtc,
         string? notes,
         CancellationToken cancellationToken);
+
+    Task<bool> ExistsAsync(string providerDhsCode, int domainTableId, string sourceValue, CancellationToken ct);
 }

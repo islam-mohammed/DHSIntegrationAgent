@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DHSIntegrationAgent.Application\DHSIntegrationAgent.Application.csproj" />
+    <ProjectReference Include="..\DHSIntegrationAgent.Adapters\DHSIntegrationAgent.Adapters.csproj" />
   </ItemGroup>
 
   <ItemGroup>
