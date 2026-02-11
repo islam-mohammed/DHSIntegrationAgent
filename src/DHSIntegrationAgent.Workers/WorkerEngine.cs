@@ -1,3 +1,4 @@
+using System.Threading;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Contracts.Workers;
 using Microsoft.Extensions.Hosting;
@@ -9,6 +10,7 @@ public sealed class WorkerEngine : IWorkerEngine, IHostedService, IDisposable
 {
     private readonly IEnumerable<IWorker> _workers;
     private readonly ILogger<WorkerEngine> _logger;
+    private readonly SemaphoreSlim _lock = new(1, 1);
     private CancellationTokenSource? _cts;
     private Task? _executingTask;
 
@@ -22,44 +24,95 @@ public sealed class WorkerEngine : IWorkerEngine, IHostedService, IDisposable
         _logger = logger;
     }
 
-    public Task StartAsync(CancellationToken ct)
+    /// <summary>
+    /// Explicitly implement IHostedService.StartAsync to prevent auto-start on app boot.
+    /// The engine must be started manually after login.
+    /// </summary>
+    Task IHostedService.StartAsync(CancellationToken cancellationToken)
     {
-        if (IsRunning)
-        {
-            _logger.LogWarning("Worker Engine is already running.");
-            return Task.CompletedTask;
-        }
-
-        _logger.LogInformation("Starting Worker Engine...");
-
-        _cts?.Dispose();
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        _executingTask = RunWorkersAsync(_cts.Token);
-
-        IsRunning = true;
+        _logger.LogInformation("Worker Engine hosted service initialized (waiting for manual start).");
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Explicitly implement IHostedService.StopAsync to ensure host shutdown stops the workers.
+    /// </summary>
+    async Task IHostedService.StopAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Host is stopping; requesting Worker Engine shutdown.");
+        await StopAsync(cancellationToken);
+    }
+
+    public async Task StartAsync(CancellationToken ct)
+    {
+        await _lock.WaitAsync(ct);
+        try
+        {
+            if (IsRunning)
+            {
+                _logger.LogWarning("Worker Engine is already running.");
+                return;
+            }
+
+            _logger.LogInformation("Starting Worker Engine...");
+
+            _cts?.Dispose();
+            _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            _executingTask = RunWorkersAsync(_cts.Token);
+
+            IsRunning = true;
+        }
+        finally
+        {
+            _lock.Release();
+        }
     }
 
     public async Task StopAsync(CancellationToken ct)
     {
-        if (!IsRunning)
+        await _lock.WaitAsync(ct);
+        try
         {
-            _logger.LogWarning("Worker Engine is not running.");
-            return;
+            if (!IsRunning)
+            {
+                _logger.LogWarning("Worker Engine is not running.");
+                return;
+            }
+
+            _logger.LogInformation("Stopping Worker Engine...");
+
+            _cts?.Cancel();
+
+            if (_executingTask != null)
+            {
+                // Bounded stop: Wait for workers to finish, but no longer than 10 seconds
+                // or until the provided cancellation token triggers.
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeoutCts.CancelAfter(TimeSpan.FromSeconds(10));
+
+                try
+                {
+                    var timeoutTask = Task.Delay(Timeout.Infinite, timeoutCts.Token);
+                    var completedTask = await Task.WhenAny(_executingTask, timeoutTask);
+
+                    if (completedTask == timeoutTask && !_executingTask.IsCompleted)
+                    {
+                        _logger.LogWarning("Worker Engine stop timed out or was cancelled before workers finished.");
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    // This can happen if 'ct' was already cancelled.
+                }
+            }
+
+            IsRunning = false;
+            _logger.LogInformation("Worker Engine stopped.");
         }
-
-        _logger.LogInformation("Stopping Worker Engine...");
-
-        _cts?.Cancel();
-
-        if (_executingTask != null)
+        finally
         {
-            // Note: Task.WhenAny does not throw if the tasks are cancelled.
-            await Task.WhenAny(_executingTask, Task.Delay(Timeout.Infinite, ct));
+            _lock.Release();
         }
-
-        IsRunning = false;
-        _logger.LogInformation("Worker Engine stopped.");
     }
 
     private async Task RunWorkersAsync(CancellationToken ct)
@@ -91,5 +144,6 @@ public sealed class WorkerEngine : IWorkerEngine, IHostedService, IDisposable
     public void Dispose()
     {
         _cts?.Dispose();
+        _lock.Dispose();
     }
 }
