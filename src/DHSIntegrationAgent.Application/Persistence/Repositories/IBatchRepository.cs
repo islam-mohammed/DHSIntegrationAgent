@@ -16,4 +16,6 @@ public interface IBatchRepository
     Task SetBcrIdAsync(long batchId, string bcrId, DateTimeOffset utcNow, CancellationToken cancellationToken);
 
     Task UpdateStatusAsync(long batchId, BatchStatus status, bool? hasResume, string? lastError, DateTimeOffset utcNow, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<BatchRow>> ListByStatusAsync(BatchStatus status, CancellationToken cancellationToken);
 }
