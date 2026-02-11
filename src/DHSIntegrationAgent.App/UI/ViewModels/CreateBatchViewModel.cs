@@ -20,10 +20,11 @@ public sealed class CreateBatchViewModel : ViewModelBase
     private readonly IProviderTablesAdapter _tablesAdapter;
     private readonly IProviderConfigurationService _configService;
     private readonly ISystemClock _clock;
+    private readonly IWorkerEngine _workerEngine;
 
     private PayerItem? _selectedPayer;
-    private string? _selectedMonth;
-    private string? _selectedYear;
+    private DateTime _startDate;
+    private DateTime _endDate;
     private bool _isBusy;
 
     public ObservableCollection<PayerItem> Payers { get; } = new();
@@ -34,16 +35,16 @@ public sealed class CreateBatchViewModel : ViewModelBase
         set => SetProperty(ref _selectedPayer, value);
     }
 
-    public string? SelectedMonth
+    public DateTime StartDate
     {
-        get => _selectedMonth;
-        set => SetProperty(ref _selectedMonth, value);
+        get => _startDate;
+        set => SetProperty(ref _startDate, value);
     }
 
-    public string? SelectedYear
+    public DateTime EndDate
     {
-        get => _selectedYear;
-        set => SetProperty(ref _selectedYear, value);
+        get => _endDate;
+        set => SetProperty(ref _endDate, value);
     }
 
     public bool IsBusy
@@ -58,14 +59,21 @@ public sealed class CreateBatchViewModel : ViewModelBase
         ISqliteUnitOfWorkFactory unitOfWorkFactory,
         IProviderTablesAdapter tablesAdapter,
         IProviderConfigurationService configService,
-        ISystemClock clock)
+        ISystemClock clock,
+        IWorkerEngine workerEngine)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _tablesAdapter = tablesAdapter ?? throw new ArgumentNullException(nameof(tablesAdapter));
         _configService = configService ?? throw new ArgumentNullException(nameof(configService));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
 
         CreateBatchCommand = new AsyncRelayCommand(ExecuteCreateBatchAsync);
+
+        // Initialize dates to current month
+        var now = _clock.UtcNow.LocalDateTime;
+        StartDate = new DateTime(now.Year, now.Month, 1);
+        EndDate = StartDate.AddMonths(1).AddDays(-1);
 
         // Load payers from database
         _ = LoadPayersAsync();
@@ -75,9 +83,15 @@ public sealed class CreateBatchViewModel : ViewModelBase
     {
         if (IsBusy) return;
 
-        if (SelectedPayer == null || string.IsNullOrWhiteSpace(SelectedMonth) || string.IsNullOrWhiteSpace(SelectedYear))
+        if (SelectedPayer == null)
         {
-            MessageBox.Show("Please select a Payer, Month, and Year.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Please select a Payer.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        if (EndDate < StartDate)
+        {
+            MessageBox.Show("End Date cannot be earlier than Start Date.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -99,14 +113,8 @@ public sealed class CreateBatchViewModel : ViewModelBase
             }
 
             // 2. Determine Date Range
-            if (!int.TryParse(SelectedMonth, out int month) || !int.TryParse(SelectedYear, out int year))
-            {
-                MessageBox.Show("Invalid Month or Year selected.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
-            var startDate = new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
-            var endDate = startDate.AddMonths(1).AddTicks(-1);
+            var startDateOffset = new DateTimeOffset(StartDate.Year, StartDate.Month, StartDate.Day, 0, 0, 0, TimeSpan.Zero);
+            var endDateOffset = new DateTimeOffset(EndDate.Year, EndDate.Month, EndDate.Day, 23, 59, 59, 999, TimeSpan.Zero);
 
             // 3. Check Integration Type and Validate Financials
             var integrationType = "Tables"; // Default
@@ -125,11 +133,12 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 var summary = await _tablesAdapter.GetFinancialSummaryAsync(
                     providerDhsCode,
                     SelectedPayer.CompanyCode,
-                    startDate,
-                    endDate,
+                    startDateOffset,
+                    endDateOffset,
                     default);
 
-                var message = $"Batch Validation Summary for {SelectedPayer.PayerName} ({SelectedMonth}/{SelectedYear}):\n\n" +
+                var message = $"Batch Validation Summary for {SelectedPayer.PayerName}:\n" +
+                              $"Range: {StartDate:yyyy-MM-dd} to {EndDate:yyyy-MM-dd}\n\n" +
                               $"Total Claims: {summary.TotalClaims}\n" +
                               $"Claimed Amount: {summary.TotalClaimedAmount:N2}\n" +
                               $"Total Discount: {summary.TotalDiscount:N2}\n" +
@@ -147,8 +156,8 @@ public sealed class CreateBatchViewModel : ViewModelBase
             else
             {
                 // For other integration types, just show a simple confirmation or count
-                var count = await _tablesAdapter.CountClaimsAsync(providerDhsCode, SelectedPayer.CompanyCode, startDate, endDate, default);
-                var result = MessageBox.Show($"Create batch for {SelectedPayer.PayerName} with {count} claims?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                var count = await _tablesAdapter.CountClaimsAsync(providerDhsCode, SelectedPayer.CompanyCode, startDateOffset, endDateOffset, default);
+                var result = MessageBox.Show($"Create batch for {SelectedPayer.PayerName} with {count} claims?\nRange: {StartDate:yyyy-MM-dd} to {EndDate:yyyy-MM-dd}", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (result != MessageBoxResult.Yes)
                 {
                     return;
@@ -158,17 +167,20 @@ public sealed class CreateBatchViewModel : ViewModelBase
             // 4. Create Batch locally
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
             {
-                var monthKey = $"{year}{month:D2}";
-                var key = new BatchKey(providerDhsCode, SelectedPayer.CompanyCode, monthKey);
+                var monthKey = $"{StartDate.Year}{StartDate.Month:D2}";
+                var key = new BatchKey(providerDhsCode, SelectedPayer.CompanyCode, monthKey, startDateOffset, endDateOffset);
 
                 await uow.Batches.EnsureBatchAsync(key, BatchStatus.Ready, _clock.UtcNow, default);
                 await uow.CommitAsync(default);
             }
 
-            MessageBox.Show("Batch created successfully and is now ready for processing.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            // 5. Start Worker Engine if not running
+            if (!_workerEngine.IsRunning)
+            {
+                await _workerEngine.StartAsync(default);
+            }
 
-            // Close the window (this is a bit tricky from ViewModel, but we can use a property or event)
-            // For now, we'll just let the user close it or assume the View handles it if we had a proper navigation service.
+            MessageBox.Show("Batch created successfully and processing has started.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {

@@ -9,13 +9,25 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 3;
+    public static readonly int CurrentSchemaVersion = 4;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
         new Migration(1, "001_InitialSchema_v1", BuildV1()),
         new Migration(2, "002_SeparateDomainMappings", BuildV2()),
-        new Migration(3, "003_AddMetadataToDomainMappings", BuildV3())
+        new Migration(3, "003_AddMetadataToDomainMappings", BuildV3()),
+        new Migration(4, "004_AddDatesToBatch", BuildV4())
+    };
+
+    /// <summary>
+    /// Migration 4: Add StartDateUtc and EndDateUtc to Batch table and update unique index.
+    /// </summary>
+    private static IReadOnlyList<string> BuildV4() => new List<string>
+    {
+        "ALTER TABLE Batch ADD COLUMN StartDateUtc TEXT NULL;",
+        "ALTER TABLE Batch ADD COLUMN EndDateUtc TEXT NULL;",
+        "DROP INDEX IF EXISTS UX_Batch_Provider_Company_Month;",
+        "CREATE UNIQUE INDEX UX_Batch_Provider_Company_Range ON Batch(ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc);"
     };
 
     /// <summary>
