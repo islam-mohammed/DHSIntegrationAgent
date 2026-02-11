@@ -1,10 +1,18 @@
 ﻿using System.Text.Json.Nodes;
+using DHSIntegrationAgent.Contracts.Providers;
 
 namespace DHSIntegrationAgent.Adapters.Tables;
 
 public interface IProviderTablesAdapter
 {
     Task<int> CountClaimsAsync(
+        string providerDhsCode,
+        string companyCode,
+        DateTimeOffset batchStartDateUtc,
+        DateTimeOffset batchEndDateUtc,
+        CancellationToken ct);
+
+    Task<FinancialSummary> GetFinancialSummaryAsync(
         string providerDhsCode,
         string companyCode,
         DateTimeOffset batchStartDateUtc,

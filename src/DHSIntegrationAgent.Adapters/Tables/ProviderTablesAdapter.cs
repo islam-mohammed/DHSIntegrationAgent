@@ -1,4 +1,5 @@
 using DHSIntegrationAgent.Contracts.Persistence;
+using DHSIntegrationAgent.Contracts.Providers;
 ﻿using System.Data;
 using System.Data.Common;
 using DHSIntegrationAgent.Application.Persistence;
@@ -78,6 +79,54 @@ WHERE CompanyCode = @CompanyCode
 
         var result = await cmd.ExecuteScalarAsync(ct);
         return Convert.ToInt32(result);
+    }
+
+    public async Task<FinancialSummary> GetFinancialSummaryAsync(
+        string providerDhsCode,
+        string companyCode,
+        DateTimeOffset batchStartDateUtc,
+        DateTimeOffset batchEndDateUtc,
+        CancellationToken ct)
+    {
+        var (headerTable, _, dateCol) = await ResolveConfigAsync(providerDhsCode, ct);
+
+        await using var handle = await _providerDbFactory.OpenAsync(providerDhsCode, ct);
+
+        using var cmd = handle.Connection.CreateCommand();
+        cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
+
+        cmd.CommandText = $@"
+SELECT
+    COUNT(1) AS TotalClaims,
+    SUM(TotalNetAmount) AS TotalNetAmount,
+    SUM(ClaimedAmount) AS TotalClaimedAmount,
+    SUM(TotalDiscount) AS TotalDiscount,
+    SUM(TotalDeductible) AS TotalDeductible
+FROM {headerTable}
+WHERE CompanyCode = @CompanyCode
+  AND provider_dhsCode = TRY_CONVERT(int, @ProviderDhsCode)
+  AND {dateCol} >= @StartDate
+  AND {dateCol} <= @EndDate
+  AND (IsFetched IS NULL OR IsFetched = 0);";
+
+        cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
+        cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
+        cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
+        cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        if (await reader.ReadAsync(ct))
+        {
+            return new FinancialSummary(
+                TotalClaims: reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetValue(0)),
+                TotalNetAmount: reader.IsDBNull(1) ? 0m : Convert.ToDecimal(reader.GetValue(1)),
+                TotalClaimedAmount: reader.IsDBNull(2) ? 0m : Convert.ToDecimal(reader.GetValue(2)),
+                TotalDiscount: reader.IsDBNull(3) ? 0m : Convert.ToDecimal(reader.GetValue(3)),
+                TotalDeductible: reader.IsDBNull(4) ? 0m : Convert.ToDecimal(reader.GetValue(4))
+            );
+        }
+
+        return new FinancialSummary(0, 0, 0, 0, 0);
     }
 
     public async Task<IReadOnlyList<int>> ListClaimKeysAsync(
