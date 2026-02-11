@@ -54,17 +54,11 @@
                         <TextBlock Text="Payer Name"
                                Style="{StaticResource FormLabel}" />
 
-                        <ComboBox Style="{StaticResource RoundedComboBox}" SelectedItem="{Binding SelectedPayerName}"
-                                 
+                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                  ItemsSource="{Binding Payers}"
+                                  SelectedItem="{Binding SelectedPayer}"
+                                  DisplayMemberPath="PayerName"
                                   Margin="0,0,0,15">
-                            <ComboBoxItem Content="Select Payer" IsEnabled="False" IsSelected="True"/>
-                            <ComboBoxItem Content="Blue Cross Blue Shield"/>
-                            <ComboBoxItem Content="Aetna Health Insurance"/>
-                            <ComboBoxItem Content="UnitedHealthcare"/>
-                            <ComboBoxItem Content="Cigna"/>
-                            <ComboBoxItem Content="Humana"/>
-                            <ComboBoxItem Content="Anthem"/>
-                            <ComboBoxItem Content="Kaiser Permanente"/>
                         </ComboBox>
                     </StackPanel>
 
@@ -73,8 +67,9 @@
                         <TextBlock Text="Month"
                                     Style="{StaticResource FormLabel}" />
 
-                        <ComboBox Style="{StaticResource RoundedComboBox}" SelectedItem="{Binding SelectedMonth}"
-                                  
+                        <ComboBox Style="{StaticResource RoundedComboBox}"
+                                  SelectedValue="{Binding SelectedMonth}"
+                                  SelectedValuePath="Tag"
                                   Margin="0,0,0,0">
                             <ComboBoxItem Content="Select Month" IsEnabled="False" IsSelected="True"/>
                             <ComboBoxItem Content="January" Tag="1"/>
@@ -97,10 +92,13 @@
                         <TextBlock Text="Year"
                                     Style="{StaticResource FormLabel}" />
 
-                        <ComboBox  Style="{StaticResource RoundedComboBox}" SelectedItem="{Binding SelectedYear}"
-                                  
-                                  Margin="0,0,0,0">
+                        <ComboBox  Style="{StaticResource RoundedComboBox}"
+                                   SelectedValue="{Binding SelectedYear}"
+                                   SelectedValuePath="Content"
+                                   Margin="0,0,0,0">
                             <ComboBoxItem Content="Select Year" IsEnabled="False" IsSelected="True"/>
+                            <ComboBoxItem Content="2026"/>
+                            <ComboBoxItem Content="2025"/>
                             <ComboBoxItem Content="2024"/>
                             <ComboBoxItem Content="2023"/>
                             <ComboBoxItem Content="2022"/>
