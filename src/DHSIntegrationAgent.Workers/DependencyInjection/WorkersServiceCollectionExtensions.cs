@@ -10,8 +10,10 @@ public static class WorkersServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Stub for now; will be replaced by the real engine that runs Streams A–D.
-        services.AddSingleton<IWorkerEngine, WorkerEngineStub>();
+        // Real engine that orchestrates background workers.
+        services.AddSingleton<WorkerEngine>();
+        services.AddSingleton<IWorkerEngine>(sp => sp.GetRequiredService<WorkerEngine>());
+        services.AddHostedService(sp => sp.GetRequiredService<WorkerEngine>());
 
         return services;
     }
