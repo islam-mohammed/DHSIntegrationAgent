@@ -31,11 +31,9 @@ internal sealed class SqliteConnectionFactory : ISqliteConnectionFactory
         {
             DataSource = DatabasePath,
             Mode = SqliteOpenMode.ReadWriteCreate,
-            // WBS 1.2: We explicitly avoid Shared Cache because it causes SQLITE_LOCKED (Error 6)
-            // when multiple connections in the same process access the same table.
-            // Private cache + WAL is the recommended pattern for high concurrency.
-            Cache = SqliteCacheMode.Private,
-            Pooling = true
+            Cache = SqliteCacheMode.Shared,
+            Pooling = true,
+            DefaultTimeout = 30
         };
 
         var conn = new SqliteConnection(csb.ConnectionString);
@@ -51,24 +49,17 @@ internal sealed class SqliteConnectionFactory : ISqliteConnectionFactory
 
     private static async Task ApplyPragmasAsync(SqliteConnection conn, CancellationToken ct)
     {
-        // 1. Set busy_timeout FIRST.
-        // We use a 10s timeout to handle transient write locks.
-        await using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = "PRAGMA busy_timeout = 10000;";
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
-
-        // 2. Session-level settings.
-        // journal_mode = WAL is set once in SqliteMigrator to avoid race conditions.
-        var otherPragmas = new[]
+        // busy_timeout in ms
+        var commands = new[]
         {
             "PRAGMA foreign_keys = ON;",
+            "PRAGMA journal_mode = WAL;",
             "PRAGMA synchronous = NORMAL;",
-            "PRAGMA temp_store = MEMORY;"
+            "PRAGMA temp_store = MEMORY;",
+            "PRAGMA busy_timeout = 30000;"
         };
 
-        foreach (var sql in otherPragmas)
+        foreach (var sql in commands)
         {
             await using var cmd = conn.CreateCommand();
             cmd.CommandText = sql;

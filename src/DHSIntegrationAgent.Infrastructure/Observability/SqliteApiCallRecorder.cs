@@ -1,56 +1,61 @@
-using DHSIntegrationAgent.Contracts.Observability;
+using System.Threading.Channels;
 using DHSIntegrationAgent.Application.Observability;
-using DHSIntegrationAgent.Application.Persistence;
+using DHSIntegrationAgent.Contracts.Observability;
 using Microsoft.Extensions.Logging;
 
 namespace DHSIntegrationAgent.Infrastructure.Observability;
 
+/// <summary>
+/// Non-blocking API call recorder that enqueues records for a single background writer.
+/// Why:
+/// - Avoids "Task.Run per request" which creates many concurrent SQLite writers.
+/// - Reduces SQLITE_BUSY / "database is locked" issues under Stream A and other write-heavy workloads.
+/// </summary>
 public sealed class SqliteApiCallRecorder : IApiCallRecorder
 {
-    private readonly ISqliteUnitOfWorkFactory _uowFactory;
+    // Bounded channel protects memory under bursts. When full we drop (best-effort telemetry).
+    private readonly Channel<ApiCallRecord> _channel;
     private readonly ILogger<SqliteApiCallRecorder> _logger;
 
-    public SqliteApiCallRecorder(ISqliteUnitOfWorkFactory uowFactory, ILogger<SqliteApiCallRecorder> logger)
+    public SqliteApiCallRecorder(ILogger<SqliteApiCallRecorder> logger)
     {
-        _uowFactory = uowFactory;
         _logger = logger;
+
+        _channel = Channel.CreateBounded<ApiCallRecord>(new BoundedChannelOptions(capacity: 2048)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.DropOldest
+        });
     }
+
+    /// <summary>
+    /// Exposed for the hosted writer to drain records.
+    /// Internal so only this assembly can access it.
+    /// </summary>
+    internal ChannelReader<ApiCallRecord> Reader => _channel.Reader;
 
     public Task RecordAsync(ApiCallRecord record, CancellationToken ct)
     {
-        // Offload to background thread and use CancellationToken.None to ensure it persists
-        // even if the original request/pipeline is cancelled.
-        _ = Task.Run(async () =>
+        // Do NOT use the caller token: we want best-effort persistence even if request is cancelled.
+        // Non-blocking: TryWrite. If channel is temporarily full, we drop oldest (bounded channel mode).
+        try
         {
-            try
+            if (!_channel.Writer.TryWrite(record))
             {
-                await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);
-
-                await uow.ApiCallLogs.InsertAsync(
-                    endpointName: record.EndpointName,
-                    correlationId: record.CorrelationId,
-                    requestUtc: record.StartedUtc,
-                    responseUtc: record.ResponseUtc,
-                    durationMs: (int)record.ElapsedMs,
-                    httpStatusCode: record.StatusCode,
-                    succeeded: record.Succeeded,
-                    errorMessage: record.ErrorMessage,
-                    requestBytes: record.RequestBytes,
-                    responseBytes: record.ResponseBytes,
-                    wasGzipRequest: record.WasGzipRequest,
-                    providerDhsCode: record.ProviderDhsCode,
-                    cancellationToken: CancellationToken.None
-                );
-
-                await uow.CommitAsync(CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to persist API call log to SQLite for {EndpointName} (CorrelationId={CorrelationId})",
+                _logger.LogWarning(
+                    "API call log queue is full; dropping record for {EndpointName} (corr={CorrelationId}).",
                     record.EndpointName, record.CorrelationId);
             }
-        }, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // Never let observability crash the app / pipeline.
+            _logger.LogWarning(ex, "Failed to enqueue API call log record for {EndpointName}.", record.EndpointName);
+        }
 
         return Task.CompletedTask;
     }
+
+    internal void Complete() => _channel.Writer.TryComplete();
 }
