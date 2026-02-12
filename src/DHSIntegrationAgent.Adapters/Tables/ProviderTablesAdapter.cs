@@ -6,6 +6,7 @@ using System.Data.Common;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
 using Microsoft.Data.SqlClient;
+using System.Collections.Concurrent;
 
 namespace DHSIntegrationAgent.Adapters.Tables;
 
@@ -20,6 +21,9 @@ public sealed class ProviderTablesAdapter : IProviderTablesAdapter
 {
     private readonly IProviderDbFactory _providerDbFactory;
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
+
+    // Cache extraction configuration to avoid redundant SQLite lookups (WBS 3.2 efficiency).
+    private readonly ConcurrentDictionary<string, (string HeaderTable, string ClaimKeyCol, string DateCol)> _configCache = new();
 
     // Defaults derived from the provided tableToTable schema script.
     private const string DefaultHeaderTable = "DHSClaim_Header";
@@ -350,11 +354,18 @@ WHERE h.CompanyCode = @CompanyCode
 
     private async Task<(string HeaderTable, string ClaimKeyCol, string DateCol)> ResolveConfigAsync(string providerDhsCode, CancellationToken ct)
     {
+        if (_configCache.TryGetValue(providerDhsCode, out var cached))
+            return cached;
+
         await using var uow = await _uowFactory.CreateAsync(ct);
 
         var profile = await uow.ProviderProfiles.GetActiveByProviderDhsCodeAsync(providerDhsCode, ct);
         if (profile is null)
-            return (DefaultHeaderTable, DefaultClaimKeyColumn, DefaultHeaderDateColumn);
+        {
+            var def = (DefaultHeaderTable, DefaultClaimKeyColumn, DefaultHeaderDateColumn);
+            _configCache.TryAdd(providerDhsCode, def);
+            return def;
+        }
 
         var extraction = await uow.ProviderExtractionConfigs.GetAsync(new ProviderKey(profile.ProviderCode), ct);
 
@@ -366,7 +377,9 @@ WHERE h.CompanyCode = @CompanyCode
             ? DefaultHeaderTable
             : extraction!.HeaderSourceName!;
 
-        return (headerTable, claimKey, DefaultHeaderDateColumn);
+        var result = (headerTable, claimKey, DefaultHeaderDateColumn);
+        _configCache.TryAdd(providerDhsCode, result);
+        return result;
     }
 
     private static async Task<System.Text.Json.Nodes.JsonObject?> ReadSingleRowAsync(
