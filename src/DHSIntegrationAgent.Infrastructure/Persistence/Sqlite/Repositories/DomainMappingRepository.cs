@@ -69,7 +69,7 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
                 DomainTableId,
                 SourceValue,
                 DiscoverySource,
-                MappingStatus,
+                domainStatus,
                 DiscoveredUtc,
                 LastPostedUtc,
                 LastUpdatedUtc,
@@ -116,7 +116,7 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
                 DomainTableId,
                 SourceValue,
                 DiscoverySource,
-                MappingStatus,
+                domainStatus,
                 DiscoveredUtc,
                 LastPostedUtc,
                 LastUpdatedUtc,
@@ -125,7 +125,7 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
                 DomainTableName
             FROM MissingDomainMapping
             WHERE ProviderDhsCode = $p
-              AND MappingStatus IN ($m, $f)
+              AND domainStatus IN ($m, $f)
             ORDER BY MissingMappingId ASC;
             """);
 
@@ -193,9 +193,9 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
                 DomainTableId: m.DomainTableId,
                 SourceValue: m.SourceValue,
                 TargetValue: null,
-                MappingStatus: MappingStatus.Missing,
+                MappingStatus: m.MappingStatus,
                 DiscoveredUtc: m.DiscoveredUtc,
-                LastPostedUtc: null,
+                LastPostedUtc: m.LastPostedUtc,
                 LastUpdatedUtc: m.LastUpdatedUtc,
                 Notes: m.Notes
             ));
@@ -221,7 +221,7 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         await using var cmd = CreateCommand(
             """
             INSERT INTO MissingDomainMapping
-            (ProviderDhsCode, DomainName, DomainTableId, SourceValue, DiscoverySource, MappingStatus, DiscoveredUtc, LastUpdatedUtc,
+            (ProviderDhsCode, DomainName, DomainTableId, SourceValue, DiscoverySource, domainStatus, DiscoveredUtc, LastUpdatedUtc,
              ProviderNameValue, DomainTableName)
             VALUES
             ($p, $dn, $dt, $sv, $ds, $ms, $now, $now, $pnv, $dtn)
@@ -355,7 +355,7 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         await using var cmd = CreateCommand(
             """
             UPDATE MissingDomainMapping
-            SET MappingStatus = $status,
+            SET domainStatus = $status,
                 LastPostedUtc = COALESCE($lp, LastPostedUtc),
                 LastUpdatedUtc = $now
             WHERE MissingMappingId = $id;
