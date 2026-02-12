@@ -73,11 +73,10 @@ public sealed class FetchStageService : IFetchStageService
             var result = await _batchClient.CreateBatchAsync(new[] { request }, ct);
 
             if (!result.Succeeded)
-            {
                 throw new InvalidOperationException($"Failed to create batch on backend: {result.ErrorMessage}");
-            }
 
             bcrId = result.BatchId.ToString();
+
             await using var uow = await _uowFactory.CreateAsync(ct);
             await uow.Batches.SetBcrIdAsync(batch.BatchId, bcrId, _clock.UtcNow, ct);
             await uow.CommitAsync(ct);
@@ -90,57 +89,96 @@ public sealed class FetchStageService : IFetchStageService
         var batchEndDate = batch.EndDateUtc ?? batchStartDate.AddMonths(1).AddTicks(-1);
 
         int? lastSeen = null;
-        int pageSize = 100;
-        bool hasMore = true;
+        const int PageSize = 100;
+
+        // SQLite "database is locked" mitigation:
+        // - Never hold a SQLite transaction open across awaited I/O (provider DB reads, CPU build, etc.)
+        // - Persist in small, write-only transactions.
+        const int MaxClaimsPerTx = 25;
+
+        var builder = new ClaimBundleBuilder();
         int processedCount = 0;
 
-        while (hasMore)
+        while (true)
         {
-            var keys = await _tablesAdapter.ListClaimKeysAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, pageSize, lastSeen, ct);
+            var keys = await _tablesAdapter.ListClaimKeysAsync(
+                batch.ProviderDhsCode,
+                batch.CompanyCode,
+                batchStartDate,
+                batchEndDate,
+                PageSize,
+                lastSeen,
+                ct);
+
             if (keys.Count == 0)
-            {
-                hasMore = false;
                 break;
+
+            // Build payloads OUTSIDE any SQLite transaction.
+            var workItems = new List<StageWorkItem>(keys.Count);
+
+            foreach (var key in keys)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                var rawBundle = await _tablesAdapter.GetClaimBundleRawAsync(batch.ProviderDhsCode, key, ct);
+                if (rawBundle == null)
+                {
+                    lastSeen = key;
+                    continue;
+                }
+
+                var buildResult = builder.Build(new CanonicalClaimParts(
+                    rawBundle.Header,
+                    rawBundle.Services,
+                    rawBundle.Diagnoses,
+                    rawBundle.Labs,
+                    rawBundle.Radiology,
+                    rawBundle.OpticalVitalSigns
+                ), batch.CompanyCode);
+
+                byte[]? payloadBytes = null;
+                string? sha256 = null;
+
+                if (buildResult.Succeeded && buildResult.Bundle is not null)
+                {
+                    // Injected fields per your request
+                    buildResult.Bundle.ClaimHeader["provider_dhsCode"] = batch.ProviderDhsCode;
+                    if (long.TryParse(bcrId, out var bcrIdLong))
+                        buildResult.Bundle.ClaimHeader["bCR_Id"] = bcrIdLong;
+
+                    var payloadJson = buildResult.Bundle.ToJsonString();
+                    payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
+                    sha256 = ComputeSha256(payloadBytes);
+                }
+
+                workItems.Add(new StageWorkItem(
+                    ProIdClaim: key,
+                    BuildResult: buildResult,
+                    PayloadBytes: payloadBytes,
+                    Sha256: sha256));
+
+                processedCount++;
+                lastSeen = key;
             }
 
-            ISqliteUnitOfWork? uow = null;
-            int claimsInTx = 0;
-            const int MaxClaimsPerTx = 100;
-
-            try
+            // Persist to SQLite in small, write-only transactions.
+            for (var i = 0; i < workItems.Count; i += MaxClaimsPerTx)
             {
-                foreach (var key in keys)
+                if (ct.IsCancellationRequested) break;
+
+                var chunk = workItems.Skip(i).Take(MaxClaimsPerTx).ToList();
+
+                await using var uow = await _uowFactory.CreateAsync(ct);
+
+                foreach (var item in chunk)
                 {
-                    var rawBundle = await _tablesAdapter.GetClaimBundleRawAsync(batch.ProviderDhsCode, key, ct);
-                    if (rawBundle == null) continue;
+                    var buildResult = item.BuildResult;
 
-                    var builder = new ClaimBundleBuilder();
-                    var buildResult = builder.Build(new CanonicalClaimParts(
-                        rawBundle.Header,
-                        rawBundle.Services,
-                        rawBundle.Diagnoses,
-                        rawBundle.Labs,
-                        rawBundle.Radiology,
-                        rawBundle.OpticalVitalSigns
-                    ), batch.CompanyCode);
-
-                    if (uow == null) uow = await _uowFactory.CreateAsync(ct);
-
-                    if (buildResult.Succeeded)
+                    if (buildResult.Succeeded && buildResult.Bundle is not null && item.PayloadBytes is not null && item.Sha256 is not null)
                     {
-                        // Injected fields as per user request
-                       
-                        buildResult.Bundle!.ClaimHeader["provider_dhsCode"] = batch.ProviderDhsCode;
-                       
-                        if (long.TryParse(bcrId, out var bcrIdLong))
-                        {
-                            buildResult.Bundle!.ClaimHeader["bCR_Id"] = bcrIdLong;
-                        }
-
-                        // Stage locally
                         await uow.Claims.UpsertStagedAsync(
                             batch.ProviderDhsCode,
-                            key,
+                            item.ProIdClaim,
                             batch.CompanyCode,
                             batch.MonthKey,
                             batch.BatchId,
@@ -148,85 +186,41 @@ public sealed class FetchStageService : IFetchStageService
                             _clock.UtcNow,
                             ct);
 
-                        var payloadJson = buildResult.Bundle!.ToJsonString();
-                        var payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
-                        var sha256 = ComputeSha256(payloadBytes);
-
                         await uow.ClaimPayloads.UpsertAsync(
                             new ClaimPayloadRow(
-                                new ClaimKey(batch.ProviderDhsCode, key),
-                                payloadBytes,
-                                sha256,
+                                new ClaimKey(batch.ProviderDhsCode, item.ProIdClaim),
+                                item.PayloadBytes,
+                                item.Sha256,
                                 1,
                                 _clock.UtcNow,
                                 _clock.UtcNow),
                             ct);
-
-                        // Persist issues (diagnostics)
-                        foreach (var issue in buildResult.Issues)
-                        {
-                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
-                                batch.ProviderDhsCode,
-                                buildResult.ProIdClaim,
-                                issue.IssueType,
-                                issue.FieldPath,
-                                issue.RawValue,
-                                issue.Message,
-                                issue.IsBlocking,
-                                _clock.UtcNow
-                            ), ct);
-                        }
                     }
-                    else
+
+                    // Persist issues for both success and failure
+                    foreach (var issue in buildResult.Issues)
                     {
-                        // Record blocking issues even if build failed
-                        foreach (var issue in buildResult.Issues)
-                        {
-                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
-                                batch.ProviderDhsCode,
-                                key,
-                                issue.IssueType,
-                                issue.FieldPath,
-                                issue.RawValue,
-                                issue.Message,
-                                issue.IsBlocking,
-                                _clock.UtcNow
-                            ), ct);
-                        }
-                    }
-
-                    processedCount++;
-                    lastSeen = key;
-
-                    claimsInTx++;
-                    if (claimsInTx >= MaxClaimsPerTx)
-                    {
-                        await uow.CommitAsync(ct);
-                        await uow.DisposeAsync();
-                        uow = null;
-                        claimsInTx = 0;
+                        await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
+                            batch.ProviderDhsCode,
+                            item.ProIdClaim,
+                            issue.IssueType,
+                            issue.FieldPath,
+                            issue.RawValue,
+                            issue.Message,
+                            issue.IsBlocking,
+                            _clock.UtcNow
+                        ), ct);
                     }
                 }
 
-                if (uow != null)
-                {
-                    await uow.CommitAsync(ct);
-                    await uow.DisposeAsync();
-                    uow = null;
-                }
-            }
-            finally
-            {
-                if (uow != null)
-                {
-                    await uow.DisposeAsync();
-                }
+                await uow.CommitAsync(ct);
             }
 
-            if (keys.Count < pageSize) hasMore = false;
+            if (keys.Count < PageSize)
+                break;
         }
 
-        // 4. Handle Missing Mappings
+        // 4. Missing mappings discovery (posting is separate)
         progress.Report(new WorkerProgressReport("StreamA", "Scanning for missing domain mappings..."));
 
         var domains = BaselineDomainScanner.GetBaselineDomains();
@@ -242,38 +236,31 @@ public sealed class FetchStageService : IFetchStageService
         {
             int discoveredInRun = 0;
 
-            await using (var uow = await _uowFactory.CreateAsync(ct))
+            // Batch upserts to keep transactions short.
+            const int MappingTxBatchSize = 200;
+            var buffer = new List<ScannedDomainValue>(MappingTxBatchSize);
+
+            foreach (var mm in distinctValues)
             {
-                foreach (var mm in distinctValues)
+                if (ct.IsCancellationRequested) break;
+
+                buffer.Add(mm);
+
+                if (buffer.Count >= MappingTxBatchSize)
                 {
-                    if (await uow.DomainMappings.ExistsAsync(batch.ProviderDhsCode, mm.DomainTableId, mm.Value, ct))
-                    {
-                        continue;
-                    }
-
-                    await uow.DomainMappings.UpsertDiscoveredAsync(
-                        batch.ProviderDhsCode,
-                        mm.DomainName,
-                        mm.DomainTableId,
-                        mm.Value,
-                        DiscoverySource.Scanned,
-                        _clock.UtcNow,
-                        ct,
-                        providerNameValue: mm.Value,
-                        domainTableName: mm.DomainName);
-
-                    discoveredInRun++;
+                    discoveredInRun += await UpsertMissingMappingsAsync(batch.ProviderDhsCode, buffer, ct);
+                    buffer.Clear();
                 }
-                await uow.CommitAsync(ct);
             }
+
+            if (buffer.Count > 0)
+                discoveredInRun += await UpsertMissingMappingsAsync(batch.ProviderDhsCode, buffer, ct);
 
             if (discoveredInRun > 0)
-            {
                 progress.Report(new WorkerProgressReport("StreamA", $"DETECTED_MISSING_DOMAINS:{discoveredInRun}"));
-            }
         }
 
-        // 5. Update Batch Status to Ready (meaning staged and BcrId obtained, ready for Sender)
+        // 5. Mark batch ready for sender
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
             await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Ready, true, null, _clock.UtcNow, ct);
@@ -281,6 +268,35 @@ public sealed class FetchStageService : IFetchStageService
         }
 
         progress.Report(new WorkerProgressReport("StreamA", $"Batch {batch.BatchId} staged successfully. {processedCount} claims processed."));
+    }
+
+    private async Task<int> UpsertMissingMappingsAsync(string providerDhsCode, IReadOnlyList<ScannedDomainValue> values, CancellationToken ct)
+    {
+        int discovered = 0;
+
+        await using var uow = await _uowFactory.CreateAsync(ct);
+
+        foreach (var mm in values)
+        {
+            if (await uow.DomainMappings.ExistsAsync(providerDhsCode, mm.DomainTableId, mm.Value, ct))
+                continue;
+
+            await uow.DomainMappings.UpsertDiscoveredAsync(
+                providerDhsCode,
+                mm.DomainName,
+                mm.DomainTableId,
+                mm.Value,
+                DiscoverySource.Scanned,
+                _clock.UtcNow,
+                ct,
+                providerNameValue: mm.Value,
+                domainTableName: mm.DomainName);
+
+            discovered++;
+        }
+
+        await uow.CommitAsync(ct);
+        return discovered;
     }
 
     public async Task PostMissingMappingsAsync(string providerDhsCode, IProgress<WorkerProgressReport> progress, CancellationToken ct)
@@ -303,7 +319,9 @@ public sealed class FetchStageService : IFetchStageService
             if (ct.IsCancellationRequested) break;
 
             var itemsToPost = eligible.Skip(i).Take(BatchSize).ToList();
-            var items = itemsToPost.Select(x => new MismappedItem(x.SourceValue, x.ProviderNameValue ?? x.SourceValue, x.DomainTableId)).ToList();
+            var items = itemsToPost
+                .Select(x => new MismappedItem(x.SourceValue, x.ProviderNameValue ?? x.SourceValue, x.DomainTableId))
+                .ToList();
 
             var request = new InsertMissMappingDomainRequest(providerDhsCode, items);
 
@@ -312,31 +330,28 @@ public sealed class FetchStageService : IFetchStageService
                 var result = await _domainMappingClient.InsertMissMappingDomainAsync(request, ct);
 
                 await using var uow = await _uowFactory.CreateAsync(ct);
+
                 if (result.Succeeded)
                 {
                     foreach (var row in itemsToPost)
-                    {
                         await uow.DomainMappings.UpdateMissingStatusAsync(row.MissingMappingId, MappingStatus.Posted, _clock.UtcNow, _clock.UtcNow, ct);
-                    }
                 }
                 else
                 {
                     _logger.LogWarning("Failed to post domain mapping batch for {ProviderDhsCode}: {Message}", providerDhsCode, result.Message);
                     foreach (var row in itemsToPost)
-                    {
                         await uow.DomainMappings.UpdateMissingStatusAsync(row.MissingMappingId, MappingStatus.PostFailed, _clock.UtcNow, null, ct);
-                    }
                 }
+
                 await uow.CommitAsync(ct);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error posting domain mapping batch for {ProviderDhsCode}", providerDhsCode);
+
                 await using var uow = await _uowFactory.CreateAsync(ct);
                 foreach (var row in itemsToPost)
-                {
                     await uow.DomainMappings.UpdateMissingStatusAsync(row.MissingMappingId, MappingStatus.PostFailed, _clock.UtcNow, null, ct);
-                }
                 await uow.CommitAsync(ct);
             }
         }
@@ -350,10 +365,19 @@ public sealed class FetchStageService : IFetchStageService
 
     private DateTimeOffset ParseMonthKey(string monthKey)
     {
-        if (monthKey.Length != 6 || !int.TryParse(monthKey.Substring(0, 4), out var year) || !int.TryParse(monthKey.Substring(4, 2), out var month))
+        if (monthKey.Length != 6
+            || !int.TryParse(monthKey.Substring(0, 4), out var year)
+            || !int.TryParse(monthKey.Substring(4, 2), out var month))
         {
             throw new ArgumentException("Invalid MonthKey format. Expected YYYYMM.", nameof(monthKey));
         }
         return new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
     }
+
+    private sealed record StageWorkItem(
+        int ProIdClaim,
+        ClaimBundleBuildResult BuildResult,
+        byte[]? PayloadBytes,
+        string? Sha256
+    );
 }

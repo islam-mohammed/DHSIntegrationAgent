@@ -190,7 +190,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 await _fetchStageService.PostMissingMappingsAsync(batchRow.ProviderDhsCode, progress, default);
             }
 
-            // 6. Start Worker Engine if not running
+            // 6. Start Worker Engine if not runningStreamAWorkerStreamAWorkerStreamAWorkerStreamAWorkerStreamAWorker
             if (!_workerEngine.IsRunning)
             {
                 await _workerEngine.StartAsync(default);
