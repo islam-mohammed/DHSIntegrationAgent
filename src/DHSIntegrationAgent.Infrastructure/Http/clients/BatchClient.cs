@@ -1,3 +1,4 @@
+using System.Linq;
 ﻿using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -90,10 +91,12 @@ public sealed class BatchClient : IBatchClient
         if (parsed is not null)
         {
             var ok = parsed.Succeeded && parsed.StatusCode == 200;
+            var batchId = parsed.Data?.CreatedBatchIds?.FirstOrDefault() ?? 0;
+
             return new CreateBatchResult(
                 Succeeded: ok,
                 StatusCode: parsed.StatusCode,
-                BatchId: parsed.BatchId,
+                BatchId: batchId,
                 ErrorMessage: ok ? null : parsed.Message);
         }
 
@@ -253,7 +256,15 @@ public sealed class BatchClient : IBatchClient
 
     private sealed record CreateBatchRequestEnvelope(IReadOnlyCollection<CreateBatchRequestItem> BatchRequests);
 
-    private sealed record BatchResponse(bool Succeeded, int StatusCode, string Message, int BatchId);
+    private sealed record BatchResponse(
+        bool Succeeded,
+        int StatusCode,
+        string? Message,
+        IReadOnlyList<string>? Errors,
+        BatchResponseData? Data
+    );
+
+    private sealed record BatchResponseData(IReadOnlyList<int>? CreatedBatchIds);
 
     private sealed record GetBatchResponse(
         bool Succeeded,
