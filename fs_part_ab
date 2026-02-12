@@ -1,0 +1,74 @@
+te, endDate, ct);
+
+            var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaims, batch.ProviderDhsCode);
+            var result = await _batchClient.CreateBatchAsync(new[] { request }, ct);
+
+            if (!result.Succeeded)
+            {
+                throw new InvalidOperationException($"Failed to create batch on backend: {result.ErrorMessage}");
+            }
+
+            bcrId = result.BatchId.ToString();
+            await using var uow = await _uowFactory.CreateAsync(ct);
+            await uow.Batches.SetBcrIdAsync(batch.BatchId, bcrId, _clock.UtcNow, ct);
+            await uow.CommitAsync(ct);
+        }
+
+        // 3. Fetch and Stage Claims
+        progress.Report(new WorkerProgressReport("StreamA", $"Fetching claims for batch {batch.BatchId}..."));
+
+        var batchStartDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
+        var batchEndDate = batch.EndDateUtc ?? batchStartDate.AddMonths(1).AddTicks(-1);
+
+        int? lastSeen = null;
+        int pageSize = 100;
+        bool hasMore = true;
+        int processedCount = 0;
+
+        while (hasMore)
+        {
+            var keys = await _tablesAdapter.ListClaimKeysAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, pageSize, lastSeen, ct);
+            if (keys.Count == 0)
+            {
+                hasMore = false;
+                break;
+            }
+
+            ISqliteUnitOfWork? uow = null;
+            int claimsInTx = 0;
+            const int MaxClaimsPerTx = 100;
+
+            try
+            {
+                foreach (var key in keys)
+                {
+                    var rawBundle = await _tablesAdapter.GetClaimBundleRawAsync(batch.ProviderDhsCode, key, ct);
+                    if (rawBundle == null) continue;
+
+                    var builder = new ClaimBundleBuilder();
+                    var buildResult = builder.Build(new CanonicalClaimParts(
+                        rawBundle.Header,
+                        rawBundle.Services,
+                        rawBundle.Diagnoses,
+                        rawBundle.Labs,
+                        rawBundle.Radiology,
+                        rawBundle.OpticalVitalSigns
+                    ), batch.CompanyCode);
+
+                    if (uow == null) uow = await _uowFactory.CreateAsync(ct);
+
+                    if (buildResult.Succeeded)
+                    {
+                        // Injected fields as per user request
+
+                        buildResult.Bundle!.ClaimHeader["provider_dhsCode"] = batch.ProviderDhsCode;
+
+                        if (long.TryParse(bcrId, out var bcrIdLong))
+                        {
+                            buildResult.Bundle!.ClaimHeader["bCR_Id"] = bcrIdLong;
+                        }
+
+                        // Stage locally
+                        await uow.Claims.UpsertStagedAsync(
+                            batch.ProviderDhsCode,
+                            key,

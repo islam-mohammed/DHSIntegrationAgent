@@ -1,0 +1,74 @@
+                     batch.CompanyCode,
+                            batch.MonthKey,
+                            batch.BatchId,
+                            bcrId,
+                            _clock.UtcNow,
+                            ct);
+
+                        var payloadJson = buildResult.Bundle!.ToJsonString();
+                        var payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
+                        var sha256 = ComputeSha256(payloadBytes);
+
+                        await uow.ClaimPayloads.UpsertAsync(
+                            new ClaimPayloadRow(
+                                new ClaimKey(batch.ProviderDhsCode, key),
+                                payloadBytes,
+                                sha256,
+                                1,
+                                _clock.UtcNow,
+                                _clock.UtcNow),
+                            ct);
+
+                        // Persist issues (diagnostics)
+                        foreach (var issue in buildResult.Issues)
+                        {
+                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
+                                batch.ProviderDhsCode,
+                                buildResult.ProIdClaim,
+                                issue.IssueType,
+                                issue.FieldPath,
+                                issue.RawValue,
+                                issue.Message,
+                                issue.IsBlocking,
+                                _clock.UtcNow
+                            ), ct);
+                        }
+                    }
+                    else
+                    {
+                        // Record blocking issues even if build failed
+                        foreach (var issue in buildResult.Issues)
+                        {
+                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
+                                batch.ProviderDhsCode,
+                                key,
+                                issue.IssueType,
+                                issue.FieldPath,
+                                issue.RawValue,
+                                issue.Message,
+                                issue.IsBlocking,
+                                _clock.UtcNow
+                            ), ct);
+                        }
+                    }
+
+                    processedCount++;
+                    lastSeen = key;
+
+                    claimsInTx++;
+                    if (claimsInTx >= MaxClaimsPerTx)
+                    {
+                        await uow.CommitAsync(ct);
+                        await uow.DisposeAsync();
+                        uow = null;
+                        claimsInTx = 0;
+                    }
+                }
+            }
+            finally
+            {
+                if (uow != null)
+                {
+                    await uow.CommitAsync(ct);
+                    await uow.DisposeAsync();
+                }

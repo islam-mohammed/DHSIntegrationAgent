@@ -1,0 +1,78 @@
+            }
+
+            if (keys.Count < pageSize) hasMore = false;
+        }
+
+        // 4. Handle Missing Mappings
+        progress.Report(new WorkerProgressReport("StreamA", "Scanning for missing domain mappings..."));
+
+        var domains = BaselineDomainScanner.GetBaselineDomains();
+        var distinctValues = await _tablesAdapter.GetDistinctDomainValuesAsync(
+            batch.ProviderDhsCode,
+            batch.CompanyCode,
+            batchStartDate,
+            batchEndDate,
+            domains,
+            ct);
+
+        if (distinctValues.Count > 0)
+        {
+            int discoveredInRun = 0;
+
+            await using (var uow = await _uowFactory.CreateAsync(ct))
+            {
+                foreach (var mm in distinctValues)
+                {
+                    if (await uow.DomainMappings.ExistsAsync(batch.ProviderDhsCode, mm.DomainTableId, mm.Value, ct))
+                    {
+                        continue;
+                    }
+
+                    await uow.DomainMappings.UpsertDiscoveredAsync(
+                        batch.ProviderDhsCode,
+                        mm.DomainName,
+                        mm.DomainTableId,
+                        mm.Value,
+                        DiscoverySource.Scanned,
+                        _clock.UtcNow,
+                        ct,
+                        providerNameValue: mm.Value,
+                        domainTableName: mm.DomainName);
+
+                    discoveredInRun++;
+                }
+                await uow.CommitAsync(ct);
+            }
+
+            if (discoveredInRun > 0)
+            {
+                progress.Report(new WorkerProgressReport("StreamA", $"DETECTED_MISSING_DOMAINS:{discoveredInRun}"));
+            }
+        }
+
+        // 5. Update Batch Status to Ready (meaning staged and BcrId obtained, ready for Sender)
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Ready, true, null, _clock.UtcNow, ct);
+            await uow.CommitAsync(ct);
+        }
+
+        progress.Report(new WorkerProgressReport("StreamA", $"Batch {batch.BatchId} staged successfully. {processedCount} claims processed."));
+    }
+
+    public async Task PostMissingMappingsAsync(string providerDhsCode, IProgress<WorkerProgressReport> progress, CancellationToken ct)
+    {
+        _logger.LogInformation("Checking for missing domain mappings to post for provider {ProviderDhsCode}...", providerDhsCode);
+
+        IReadOnlyList<MissingDomainMappingRow> eligible;
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            eligible = await uow.DomainMappings.ListEligibleForPostingAsync(providerDhsCode, ct);
+        }
+
+        if (eligible.Count == 0) return;
+
+        progress.Report(new WorkerProgressReport("StreamA", $"Posting {eligible.Count} missing domain mappings for {providerDhsCode}..."));
+
+        const int BatchSize = 500;
+        for (int i = 0; i < eligible.Count; i +=
