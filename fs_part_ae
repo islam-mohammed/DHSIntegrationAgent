@@ -1,0 +1,59 @@
+ BatchSize)
+        {
+            if (ct.IsCancellationRequested) break;
+
+            var itemsToPost = eligible.Skip(i).Take(BatchSize).ToList();
+            var items = itemsToPost.Select(x => new MismappedItem(x.SourceValue, x.ProviderNameValue ?? x.SourceValue, x.DomainTableId)).ToList();
+
+            var request = new InsertMissMappingDomainRequest(providerDhsCode, items);
+
+            try
+            {
+                var result = await _domainMappingClient.InsertMissMappingDomainAsync(request, ct);
+
+                await using var uow = await _uowFactory.CreateAsync(ct);
+                if (result.Succeeded)
+                {
+                    foreach (var row in itemsToPost)
+                    {
+                        await uow.DomainMappings.UpdateMissingStatusAsync(row.MissingMappingId, MappingStatus.Posted, _clock.UtcNow, _clock.UtcNow, ct);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to post domain mapping batch for {ProviderDhsCode}: {Message}", providerDhsCode, result.Message);
+                    foreach (var row in itemsToPost)
+                    {
+                        await uow.DomainMappings.UpdateMissingStatusAsync(row.MissingMappingId, MappingStatus.PostFailed, _clock.UtcNow, null, ct);
+                    }
+                }
+                await uow.CommitAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error posting domain mapping batch for {ProviderDhsCode}", providerDhsCode);
+                await using var uow = await _uowFactory.CreateAsync(ct);
+                foreach (var row in itemsToPost)
+                {
+                    await uow.DomainMappings.UpdateMissingStatusAsync(row.MissingMappingId, MappingStatus.PostFailed, _clock.UtcNow, null, ct);
+                }
+                await uow.CommitAsync(ct);
+            }
+        }
+    }
+
+    private static string ComputeSha256(byte[] data)
+    {
+        var hash = SHA256.HashData(data);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private DateTimeOffset ParseMonthKey(string monthKey)
+    {
+        if (monthKey.Length != 6 || !int.TryParse(monthKey.Substring(0, 4), out var year) || !int.TryParse(monthKey.Substring(4, 2), out var month))
+        {
+            throw new ArgumentException("Invalid MonthKey format. Expected YYYYMM.", nameof(monthKey));
+        }
+        return new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
+    }
+}

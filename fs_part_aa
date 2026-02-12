@@ -1,0 +1,70 @@
+using System.Security.Cryptography;
+using System.Text;
+using DHSIntegrationAgent.Adapters.Claims;
+using DHSIntegrationAgent.Adapters.Tables;
+using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Application.Persistence;
+using DHSIntegrationAgent.Application.Providers;
+using DHSIntegrationAgent.Contracts.Claims;
+using DHSIntegrationAgent.Contracts.DomainMapping;
+using DHSIntegrationAgent.Contracts.Persistence;
+using DHSIntegrationAgent.Contracts.Workers;
+using DHSIntegrationAgent.Domain.WorkStates;
+using Microsoft.Extensions.Logging;
+
+namespace DHSIntegrationAgent.Workers;
+
+public sealed class FetchStageService : IFetchStageService
+{
+    private readonly ISqliteUnitOfWorkFactory _uowFactory;
+    private readonly IProviderTablesAdapter _tablesAdapter;
+    private readonly IBatchClient _batchClient;
+    private readonly IDomainMappingClient _domainMappingClient;
+    private readonly ISystemClock _clock;
+    private readonly ILogger<FetchStageService> _logger;
+
+    public FetchStageService(
+        ISqliteUnitOfWorkFactory uowFactory,
+        IProviderTablesAdapter tablesAdapter,
+        IBatchClient batchClient,
+        IDomainMappingClient domainMappingClient,
+        ISystemClock clock,
+        ILogger<FetchStageService> logger)
+    {
+        _uowFactory = uowFactory;
+        _tablesAdapter = tablesAdapter;
+        _batchClient = batchClient;
+        _domainMappingClient = domainMappingClient;
+        _clock = clock;
+        _logger = logger;
+    }
+
+    public async Task ProcessBatchAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct)
+    {
+        _logger.LogInformation("Processing batch {BatchId} for {CompanyCode} {MonthKey}", batch.BatchId, batch.CompanyCode, batch.MonthKey);
+
+        string? bcrId = batch.BcrId;
+        string? payerCode = batch.PayerCode;
+
+        // 1. Resolve payer settings and PayerCode if missing
+        if (string.IsNullOrWhiteSpace(payerCode))
+        {
+            await using var uow = await _uowFactory.CreateAsync(ct);
+            var payerProfile = await uow.Payers.GetByCompanyCodeAsync(batch.ProviderDhsCode, batch.CompanyCode, ct);
+            if (payerProfile != null)
+            {
+                payerCode = payerProfile.PayerCode;
+                // Update batch with resolved PayerCode
+                await uow.Batches.UpdateStatusAsync(batch.BatchId, batch.BatchStatus, null, null, _clock.UtcNow, ct, payerCode);
+                await uow.CommitAsync(ct);
+            }
+        }
+
+        // 2. Ensure BcrId exists
+        if (string.IsNullOrWhiteSpace(bcrId))
+        {
+            progress.Report(new WorkerProgressReport("StreamA", $"Obtaining BcrId for batch {batch.BatchId}..."));
+
+            var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
+            var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
+            var totalClaims = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDa
