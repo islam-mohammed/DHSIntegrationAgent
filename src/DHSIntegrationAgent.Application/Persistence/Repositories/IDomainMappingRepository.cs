@@ -8,6 +8,8 @@ public interface IDomainMappingRepository
     Task<IReadOnlyList<ApprovedDomainMappingRow>> GetAllApprovedAsync(CancellationToken cancellationToken);
     Task<IReadOnlyList<MissingDomainMappingRow>> GetAllMissingAsync(CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<MissingDomainMappingRow>> ListEligibleForPostingAsync(string providerDhsCode, CancellationToken ct);
+
     Task<IReadOnlyList<DomainMappingRow>> GetAllAsync(CancellationToken cancellationToken);
 
     Task UpsertDiscoveredAsync(
@@ -63,6 +65,13 @@ public interface IDomainMappingRepository
         DateTimeOffset utcNow,
         DateTimeOffset? lastPostedUtc,
         string? notes,
+        CancellationToken cancellationToken);
+
+    Task UpdateMissingStatusAsync(
+        long missingMappingId,
+        MappingStatus status,
+        DateTimeOffset utcNow,
+        DateTimeOffset? lastPostedUtc,
         CancellationToken cancellationToken);
 
     Task<bool> ExistsAsync(string providerDhsCode, int domainTableId, string sourceValue, CancellationToken ct);

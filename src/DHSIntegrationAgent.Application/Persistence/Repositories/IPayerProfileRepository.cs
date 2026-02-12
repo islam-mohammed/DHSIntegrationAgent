@@ -14,4 +14,6 @@ public interface IPayerProfileRepository
     Task SetActiveAsync(string providerDhsCode, string companyCode, bool isActive, DateTimeOffset utcNow, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<PayerItem>> GetAllPayersAsync(string providerDhsCode, CancellationToken cancellationToken);
+
+    Task<PayerProfileRow?> GetByCompanyCodeAsync(string providerDhsCode, string companyCode, CancellationToken cancellationToken);
 }

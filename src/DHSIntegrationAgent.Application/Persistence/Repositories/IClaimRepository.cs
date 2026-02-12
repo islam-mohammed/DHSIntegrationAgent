@@ -42,4 +42,6 @@ public interface IClaimRepository
         CancellationToken cancellationToken);
 
     Task IncrementAttemptAsync(IReadOnlyList<ClaimKey> claims, DateTimeOffset utcNow, CancellationToken cancellationToken);
+
+    Task RecoverInFlightAsync(DateTimeOffset utcNow, CancellationToken cancellationToken);
 }

@@ -59,6 +59,9 @@ internal sealed class SqliteMigrator : ISqliteMigrator
 
         // Update LastOpenedUtc every startup (safe bookkeeping).
         await TouchLastOpenedUtcAsync(conn, cancellationToken);
+
+        // Crash recovery: restore InFlight work.
+        await RecoverInFlightWorkAsync(conn, cancellationToken);
     }
 
     private async Task CreateFreshDatabaseAsync(DbConnection conn, CancellationToken ct)
@@ -128,6 +131,45 @@ internal sealed class SqliteMigrator : ISqliteMigrator
         return Convert.ToInt32(obj);
     }
 
+    private async Task RecoverInFlightWorkAsync(DbConnection conn, CancellationToken ct)
+    {
+        var now = SqliteUtc.ToIso(_clock.UtcNow);
+
+        // Mark any Claim rows with InFlightUntilUtc < now as eligible again by clearing LockedBy/InFlightUntilUtc
+        // and restoring EnqueueStatus (NotSent/Failed/Enqueued as appropriate).
+        // 0=NotSent, 1=InFlight, 2=Enqueued, 3=Failed
+        await ExecAsync(conn, null,
+            """
+            UPDATE Claim
+            SET EnqueueStatus = CASE
+                    WHEN LockedBy = 'Sender' THEN 0
+                    WHEN LockedBy = 'Retry' THEN 3
+                    WHEN LockedBy = 'Requeue' THEN 2
+                    ELSE EnqueueStatus
+                END,
+                LockedBy = NULL,
+                InFlightUntilUtc = NULL,
+                LastUpdatedUtc = $now
+            WHERE EnqueueStatus = 1
+               OR (InFlightUntilUtc IS NOT NULL AND InFlightUntilUtc <= $now);
+            """,
+            ct,
+            ("$now", now));
+
+        // Mark any Dispatch rows left in InFlight as Failed with LastError='App restart during request' (diagnostics).
+        // 1=InFlight, 3=Failed
+        await ExecAsync(conn, null,
+            """
+            UPDATE Dispatch
+            SET DispatchStatus = 3,
+                LastError = 'App restart during request',
+                UpdatedUtc = $now
+            WHERE DispatchStatus = 1;
+            """,
+            ct,
+            ("$now", now));
+    }
+
     private async Task TouchLastOpenedUtcAsync(DbConnection conn, CancellationToken ct)
     {
         var now = _clock.UtcNow.ToString("O");
@@ -168,7 +210,7 @@ internal sealed class SqliteMigrator : ISqliteMigrator
 
     private static async Task ExecAsync(
         DbConnection conn,
-        DbTransaction tx,
+        DbTransaction? tx,
         string sql,
         CancellationToken ct,
         params (string Name, object? Value)[] parameters)

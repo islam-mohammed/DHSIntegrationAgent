@@ -74,15 +74,26 @@ public sealed class StreamAWorker : IWorker
 
     private async Task ProcessReadyBatchesAsync(IProgress<WorkerProgressReport> progress, CancellationToken ct)
     {
-        IReadOnlyList<BatchRow> readyBatches;
+        IReadOnlyList<BatchRow> batchesToProcess;
+        var providerCodes = new HashSet<string>();
+
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
-            readyBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Ready, ct);
+            // Stream A processes Draft batches (newly created) and Ready batches (manually triggered or BCR ensure needed).
+            var draftBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Draft, ct);
+            var readyBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Ready, ct);
+
+            var all = new List<BatchRow>(draftBatches.Count + readyBatches.Count);
+            all.AddRange(draftBatches);
+            all.AddRange(readyBatches);
+            batchesToProcess = all;
         }
 
-        foreach (var batch in readyBatches)
+        foreach (var batch in batchesToProcess)
         {
             if (ct.IsCancellationRequested) break;
+
+            providerCodes.Add(batch.ProviderDhsCode);
 
             try
             {
@@ -96,6 +107,22 @@ public sealed class StreamAWorker : IWorker
                 await uow.CommitAsync(ct);
             }
         }
+
+        // Parallel/Non-blocking posting of missing mappings
+        foreach (var providerCode in providerCodes)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await PostMissingMappingsAsync(providerCode, progress, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Background mapping poster failed for provider {ProviderDhsCode}", providerCode);
+                }
+            }, ct);
+        }
     }
 
     private async Task ProcessBatchAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct)
@@ -103,13 +130,27 @@ public sealed class StreamAWorker : IWorker
         _logger.LogInformation("Processing batch {BatchId} for {CompanyCode} {MonthKey}", batch.BatchId, batch.CompanyCode, batch.MonthKey);
 
         string? bcrId = batch.BcrId;
+        string? payerCode = batch.PayerCode;
 
-        // 1. Ensure BcrId exists
+        // 1. Resolve payer settings and PayerCode if missing
+        if (string.IsNullOrWhiteSpace(payerCode))
+        {
+            await using var uow = await _uowFactory.CreateAsync(ct);
+            var payerProfile = await uow.Payers.GetByCompanyCodeAsync(batch.ProviderDhsCode, batch.CompanyCode, ct);
+            if (payerProfile != null)
+            {
+                payerCode = payerProfile.PayerCode;
+                // Update batch with resolved PayerCode
+                await uow.Batches.UpdateStatusAsync(batch.BatchId, batch.BatchStatus, null, null, _clock.UtcNow, ct, payerCode);
+                await uow.CommitAsync(ct);
+            }
+        }
+
+        // 2. Ensure BcrId exists
         if (string.IsNullOrWhiteSpace(bcrId))
         {
             progress.Report(new WorkerProgressReport(Id, $"Obtaining BcrId for batch {batch.BatchId}..."));
 
-            // Need total claims count for CreateBatchRequest
             var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
             var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
             var totalClaims = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
@@ -128,7 +169,7 @@ public sealed class StreamAWorker : IWorker
             await uow.CommitAsync(ct);
         }
 
-        // 2. Fetch and Stage Claims
+        // 3. Fetch and Stage Claims
         progress.Report(new WorkerProgressReport(Id, $"Fetching claims for batch {batch.BatchId}..."));
 
         var batchStartDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
@@ -150,80 +191,132 @@ public sealed class StreamAWorker : IWorker
                 break;
             }
 
-            foreach (var key in keys)
+            ISqliteUnitOfWork? uow = null;
+            int claimsInTx = 0;
+            const int MaxClaimsPerTx = 100;
+
+            try
             {
-                var rawBundle = await _tablesAdapter.GetClaimBundleRawAsync(batch.ProviderDhsCode, key, ct);
-                if (rawBundle == null) continue;
-
-                var builder = new ClaimBundleBuilder();
-                var buildResult = builder.Build(new CanonicalClaimParts(
-                    rawBundle.Header,
-                    rawBundle.Services,
-                    rawBundle.Diagnoses,
-                    rawBundle.Labs,
-                    rawBundle.Radiology,
-                    rawBundle.OpticalVitalSigns
-                ), batch.CompanyCode);
-
-                if (buildResult.Succeeded)
+                foreach (var key in keys)
                 {
-                    // Scan for missing mappings
-                    var scannedValues = _scanner.Scan(buildResult.Bundle!);
-                    foreach (var sv in scannedValues)
+                    var rawBundle = await _tablesAdapter.GetClaimBundleRawAsync(batch.ProviderDhsCode, key, ct);
+                    if (rawBundle == null) continue;
+
+                    var builder = new ClaimBundleBuilder();
+                    var buildResult = builder.Build(new CanonicalClaimParts(
+                        rawBundle.Header,
+                        rawBundle.Services,
+                        rawBundle.Diagnoses,
+                        rawBundle.Labs,
+                        rawBundle.Radiology,
+                        rawBundle.OpticalVitalSigns
+                    ), batch.CompanyCode);
+
+                    if (uow == null) uow = await _uowFactory.CreateAsync(ct);
+
+                    if (buildResult.Succeeded)
                     {
-                        missingMappings.Add(sv);
+                        // Scan for missing mappings
+                        var scannedValues = _scanner.Scan(buildResult.Bundle!);
+                        foreach (var sv in scannedValues)
+                        {
+                            missingMappings.Add(sv);
+                        }
+
+                        // Stage locally
+                        await uow.Claims.UpsertStagedAsync(
+                            batch.ProviderDhsCode,
+                            key,
+                            batch.CompanyCode,
+                            batch.MonthKey,
+                            batch.BatchId,
+                            bcrId,
+                            _clock.UtcNow,
+                            ct);
+
+                        var payloadJson = buildResult.Bundle!.ToJsonString();
+                        var payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
+                        var sha256 = ComputeSha256(payloadBytes);
+
+                        await uow.ClaimPayloads.UpsertAsync(
+                            new ClaimPayloadRow(
+                                new ClaimKey(batch.ProviderDhsCode, key),
+                                payloadBytes,
+                                sha256,
+                                1,
+                                _clock.UtcNow,
+                                _clock.UtcNow),
+                            ct);
+
+                        // Persist issues (diagnostics)
+                        foreach (var issue in buildResult.Issues)
+                        {
+                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
+                                batch.ProviderDhsCode,
+                                buildResult.ProIdClaim,
+                                issue.IssueType,
+                                issue.FieldPath,
+                                issue.RawValue,
+                                issue.Message,
+                                issue.IsBlocking,
+                                _clock.UtcNow
+                            ), ct);
+                        }
+                    }
+                    else
+                    {
+                        // Record blocking issues even if build failed
+                        foreach (var issue in buildResult.Issues)
+                        {
+                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
+                                batch.ProviderDhsCode,
+                                key,
+                                issue.IssueType,
+                                issue.FieldPath,
+                                issue.RawValue,
+                                issue.Message,
+                                issue.IsBlocking,
+                                _clock.UtcNow
+                            ), ct);
+                        }
                     }
 
-                    // Stage locally
-                    await using var uow = await _uowFactory.CreateAsync(ct);
-                    await uow.Claims.UpsertStagedAsync(
-                        batch.ProviderDhsCode,
-                        key,
-                        batch.CompanyCode,
-                        batch.MonthKey,
-                        batch.BatchId,
-                        bcrId,
-                        _clock.UtcNow,
-                        ct);
+                    processedCount++;
+                    lastSeen = key;
 
-                    // Note: ClaimPayload storage usually happens in ClaimBundleBuilder or another service,
-                    // but based on IClaimPayloadRepository, we should do it here if not already done.
-                    var payloadJson = buildResult.Bundle!.ToJsonString();
-                    var payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
-                    var sha256 = ComputeSha256(payloadBytes);
-
-                    await uow.ClaimPayloads.UpsertAsync(
-                        new ClaimPayloadRow(
-                            new ClaimKey(batch.ProviderDhsCode, key),
-                            payloadBytes,
-                            sha256,
-                            1,
-                            _clock.UtcNow,
-                            _clock.UtcNow),
-                        ct);
-
-                    await uow.CommitAsync(ct);
+                    claimsInTx++;
+                    if (claimsInTx >= MaxClaimsPerTx)
+                    {
+                        await uow.CommitAsync(ct);
+                        await uow.DisposeAsync();
+                        uow = null;
+                        claimsInTx = 0;
+                    }
                 }
-
-                processedCount++;
-                lastSeen = key;
+            }
+            finally
+            {
+                if (uow != null)
+                {
+                    await uow.CommitAsync(ct);
+                    await uow.DisposeAsync();
+                }
             }
 
             if (keys.Count < pageSize) hasMore = false;
         }
 
-        // 3. Handle Missing Mappings
+        // 4. Handle Missing Mappings
         if (missingMappings.Count > 0)
         {
             progress.Report(new WorkerProgressReport(Id, $"Scanning for missing domain mappings..."));
 
-            var itemsToPost = new List<MismappedItem>();
+            int discoveredInRun = 0;
 
             await using (var uow = await _uowFactory.CreateAsync(ct))
             {
                 foreach (var mm in missingMappings)
                 {
-                    // Filter: Only post if NOT already in approved or missing tables
                     if (await uow.DomainMappings.ExistsAsync(batch.ProviderDhsCode, mm.DomainTableId, mm.Value, ct))
                     {
                         continue;
@@ -240,30 +333,84 @@ public sealed class StreamAWorker : IWorker
                         providerNameValue: mm.Value,
                         domainTableName: mm.DomainName);
 
-                    itemsToPost.Add(new MismappedItem(mm.Value, mm.Value, mm.DomainTableId));
+                    discoveredInRun++;
                 }
                 await uow.CommitAsync(ct);
             }
 
-            if (itemsToPost.Count > 0)
+            if (discoveredInRun > 0)
             {
-                // Notify UI about missing domains (this is part of the requirement)
-                progress.Report(new WorkerProgressReport(Id, $"DETECTED_MISSING_DOMAINS:{itemsToPost.Count}"));
-
-                // Post missing mappings to API
-                progress.Report(new WorkerProgressReport(Id, $"Posting {itemsToPost.Count} missing domain mappings..."));
-                await _domainMappingClient.InsertMissMappingDomainAsync(new InsertMissMappingDomainRequest(batch.ProviderDhsCode, itemsToPost), ct);
+                progress.Report(new WorkerProgressReport(Id, $"DETECTED_MISSING_DOMAINS:{discoveredInRun}"));
             }
         }
 
-        // 4. Update Batch Status to Enqueued (meaning staged and ready for Sender)
+        // 5. Update Batch Status to Ready (meaning staged and BcrId obtained, ready for Sender)
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
-            await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Enqueued, true, null, _clock.UtcNow, ct);
+            await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Ready, true, null, _clock.UtcNow, ct);
             await uow.CommitAsync(ct);
         }
 
         progress.Report(new WorkerProgressReport(Id, $"Batch {batch.BatchId} staged successfully. {processedCount} claims processed."));
+    }
+
+    private async Task PostMissingMappingsAsync(string providerDhsCode, IProgress<WorkerProgressReport> progress, CancellationToken ct)
+    {
+        _logger.LogInformation("Checking for missing domain mappings to post for provider {ProviderDhsCode}...", providerDhsCode);
+
+        IReadOnlyList<MissingDomainMappingRow> eligible;
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            eligible = await uow.DomainMappings.ListEligibleForPostingAsync(providerDhsCode, ct);
+        }
+
+        if (eligible.Count == 0) return;
+
+        progress.Report(new WorkerProgressReport(Id, $"Posting {eligible.Count} missing domain mappings for {providerDhsCode}..."));
+
+        const int BatchSize = 500;
+        for (int i = 0; i < eligible.Count; i += BatchSize)
+        {
+            if (ct.IsCancellationRequested) break;
+
+            var batch = eligible.Skip(i).Take(BatchSize).ToList();
+            var items = batch.Select(x => new MismappedItem(x.SourceValue, x.ProviderNameValue ?? x.SourceValue, x.DomainTableId)).ToList();
+
+            var request = new InsertMissMappingDomainRequest(providerDhsCode, items);
+
+            try
+            {
+                var result = await _domainMappingClient.InsertMissMappingDomainAsync(request, ct);
+
+                await using var uow = await _uowFactory.CreateAsync(ct);
+                if (result.Succeeded)
+                {
+                    foreach (var row in batch)
+                    {
+                        await uow.DomainMappings.UpdateMissingStatusAsync(row.MissingMappingId, MappingStatus.Posted, _clock.UtcNow, _clock.UtcNow, ct);
+                    }
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to post domain mapping batch for {ProviderDhsCode}: {Message}", providerDhsCode, result.Message);
+                    foreach (var row in batch)
+                    {
+                        await uow.DomainMappings.UpdateMissingStatusAsync(row.MissingMappingId, MappingStatus.PostFailed, _clock.UtcNow, null, ct);
+                    }
+                }
+                await uow.CommitAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error posting domain mapping batch for {ProviderDhsCode}", providerDhsCode);
+                await using var uow = await _uowFactory.CreateAsync(ct);
+                foreach (var row in batch)
+                {
+                    await uow.DomainMappings.UpdateMissingStatusAsync(row.MissingMappingId, MappingStatus.PostFailed, _clock.UtcNow, null, ct);
+                }
+                await uow.CommitAsync(ct);
+            }
+        }
     }
 
     private static string ComputeSha256(byte[] data)
