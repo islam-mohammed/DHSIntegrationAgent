@@ -1,3 +1,4 @@
+using DHSIntegrationAgent.Application.Providers;
 using DHSIntegrationAgent.Contracts.Persistence;
 using DHSIntegrationAgent.Contracts.Providers;
 ﻿using System.Data;
@@ -257,6 +258,95 @@ WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProvider
             OpticalVitalSigns: optical,
             ItemDetails: itemDetails,
             Achi: achi);
+    }
+
+    public async Task<IReadOnlyList<ScannedDomainValue>> GetDistinctDomainValuesAsync(
+        string providerDhsCode,
+        string companyCode,
+        DateTimeOffset batchStartDateUtc,
+        DateTimeOffset batchEndDateUtc,
+        IReadOnlyList<BaselineDomain> domains,
+        CancellationToken ct)
+    {
+        var (headerTable, claimKeyCol, dateCol) = await ResolveConfigAsync(providerDhsCode, ct);
+
+        await using var handle = await _providerDbFactory.OpenAsync(providerDhsCode, ct);
+
+        var results = new List<ScannedDomainValue>();
+
+        foreach (var domain in domains)
+        {
+            string tableName;
+            string columnName;
+            bool isHeader;
+
+            if (domain.FieldPath.StartsWith("claimHeader."))
+            {
+                tableName = headerTable;
+                columnName = domain.FieldPath.Substring("claimHeader.".Length);
+                isHeader = true;
+            }
+            else if (domain.FieldPath.StartsWith("serviceDetails[]."))
+            {
+                tableName = DefaultServiceTable;
+                columnName = domain.FieldPath.Substring("serviceDetails[].".Length);
+                isHeader = false;
+            }
+            else if (domain.FieldPath.StartsWith("diagnosisDetails[]."))
+            {
+                tableName = DefaultDiagnosisTable;
+                columnName = domain.FieldPath.Substring("diagnosisDetails[].".Length);
+                isHeader = false;
+            }
+            else
+            {
+                continue;
+            }
+
+            using var cmd = handle.Connection.CreateCommand();
+            cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
+
+            if (isHeader)
+            {
+                cmd.CommandText = $@"
+SELECT DISTINCT {columnName}
+FROM {tableName}
+WHERE CompanyCode = @CompanyCode
+  AND {dateCol} >= @StartDate
+  AND {dateCol} <= @EndDate
+  AND {columnName} IS NOT NULL;";
+            }
+            else
+            {
+                cmd.CommandText = $@"
+SELECT DISTINCT t.{columnName}
+FROM {tableName} t
+INNER JOIN {headerTable} h ON t.{claimKeyCol} = h.{claimKeyCol}
+WHERE h.CompanyCode = @CompanyCode
+  AND h.{dateCol} >= @StartDate
+  AND h.{dateCol} <= @EndDate
+  AND t.{columnName} IS NOT NULL;";
+            }
+
+            cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
+            cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
+            cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                if (!reader.IsDBNull(0))
+                {
+                    var val = reader.GetValue(0).ToString();
+                    if (!string.IsNullOrWhiteSpace(val))
+                    {
+                        results.Add(new ScannedDomainValue(domain.DomainName, domain.DomainTableId, val.Trim()));
+                    }
+                }
+            }
+        }
+
+        return results.Distinct().ToList();
     }
 
     private async Task<(string HeaderTable, string ClaimKeyCol, string DateCol)> ResolveConfigAsync(string providerDhsCode, CancellationToken ct)

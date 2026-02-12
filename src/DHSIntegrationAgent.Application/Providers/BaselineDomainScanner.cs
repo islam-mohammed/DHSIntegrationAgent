@@ -7,7 +7,7 @@ public sealed record BaselineDomain(string DomainName, int DomainTableId, string
 
 public sealed record ScannedDomainValue(string DomainName, int DomainTableId, string Value);
 
-public sealed class BaselineDomainScanner
+public static class BaselineDomainScanner
 {
     public static IReadOnlyList<BaselineDomain> GetBaselineDomains() => new List<BaselineDomain>
     {
@@ -28,70 +28,4 @@ public sealed class BaselineDomainScanner
         new("DiagnosisType", 15, "diagnosisDetails[].diagnosisType"),
         new("ConditionOnset", 16, "diagnosisDetails[].onsetConditionTypeID")
     };
-
-    public IReadOnlyList<ScannedDomainValue> Scan(ClaimBundle bundle)
-    {
-        var results = new List<ScannedDomainValue>();
-        var domains = GetBaselineDomains();
-
-        foreach (var domain in domains)
-        {
-            var values = ExtractValues(bundle, domain.FieldPath);
-            foreach (var val in values)
-            {
-                if (!string.IsNullOrWhiteSpace(val))
-                {
-                    results.Add(new ScannedDomainValue(domain.DomainName, domain.DomainTableId, val.Trim()));
-                }
-            }
-        }
-
-        return results.Distinct().ToList();
-    }
-
-    private IEnumerable<string> ExtractValues(ClaimBundle bundle, string fieldPath)
-    {
-        if (fieldPath.StartsWith("claimHeader."))
-        {
-            var propName = fieldPath.Substring("claimHeader.".Length);
-            return ExtractFromObject(bundle.ClaimHeader, propName);
-        }
-
-        if (fieldPath.StartsWith("serviceDetails[]."))
-        {
-            var propName = fieldPath.Substring("serviceDetails[].".Length);
-            return ExtractFromArray(bundle.ServiceDetails, propName);
-        }
-
-        if (fieldPath.StartsWith("diagnosisDetails[]."))
-        {
-            var propName = fieldPath.Substring("diagnosisDetails[].".Length);
-            return ExtractFromArray(bundle.DiagnosisDetails, propName);
-        }
-
-        return Enumerable.Empty<string>();
-    }
-
-    private IEnumerable<string> ExtractFromObject(JsonObject obj, string propName)
-    {
-        if (obj.TryGetPropertyValue(propName, out var node) && node is JsonValue val)
-        {
-            var s = val.ToString();
-            if (!string.IsNullOrWhiteSpace(s)) yield return s;
-        }
-    }
-
-    private IEnumerable<string> ExtractFromArray(JsonArray arr, string propName)
-    {
-        foreach (var item in arr)
-        {
-            if (item is JsonObject obj)
-            {
-                foreach (var val in ExtractFromObject(obj, propName))
-                {
-                    yield return val;
-                }
-            }
-        }
-    }
 }
