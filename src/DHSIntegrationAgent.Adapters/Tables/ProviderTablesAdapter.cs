@@ -67,7 +67,6 @@ public sealed class ProviderTablesAdapter : IProviderTablesAdapter
 SELECT COUNT(1)
 FROM {headerTable}
 WHERE CompanyCode = @CompanyCode
-  AND provider_dhsCode = TRY_CONVERT(int, @ProviderDhsCode)
   AND {dateCol} >= @StartDate
   AND {dateCol} <= @EndDate
   AND (IsFetched IS NULL OR IsFetched = 0);";
@@ -150,10 +149,8 @@ WHERE CompanyCode = @CompanyCode
 SELECT TOP (@PageSize) {claimKeyCol}
 FROM {headerTable}
 WHERE CompanyCode = @CompanyCode
-  AND provider_dhsCode = TRY_CONVERT(int, @ProviderDhsCode)
   AND {dateCol} >= @StartDate
   AND {dateCol} <= @EndDate
-  AND (IsFetched IS NULL OR IsFetched = 0)
   AND (@LastSeen IS NULL OR {claimKeyCol} > @LastSeen)
 ORDER BY {claimKeyCol} ASC;";
 
@@ -188,8 +185,7 @@ ORDER BY {claimKeyCol} ASC;";
         var header = await ReadSingleRowAsync(handle.Connection, $@"
 SELECT *
 FROM {headerTable}
-WHERE {claimKeyCol} = @ClaimKey
-  AND provider_dhsCode = TRY_CONVERT(int, @ProviderDhsCode);",
+WHERE {claimKeyCol} = @ClaimKey",
             providerDhsCode,
             proIdClaim,
             ct,
