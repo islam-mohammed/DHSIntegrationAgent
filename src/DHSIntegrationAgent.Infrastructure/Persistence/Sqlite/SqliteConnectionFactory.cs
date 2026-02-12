@@ -34,7 +34,7 @@ internal sealed class SqliteConnectionFactory : ISqliteConnectionFactory
             // WBS 1.2: We explicitly avoid Shared Cache because it causes SQLITE_LOCKED (Error 6)
             // when multiple connections in the same process access the same table.
             // Private cache + WAL is the recommended pattern for high concurrency.
-            Cache = SqliteCacheMode.Default,
+            Cache = SqliteCacheMode.Private,
             Pooling = true
         };
 
@@ -51,31 +51,16 @@ internal sealed class SqliteConnectionFactory : ISqliteConnectionFactory
 
     private static async Task ApplyPragmasAsync(SqliteConnection conn, CancellationToken ct)
     {
-        // 1. Set busy_timeout FIRST. This ensures that subsequent pragmas
-        // (especially journal_mode) will wait up to 5s if another connection is writing.
+        // 1. Set busy_timeout FIRST.
+        // We use a 10s timeout to handle transient write locks.
         await using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "PRAGMA busy_timeout = 5000;";
+            cmd.CommandText = "PRAGMA busy_timeout = 10000;";
             await cmd.ExecuteNonQueryAsync(ct);
         }
 
-        // 2. Only attempt to set WAL if not already in WAL mode.
-        // Changing journal mode is a write operation to the DB header and can cause locks.
-        string? currentMode = null;
-        await using (var cmd = conn.CreateCommand())
-        {
-            cmd.CommandText = "PRAGMA journal_mode;";
-            currentMode = (await cmd.ExecuteScalarAsync(ct))?.ToString();
-        }
-
-        if (!string.Equals(currentMode, "wal", StringComparison.OrdinalIgnoreCase))
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "PRAGMA journal_mode = WAL;";
-            await cmd.ExecuteNonQueryAsync(ct);
-        }
-
-        // 3. Other session-level settings
+        // 2. Session-level settings.
+        // journal_mode = WAL is set once in SqliteMigrator to avoid race conditions.
         var otherPragmas = new[]
         {
             "PRAGMA foreign_keys = ON;",

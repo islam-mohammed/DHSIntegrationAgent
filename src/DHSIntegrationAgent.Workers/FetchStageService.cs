@@ -207,12 +207,18 @@ public sealed class FetchStageService : IFetchStageService
                         claimsInTx = 0;
                     }
                 }
+
+                if (uow != null)
+                {
+                    await uow.CommitAsync(ct);
+                    await uow.DisposeAsync();
+                    uow = null;
+                }
             }
             finally
             {
                 if (uow != null)
                 {
-                    await uow.CommitAsync(ct);
                     await uow.DisposeAsync();
                 }
             }
