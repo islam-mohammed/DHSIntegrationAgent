@@ -6,6 +6,7 @@ using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Providers;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Contracts.Persistence;
+using DHSIntegrationAgent.Contracts.Workers;
 using DHSIntegrationAgent.Domain.WorkStates;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
