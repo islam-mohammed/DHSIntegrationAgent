@@ -13,6 +13,7 @@ public static class WorkersServiceCollectionExtensions
     {
         // Infrastructure services for workers
         services.AddSingleton<BaselineDomainScanner>();
+        services.AddSingleton<IFetchStageService, FetchStageService>();
 
         // Worker implementations
         services.AddSingleton<IWorker, StreamAWorker>();

@@ -66,6 +66,9 @@ namespace DHSIntegrationAgent.App.UI.Views
                 Content = createBatchView
             };
 
+            // Handle window closure from ViewModel
+            createBatchViewModel.RequestClose += () => createBatchWindow.Close();
+
             // Show the window as a modal dialog
             createBatchWindow.ShowDialog();
         }
