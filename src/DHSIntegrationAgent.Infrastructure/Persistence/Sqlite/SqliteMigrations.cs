@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace DHSIntegrationAgent.Infrastructure.Persistence.Sqlite;
 
@@ -9,77 +9,11 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 4;
+    public static readonly int CurrentSchemaVersion = 1;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
-        new Migration(1, "001_InitialSchema_v1", BuildV1()),
-        new Migration(2, "002_SeparateDomainMappings", BuildV2()),
-        new Migration(3, "003_AddMetadataToDomainMappings", BuildV3()),
-        new Migration(4, "004_AddDatesToBatch", BuildV4())
-    };
-
-    /// <summary>
-    /// Migration 4: Add StartDateUtc and EndDateUtc to Batch table and update unique index.
-    /// </summary>
-    private static IReadOnlyList<string> BuildV4() => new List<string>
-    {
-        "ALTER TABLE Batch ADD COLUMN StartDateUtc TEXT NULL;",
-        "ALTER TABLE Batch ADD COLUMN EndDateUtc TEXT NULL;",
-        "DROP INDEX IF EXISTS UX_Batch_Provider_Company_Month;",
-        "CREATE UNIQUE INDEX UX_Batch_Provider_Company_Range ON Batch(ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc);"
-    };
-
-    /// <summary>
-    /// Migration 3: Add missing metadata columns to separate domain mapping tables.
-    /// </summary>
-    private static IReadOnlyList<string> BuildV3() => new List<string>
-    {
-        "ALTER TABLE ApprovedDomainMapping ADD COLUMN ProviderDomainCode TEXT NULL;",
-        "ALTER TABLE ApprovedDomainMapping ADD COLUMN IsDefault INTEGER NULL;",
-        "ALTER TABLE ApprovedDomainMapping ADD COLUMN CodeValue TEXT NULL;",
-        "ALTER TABLE ApprovedDomainMapping ADD COLUMN DisplayValue TEXT NULL;",
-
-        "ALTER TABLE MissingDomainMapping ADD COLUMN ProviderNameValue TEXT NULL;",
-        "ALTER TABLE MissingDomainMapping ADD COLUMN DomainTableName TEXT NULL;"
-    };
-
-    /// <summary>
-    /// Migration 2: Separate DomainMapping into ApprovedDomainMapping and MissingDomainMapping.
-    /// Adds DiscoverySource flag to MissingDomainMapping.
-    /// </summary>
-    private static IReadOnlyList<string> BuildV2() => new List<string>
-    {
-        """
-        CREATE TABLE ApprovedDomainMapping (
-            DomainMappingId INTEGER PRIMARY KEY AUTOINCREMENT,
-            ProviderDhsCode  TEXT NOT NULL,
-            DomainName       TEXT NOT NULL,
-            DomainTableId    INTEGER NOT NULL,
-            SourceValue      TEXT NOT NULL,
-            TargetValue      TEXT NOT NULL,
-            DiscoveredUtc    TEXT NOT NULL,
-            LastPostedUtc    TEXT NULL,
-            LastUpdatedUtc   TEXT NOT NULL,
-            Notes            TEXT NULL
-        );
-        """,
-        "CREATE UNIQUE INDEX UX_ApprovedDomainMapping_Key ON ApprovedDomainMapping(ProviderDhsCode, DomainTableId, SourceValue);",
-
-        """
-        CREATE TABLE MissingDomainMapping (
-            MissingMappingId INTEGER PRIMARY KEY AUTOINCREMENT,
-            ProviderDhsCode  TEXT NOT NULL,
-            DomainName       TEXT NOT NULL,
-            DomainTableId    INTEGER NOT NULL,
-            SourceValue      TEXT NOT NULL,
-            DiscoverySource  INTEGER NOT NULL, -- 0=Api, 1=Scanned
-            DiscoveredUtc    TEXT NOT NULL,
-            LastUpdatedUtc   TEXT NOT NULL,
-            Notes            TEXT NULL
-        );
-        """,
-        "CREATE UNIQUE INDEX UX_MissingDomainMapping_Key ON MissingDomainMapping(ProviderDhsCode, DomainTableId, SourceValue);",
+        new Migration(1, "001_InitialSchema_v1", BuildV1())
     };
 
     /// <summary>
@@ -207,6 +141,8 @@ internal static class SqliteMigrations
             CompanyCode     TEXT NOT NULL,
             PayerCode       TEXT NULL,
             MonthKey        TEXT NOT NULL, -- YYYYMM
+            StartDateUtc    TEXT NULL,
+            EndDateUtc      TEXT NULL,
             BcrId           TEXT NULL,
             BatchStatus     INTEGER NOT NULL,
             HasResume       INTEGER NOT NULL DEFAULT 0,
@@ -215,7 +151,7 @@ internal static class SqliteMigrations
             LastError       TEXT NULL
         );
         """,
-        "CREATE UNIQUE INDEX UX_Batch_Provider_Company_Month ON Batch(ProviderDhsCode, CompanyCode, MonthKey);",
+        "CREATE UNIQUE INDEX UX_Batch_Provider_Company_Month ON Batch(ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc);",
         "CREATE INDEX IX_Batch_Status ON Batch(BatchStatus);",
         "CREATE INDEX IX_Batch_BcrId ON Batch(BcrId);",
 
@@ -395,5 +331,50 @@ internal static class SqliteMigrations
         );
         """,
         "CREATE INDEX IX_ApiCallLog_Endpoint_RequestUtc ON ApiCallLog(EndpointName, RequestUtc);",
+
+        // -----------------------
+        // 5.16 ApprovedDomainMapping
+        // -----------------------
+        """
+        CREATE TABLE ApprovedDomainMapping (
+            DomainMappingId INTEGER PRIMARY KEY AUTOINCREMENT,
+            ProviderDhsCode  TEXT NOT NULL,
+            DomainName       TEXT NOT NULL,
+            DomainTableId    INTEGER NOT NULL,
+            SourceValue      TEXT NOT NULL,
+            TargetValue      TEXT NOT NULL,
+            DiscoveredUtc    TEXT NOT NULL,
+            LastPostedUtc    TEXT NULL,
+            LastUpdatedUtc   TEXT NOT NULL,
+            Notes            TEXT NULL,
+            ProviderDomainCode TEXT NULL,
+            IsDefault INTEGER NULL,
+            CodeValue TEXT NULL,
+            DisplayValue TEXT NULL
+        );
+        """,
+        "CREATE UNIQUE INDEX UX_ApprovedDomainMapping_Key ON ApprovedDomainMapping(ProviderDhsCode, DomainTableId, SourceValue);",
+
+        // -----------------------
+        // 5.17 MissingDomainMapping
+        // -----------------------
+        """
+        CREATE TABLE MissingDomainMapping (
+            MissingMappingId INTEGER PRIMARY KEY AUTOINCREMENT,
+            ProviderDhsCode  TEXT NOT NULL,
+            DomainName       TEXT NOT NULL,
+            DomainTableId    INTEGER NOT NULL,
+            SourceValue      TEXT NOT NULL,
+            DiscoverySource  INTEGER NOT NULL, -- 0=Api, 1=Scanned
+            domainStatus     INTEGER NOT NULL, -- 0=Missing, 1=Posted, 2=Approved, 3=PostFailed
+            DiscoveredUtc    TEXT NOT NULL,
+            LastPostedUtc    TEXT NULL,
+            LastUpdatedUtc   TEXT NOT NULL,
+            Notes            TEXT NULL,
+            ProviderNameValue TEXT NULL,
+            DomainTableName TEXT NULL
+        );
+        """,
+        "CREATE UNIQUE INDEX UX_MissingDomainMapping_Key ON MissingDomainMapping(ProviderDhsCode, DomainTableId, SourceValue);",
     };
 }
