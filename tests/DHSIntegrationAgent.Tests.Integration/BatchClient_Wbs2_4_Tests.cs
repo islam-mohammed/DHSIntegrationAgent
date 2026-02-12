@@ -28,7 +28,17 @@ public sealed class BatchClient_Wbs2_4_Tests
     [Fact]
     public async Task CreateBatch_success_when_succeeded_true_and_statusCode_200_and_gzip_enabled()
     {
-        var responseJson = """{"succeeded": true, "statusCode": 200, "message": "ok", "batchId": 123}""";
+        var responseJson = """
+            {
+              "succeeded": true,
+              "statusCode": 200,
+              "message": "ok",
+              "errors": null,
+              "data": {
+                "createdBatchIds": [ 123 ]
+              }
+            }
+            """;
 
         var handler = new CapturingHttpMessageHandler(_ =>
             new HttpResponseMessage(HttpStatusCode.OK)
@@ -89,7 +99,15 @@ public sealed class BatchClient_Wbs2_4_Tests
     [Fact]
     public async Task CreateBatch_returns_backend_message_even_if_http_500()
     {
-        var responseJson = """{"succeeded": false, "statusCode": 500, "message": "Server error", "batchId": 0}""";
+        var responseJson = """
+            {
+              "succeeded": false,
+              "statusCode": 500,
+              "message": "Server error",
+              "errors": ["Some error"],
+              "data": null
+            }
+            """;
 
         var handler = new CapturingHttpMessageHandler(_ =>
             new HttpResponseMessage(HttpStatusCode.InternalServerError)
