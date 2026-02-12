@@ -28,6 +28,15 @@ internal sealed class SqliteMigrator : ISqliteMigrator
     public async Task MigrateAsync(CancellationToken cancellationToken)
     {
         await using var conn = await _connectionFactory.OpenConnectionAsync(cancellationToken);
+
+        // Ensure WAL mode is set once at startup.
+        // This is persistent and safer to do here than on every connection open.
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "PRAGMA journal_mode = WAL;";
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         var hasAppMeta = await TableExistsAsync(conn, "AppMeta", cancellationToken);
 
         if (!hasAppMeta)
