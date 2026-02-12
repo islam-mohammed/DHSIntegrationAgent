@@ -232,38 +232,6 @@ public sealed class StreamAWorker : IWorker
                                 _clock.UtcNow,
                                 _clock.UtcNow),
                             ct);
-
-                        // Persist issues
-                        foreach (var issue in buildResult.Issues)
-                        {
-                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
-                                batch.ProviderDhsCode,
-                                buildResult.ProIdClaim,
-                                issue.IssueType,
-                                issue.FieldPath,
-                                issue.RawValue,
-                                issue.Message,
-                                issue.IsBlocking,
-                                _clock.UtcNow
-                            ), ct);
-                        }
-                    }
-                    else
-                    {
-                        // Record blocking issues even if build failed
-                        foreach (var issue in buildResult.Issues)
-                        {
-                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
-                                batch.ProviderDhsCode,
-                                key,
-                                issue.IssueType,
-                                issue.FieldPath,
-                                issue.RawValue,
-                                issue.Message,
-                                issue.IsBlocking,
-                                _clock.UtcNow
-                            ), ct);
-                        }
                     }
 
                     processedCount++;

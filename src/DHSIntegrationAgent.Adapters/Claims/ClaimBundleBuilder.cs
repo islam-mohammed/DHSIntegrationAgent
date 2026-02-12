@@ -21,23 +21,13 @@ public sealed class ClaimBundleBuilder
     public sealed record Options(
         IReadOnlyList<string> ProIdClaimFieldCandidates,
         IReadOnlyList<string> CompanyCodeFieldCandidates,
-        IReadOnlyList<string> DateFieldCandidatesForMonthKey,
-        IReadOnlyList<string> PatientNameFieldCandidates,
-        IReadOnlyList<string> PatientIdFieldCandidates,
-        IReadOnlyList<string> InvoiceNumberFieldCandidates,
-        IReadOnlyList<string> TotalNetAmountFieldCandidates,
-        IReadOnlyList<string> ClaimedAmountFieldCandidates
+        IReadOnlyList<string> DateFieldCandidatesForMonthKey
     )
     {
         public static readonly Options Default = new(
             ProIdClaimFieldCandidates: new[] { "proIdClaim", "ProIdClaim", "claimId", "ClaimId" },
             CompanyCodeFieldCandidates: new[] { "companyCode", "CompanyCode" },
-            DateFieldCandidatesForMonthKey: new[] { "invoiceDate", "InvoiceDate", "claimDate", "ClaimDate", "createdDate", "CreatedDate" },
-            PatientNameFieldCandidates: new[] { "patientName", "PatientName", "name", "Name" },
-            PatientIdFieldCandidates: new[] { "patientID", "patientId", "PatientID", "PatientId", "id", "Id" },
-            InvoiceNumberFieldCandidates: new[] { "invoiceNumber", "InvoiceNumber", "billNo", "BillNo" },
-            TotalNetAmountFieldCandidates: new[] { "totalNetAmount", "TotalNetAmount", "netAmount", "NetAmount" },
-            ClaimedAmountFieldCandidates: new[] { "claimedAmount", "ClaimedAmount" }
+            DateFieldCandidatesForMonthKey: new[] { "invoiceDate", "InvoiceDate", "claimDate", "ClaimDate", "createdDate", "CreatedDate" }
         );
     }
 
@@ -120,10 +110,7 @@ public sealed class ClaimBundleBuilder
             opticalVitalSigns: parts.OpticalVitalSigns ?? new JsonArray()
         );
 
-        // 5) Unconditional required fields validation (non-blocking)
-        ValidateUnconditionalFields(header, issues);
-
-        // 6) Normalize detail items: ensure each detail (if object) has proIdClaim for traceability (non-blocking)
+        // 5) Normalize detail items: ensure each detail (if object) has proIdClaim for traceability (non-blocking)
         EnsureProIdClaimOnDetails(bundle.ServiceDetails, proIdClaim, issues, "serviceDetails");
         EnsureProIdClaimOnDetails(bundle.DiagnosisDetails, proIdClaim, issues, "diagnosisDetails");
         EnsureProIdClaimOnDetails(bundle.LabDetails, proIdClaim, issues, "labDetails");
@@ -144,34 +131,6 @@ public sealed class ClaimBundleBuilder
     // Normalization helpers
     // -------------------------
 
-    private void ValidateUnconditionalFields(JsonObject header, List<ClaimBundleValidationIssue> issues)
-    {
-        if (!TryReadString(header, _options.PatientNameFieldCandidates, out _))
-        {
-            issues.Add(Info("MissingPatientName", "claimHeader.patientName", null, "Patient name is missing."));
-        }
-
-        if (!TryReadString(header, _options.PatientIdFieldCandidates, out _))
-        {
-            issues.Add(Info("MissingPatientId", "claimHeader.patientID", null, "Patient ID is missing."));
-        }
-
-        if (!TryReadString(header, _options.InvoiceNumberFieldCandidates, out _))
-        {
-            issues.Add(Info("MissingInvoiceNumber", "claimHeader.invoiceNumber", null, "Invoice number is missing."));
-        }
-
-        if (!TryReadDecimal(header, _options.TotalNetAmountFieldCandidates, out _, out _))
-        {
-            issues.Add(Info("MissingTotalNetAmount", "claimHeader.totalNetAmount", null, "Total net amount is missing."));
-        }
-
-        if (!TryReadDecimal(header, _options.ClaimedAmountFieldCandidates, out _, out _))
-        {
-            issues.Add(Info("MissingClaimedAmount", "claimHeader.claimedAmount", null, "Claimed amount is missing."));
-        }
-    }
-
     private static void EnsureProIdClaimOnDetails(JsonArray details, int proIdClaim, List<ClaimBundleValidationIssue> issues, string arrayName)
     {
         for (var i = 0; i < details.Count; i++)
@@ -187,48 +146,6 @@ public sealed class ClaimBundleBuilder
                     "Injected proIdClaim into detail item for traceability."));
             }
         }
-    }
-
-    private static bool TryReadDecimal(JsonObject obj, IReadOnlyList<string> candidates, out decimal value, out string? raw)
-    {
-        value = default;
-        raw = null;
-
-        foreach (var name in candidates)
-        {
-            if (!TryGetPropertyIgnoreCase(obj, name, out var node))
-                continue;
-
-            raw = node?.ToString();
-            if (node is null) continue;
-
-            if (node is JsonValue v)
-            {
-                if (v.TryGetValue<decimal>(out var d))
-                {
-                    value = d;
-                    return true;
-                }
-                if (v.TryGetValue<double>(out var db))
-                {
-                    value = (decimal)db;
-                    return true;
-                }
-                if (v.TryGetValue<string>(out var s) && decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out var sd))
-                {
-                    value = sd;
-                    return true;
-                }
-            }
-
-            if (decimal.TryParse(node.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed))
-            {
-                value = parsed;
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static bool TryReadInt(JsonObject obj, IReadOnlyList<string> candidates, out int value, out string? raw)
