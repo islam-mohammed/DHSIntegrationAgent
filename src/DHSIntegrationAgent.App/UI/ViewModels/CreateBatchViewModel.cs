@@ -21,6 +21,9 @@ public sealed class CreateBatchViewModel : ViewModelBase
     private readonly IProviderConfigurationService _configService;
     private readonly ISystemClock _clock;
     private readonly IWorkerEngine _workerEngine;
+    private readonly IFetchStageService _fetchStageService;
+
+    public event Action? RequestClose;
 
     private PayerItem? _selectedPayer;
     private string? _selectedMonth;
@@ -60,13 +63,15 @@ public sealed class CreateBatchViewModel : ViewModelBase
         IProviderTablesAdapter tablesAdapter,
         IProviderConfigurationService configService,
         ISystemClock clock,
-        IWorkerEngine workerEngine)
+        IWorkerEngine workerEngine,
+        IFetchStageService fetchStageService)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _tablesAdapter = tablesAdapter ?? throw new ArgumentNullException(nameof(tablesAdapter));
         _configService = configService ?? throw new ArgumentNullException(nameof(configService));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
+        _fetchStageService = fetchStageService ?? throw new ArgumentNullException(nameof(fetchStageService));
 
         CreateBatchCommand = new AsyncRelayCommand(ExecuteCreateBatchAsync);
 
@@ -159,22 +164,37 @@ public sealed class CreateBatchViewModel : ViewModelBase
             }
 
             // 4. Create Batch locally
+            long batchId;
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
             {
                 var monthKey = $"{year}{month:D2}";
                 var key = new BatchKey(providerDhsCode, SelectedPayer.CompanyCode, monthKey, startDateOffset, endDateOffset);
 
-                await uow.Batches.EnsureBatchAsync(key, BatchStatus.Ready, _clock.UtcNow, default);
+                batchId = await uow.Batches.EnsureBatchAsync(key, BatchStatus.Ready, _clock.UtcNow, default);
                 await uow.CommitAsync(default);
             }
 
-            // 5. Start Worker Engine if not running
+            // 5. Run Stream A Fetch & Stage immediately
+            BatchRow? batchRow;
+            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+            {
+                batchRow = await uow.Batches.GetByIdAsync(batchId, default);
+            }
+
+            if (batchRow != null)
+            {
+                var progress = new Progress<WorkerProgressReport>();
+                await _fetchStageService.ProcessBatchAsync(batchRow, progress, default);
+                await _fetchStageService.PostMissingMappingsAsync(batchRow.ProviderDhsCode, progress, default);
+            }
+
+            // 6. Start Worker Engine if not running
             if (!_workerEngine.IsRunning)
             {
                 await _workerEngine.StartAsync(default);
             }
 
-            MessageBox.Show("Batch created successfully and processing has started.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+            RequestClose?.Invoke();
         }
         catch (Exception ex)
         {

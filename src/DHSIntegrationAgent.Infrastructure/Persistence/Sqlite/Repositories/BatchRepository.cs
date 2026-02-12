@@ -32,6 +32,39 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         return obj is null || obj == DBNull.Value ? null : Convert.ToInt64(obj);
     }
 
+    public async Task<BatchRow?> GetByIdAsync(long batchId, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError
+            FROM Batch
+            WHERE BatchId = $id;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$id", batchId);
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            return new BatchRow(
+                BatchId: reader.GetInt64(0),
+                ProviderDhsCode: reader.GetString(1),
+                CompanyCode: reader.GetString(2),
+                PayerCode: reader.IsDBNull(3) ? null : reader.GetString(3),
+                MonthKey: reader.GetString(4),
+                StartDateUtc: reader.IsDBNull(5) ? null : SqliteUtc.FromIso(reader.GetString(5)),
+                EndDateUtc: reader.IsDBNull(6) ? null : SqliteUtc.FromIso(reader.GetString(6)),
+                BcrId: reader.IsDBNull(7) ? null : reader.GetString(7),
+                BatchStatus: (BatchStatus)reader.GetInt32(8),
+                HasResume: reader.GetInt32(9) != 0,
+                CreatedUtc: SqliteUtc.FromIso(reader.GetString(10)),
+                UpdatedUtc: SqliteUtc.FromIso(reader.GetString(11)),
+                LastError: reader.IsDBNull(12) ? null : reader.GetString(12)
+            );
+        }
+
+        return null;
+    }
+
     public async Task<long> EnsureBatchAsync(BatchKey key, BatchStatus batchStatus, DateTimeOffset utcNow, CancellationToken cancellationToken)
     {
         await using (var insert = CreateCommand(
