@@ -129,10 +129,9 @@ public sealed class FetchStageService : IFetchStageService
                     if (buildResult.Succeeded)
                     {
                         // Injected fields as per user request
-                        if (int.TryParse(batch.ProviderDhsCode, out var dhsCodeInt))
-                        {
-                            buildResult.Bundle!.ClaimHeader["provider_dhsCode"] = dhsCodeInt;
-                        }
+                       
+                        buildResult.Bundle!.ClaimHeader["provider_dhsCode"] = batch.ProviderDhsCode;
+                       
                         if (long.TryParse(bcrId, out var bcrIdLong))
                         {
                             buildResult.Bundle!.ClaimHeader["bCR_Id"] = bcrIdLong;

@@ -105,8 +105,7 @@ SELECT
 FROM {headerTable}
 WHERE CompanyCode = @CompanyCode
   AND {dateCol} >= @StartDate
-  AND {dateCol} <= @EndDate
-  AND (IsFetched IS NULL OR IsFetched = 0);";
+  AND {dateCol} <= @EndDate;";
 
         cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
         cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
