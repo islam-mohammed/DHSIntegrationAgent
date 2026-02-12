@@ -69,7 +69,9 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
                 DomainTableId,
                 SourceValue,
                 DiscoverySource,
+                MappingStatus,
                 DiscoveredUtc,
+                LastPostedUtc,
                 LastUpdatedUtc,
                 Notes,
                 ProviderNameValue,
@@ -90,11 +92,66 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
                 DomainTableId: reader.GetInt32(3),
                 SourceValue: reader.GetString(4),
                 DiscoverySource: (DiscoverySource)reader.GetInt32(5),
-                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(6)),
-                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(7)),
-                Notes: reader.IsDBNull(8) ? null : reader.GetString(8),
-                ProviderNameValue: reader.IsDBNull(9) ? null : reader.GetString(9),
-                DomainTableName: reader.IsDBNull(10) ? null : reader.GetString(10)
+                MappingStatus: (MappingStatus)reader.GetInt32(6),
+                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(7)),
+                LastPostedUtc: reader.IsDBNull(8) ? null : SqliteUtc.FromIso(reader.GetString(8)),
+                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(9)),
+                Notes: reader.IsDBNull(10) ? null : reader.GetString(10),
+                ProviderNameValue: reader.IsDBNull(11) ? null : reader.GetString(11),
+                DomainTableName: reader.IsDBNull(12) ? null : reader.GetString(12)
+            ));
+        }
+
+        return results;
+    }
+
+    public async Task<IReadOnlyList<MissingDomainMappingRow>> ListEligibleForPostingAsync(string providerDhsCode, CancellationToken ct)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT
+                MissingMappingId,
+                ProviderDhsCode,
+                DomainName,
+                DomainTableId,
+                SourceValue,
+                DiscoverySource,
+                MappingStatus,
+                DiscoveredUtc,
+                LastPostedUtc,
+                LastUpdatedUtc,
+                Notes,
+                ProviderNameValue,
+                DomainTableName
+            FROM MissingDomainMapping
+            WHERE ProviderDhsCode = $p
+              AND MappingStatus IN ($m, $f)
+            ORDER BY MissingMappingId ASC;
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$m", (int)MappingStatus.Missing);
+        SqliteSqlBuilder.AddParam(cmd, "$f", (int)MappingStatus.PostFailed);
+
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        var results = new List<MissingDomainMappingRow>();
+
+        while (await reader.ReadAsync(ct))
+        {
+            results.Add(new MissingDomainMappingRow(
+                MissingMappingId: reader.GetInt64(0),
+                ProviderDhsCode: reader.GetString(1),
+                DomainName: reader.GetString(2),
+                DomainTableId: reader.GetInt32(3),
+                SourceValue: reader.GetString(4),
+                DiscoverySource: (DiscoverySource)reader.GetInt32(5),
+                MappingStatus: (MappingStatus)reader.GetInt32(6),
+                DiscoveredUtc: SqliteUtc.FromIso(reader.GetString(7)),
+                LastPostedUtc: reader.IsDBNull(8) ? null : SqliteUtc.FromIso(reader.GetString(8)),
+                LastUpdatedUtc: SqliteUtc.FromIso(reader.GetString(9)),
+                Notes: reader.IsDBNull(10) ? null : reader.GetString(10),
+                ProviderNameValue: reader.IsDBNull(11) ? null : reader.GetString(11),
+                DomainTableName: reader.IsDBNull(12) ? null : reader.GetString(12)
             ));
         }
 
@@ -164,10 +221,10 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         await using var cmd = CreateCommand(
             """
             INSERT INTO MissingDomainMapping
-            (ProviderDhsCode, DomainName, DomainTableId, SourceValue, DiscoverySource, DiscoveredUtc, LastUpdatedUtc,
+            (ProviderDhsCode, DomainName, DomainTableId, SourceValue, DiscoverySource, MappingStatus, DiscoveredUtc, LastUpdatedUtc,
              ProviderNameValue, DomainTableName)
             VALUES
-            ($p, $dn, $dt, $sv, $ds, $now, $now, $pnv, $dtn)
+            ($p, $dn, $dt, $sv, $ds, $ms, $now, $now, $pnv, $dtn)
             ON CONFLICT(ProviderDhsCode, DomainTableId, SourceValue)
             DO UPDATE SET
                 DomainName = excluded.DomainName,
@@ -183,6 +240,7 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         SqliteSqlBuilder.AddParam(cmd, "$dt", domainTableId);
         SqliteSqlBuilder.AddParam(cmd, "$sv", sourceValue);
         SqliteSqlBuilder.AddParam(cmd, "$ds", (int)discoverySource);
+        SqliteSqlBuilder.AddParam(cmd, "$ms", (int)MappingStatus.Missing);
         SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
         SqliteSqlBuilder.AddParam(cmd, "$pnv", providerNameValue);
         SqliteSqlBuilder.AddParam(cmd, "$dtn", domainTableName);
@@ -285,6 +343,30 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
             cancellationToken,
             providerNameValue,
             domainTableName);
+    }
+
+    public async Task UpdateMissingStatusAsync(
+        long missingMappingId,
+        MappingStatus status,
+        DateTimeOffset utcNow,
+        DateTimeOffset? lastPostedUtc,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            UPDATE MissingDomainMapping
+            SET MappingStatus = $status,
+                LastPostedUtc = COALESCE($lp, LastPostedUtc),
+                LastUpdatedUtc = $now
+            WHERE MissingMappingId = $id;
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$status", (int)status);
+        SqliteSqlBuilder.AddParam(cmd, "$lp", lastPostedUtc is null ? null : SqliteUtc.ToIso(lastPostedUtc.Value));
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+        SqliteSqlBuilder.AddParam(cmd, "$id", missingMappingId);
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public async Task UpdateApprovedStatusAsync(
