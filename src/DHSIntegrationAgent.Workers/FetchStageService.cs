@@ -20,7 +20,6 @@ public sealed class FetchStageService : IFetchStageService
     private readonly IProviderTablesAdapter _tablesAdapter;
     private readonly IBatchClient _batchClient;
     private readonly IDomainMappingClient _domainMappingClient;
-    private readonly BaselineDomainScanner _scanner;
     private readonly ISystemClock _clock;
     private readonly ILogger<FetchStageService> _logger;
 
@@ -29,7 +28,6 @@ public sealed class FetchStageService : IFetchStageService
         IProviderTablesAdapter tablesAdapter,
         IBatchClient batchClient,
         IDomainMappingClient domainMappingClient,
-        BaselineDomainScanner scanner,
         ISystemClock clock,
         ILogger<FetchStageService> logger)
     {
@@ -37,7 +35,6 @@ public sealed class FetchStageService : IFetchStageService
         _tablesAdapter = tablesAdapter;
         _batchClient = batchClient;
         _domainMappingClient = domainMappingClient;
-        _scanner = scanner;
         _clock = clock;
         _logger = logger;
     }
@@ -97,8 +94,6 @@ public sealed class FetchStageService : IFetchStageService
         bool hasMore = true;
         int processedCount = 0;
 
-        var missingMappings = new HashSet<ScannedDomainValue>();
-
         while (hasMore)
         {
             var keys = await _tablesAdapter.ListClaimKeysAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, pageSize, lastSeen, ct);
@@ -141,13 +136,6 @@ public sealed class FetchStageService : IFetchStageService
                         if (long.TryParse(bcrId, out var bcrIdLong))
                         {
                             buildResult.Bundle!.ClaimHeader["bCR_Id"] = bcrIdLong;
-                        }
-
-                        // Scan for missing mappings
-                        var scannedValues = _scanner.Scan(buildResult.Bundle!);
-                        foreach (var sv in scannedValues)
-                        {
-                            missingMappings.Add(sv);
                         }
 
                         // Stage locally
@@ -234,15 +222,24 @@ public sealed class FetchStageService : IFetchStageService
         }
 
         // 4. Handle Missing Mappings
-        if (missingMappings.Count > 0)
-        {
-            progress.Report(new WorkerProgressReport("StreamA", $"Scanning for missing domain mappings..."));
+        progress.Report(new WorkerProgressReport("StreamA", "Scanning for missing domain mappings..."));
 
+        var domains = BaselineDomainScanner.GetBaselineDomains();
+        var distinctValues = await _tablesAdapter.GetDistinctDomainValuesAsync(
+            batch.ProviderDhsCode,
+            batch.CompanyCode,
+            batchStartDate,
+            batchEndDate,
+            domains,
+            ct);
+
+        if (distinctValues.Count > 0)
+        {
             int discoveredInRun = 0;
 
             await using (var uow = await _uowFactory.CreateAsync(ct))
             {
-                foreach (var mm in missingMappings)
+                foreach (var mm in distinctValues)
                 {
                     if (await uow.DomainMappings.ExistsAsync(batch.ProviderDhsCode, mm.DomainTableId, mm.Value, ct))
                     {

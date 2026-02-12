@@ -12,7 +12,6 @@ public static class WorkersServiceCollectionExtensions
         IConfiguration configuration)
     {
         // Infrastructure services for workers
-        services.AddSingleton<BaselineDomainScanner>();
         services.AddSingleton<IFetchStageService, FetchStageService>();
 
         // Worker implementations

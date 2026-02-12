@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using DHSIntegrationAgent.Application.Providers;
 using DHSIntegrationAgent.Contracts.Providers;
 
 namespace DHSIntegrationAgent.Adapters.Tables;
@@ -31,5 +32,13 @@ public interface IProviderTablesAdapter
     Task<ProviderClaimBundleRaw?> GetClaimBundleRawAsync(
         string providerDhsCode,
         int proIdClaim,
+        CancellationToken ct);
+
+    Task<IReadOnlyList<ScannedDomainValue>> GetDistinctDomainValuesAsync(
+        string providerDhsCode,
+        string companyCode,
+        DateTimeOffset batchStartDateUtc,
+        DateTimeOffset batchEndDateUtc,
+        IReadOnlyList<BaselineDomain> domains,
         CancellationToken ct);
 }
