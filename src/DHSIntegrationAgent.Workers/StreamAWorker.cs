@@ -130,8 +130,23 @@ public sealed class StreamAWorker : IWorker
         _logger.LogInformation("Processing batch {BatchId} for {CompanyCode} {MonthKey}", batch.BatchId, batch.CompanyCode, batch.MonthKey);
 
         string? bcrId = batch.BcrId;
+        string? payerCode = batch.PayerCode;
 
-        // 1. Ensure BcrId exists
+        // 1. Resolve payer settings and PayerCode if missing
+        if (string.IsNullOrWhiteSpace(payerCode))
+        {
+            await using var uow = await _uowFactory.CreateAsync(ct);
+            var payerProfile = await uow.Payers.GetByCompanyCodeAsync(batch.ProviderDhsCode, batch.CompanyCode, ct);
+            if (payerProfile != null)
+            {
+                payerCode = payerProfile.PayerCode;
+                // Update batch with resolved PayerCode
+                await uow.Batches.UpdateStatusAsync(batch.BatchId, batch.BatchStatus, null, null, _clock.UtcNow, ct, payerCode);
+                await uow.CommitAsync(ct);
+            }
+        }
+
+        // 2. Ensure BcrId exists
         if (string.IsNullOrWhiteSpace(bcrId))
         {
             progress.Report(new WorkerProgressReport(Id, $"Obtaining BcrId for batch {batch.BatchId}..."));
@@ -154,7 +169,7 @@ public sealed class StreamAWorker : IWorker
             await uow.CommitAsync(ct);
         }
 
-        // 2. Fetch and Stage Claims
+        // 3. Fetch and Stage Claims
         progress.Report(new WorkerProgressReport(Id, $"Fetching claims for batch {batch.BatchId}..."));
 
         var batchStartDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
@@ -232,6 +247,38 @@ public sealed class StreamAWorker : IWorker
                                 _clock.UtcNow,
                                 _clock.UtcNow),
                             ct);
+
+                        // Persist issues (diagnostics)
+                        foreach (var issue in buildResult.Issues)
+                        {
+                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
+                                batch.ProviderDhsCode,
+                                buildResult.ProIdClaim,
+                                issue.IssueType,
+                                issue.FieldPath,
+                                issue.RawValue,
+                                issue.Message,
+                                issue.IsBlocking,
+                                _clock.UtcNow
+                            ), ct);
+                        }
+                    }
+                    else
+                    {
+                        // Record blocking issues even if build failed
+                        foreach (var issue in buildResult.Issues)
+                        {
+                            await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
+                                batch.ProviderDhsCode,
+                                key,
+                                issue.IssueType,
+                                issue.FieldPath,
+                                issue.RawValue,
+                                issue.Message,
+                                issue.IsBlocking,
+                                _clock.UtcNow
+                            ), ct);
+                        }
                     }
 
                     processedCount++;
@@ -259,7 +306,7 @@ public sealed class StreamAWorker : IWorker
             if (keys.Count < pageSize) hasMore = false;
         }
 
-        // 3. Handle Missing Mappings
+        // 4. Handle Missing Mappings
         if (missingMappings.Count > 0)
         {
             progress.Report(new WorkerProgressReport(Id, $"Scanning for missing domain mappings..."));
@@ -297,7 +344,7 @@ public sealed class StreamAWorker : IWorker
             }
         }
 
-        // 4. Update Batch Status to Ready (meaning staged and BcrId obtained, ready for Sender)
+        // 5. Update Batch Status to Ready (meaning staged and BcrId obtained, ready for Sender)
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
             await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Ready, true, null, _clock.UtcNow, ct);

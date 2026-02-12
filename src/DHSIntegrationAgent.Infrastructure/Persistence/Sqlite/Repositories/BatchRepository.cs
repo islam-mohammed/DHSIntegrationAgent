@@ -71,7 +71,14 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         if (rows != 1) throw new InvalidOperationException("SetBcrId failed (expected 1 row).");
     }
 
-    public async Task UpdateStatusAsync(long batchId, BatchStatus status, bool? hasResume, string? lastError, DateTimeOffset utcNow, CancellationToken cancellationToken)
+    public async Task UpdateStatusAsync(
+        long batchId,
+        BatchStatus status,
+        bool? hasResume,
+        string? lastError,
+        DateTimeOffset utcNow,
+        CancellationToken cancellationToken,
+        string? payerCode = null)
     {
         await using var cmd = CreateCommand(
             """
@@ -79,12 +86,14 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             SET BatchStatus = $s,
                 HasResume = COALESCE($hr, HasResume),
                 LastError = $err,
+                PayerCode = COALESCE($pc, PayerCode),
                 UpdatedUtc = $now
             WHERE BatchId = $id;
             """);
         SqliteSqlBuilder.AddParam(cmd, "$s", (int)status);
         SqliteSqlBuilder.AddParam(cmd, "$hr", hasResume is null ? null : (hasResume.Value ? 1 : 0));
         SqliteSqlBuilder.AddParam(cmd, "$err", lastError);
+        SqliteSqlBuilder.AddParam(cmd, "$pc", payerCode);
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
         SqliteSqlBuilder.AddParam(cmd, "$id", batchId);
 

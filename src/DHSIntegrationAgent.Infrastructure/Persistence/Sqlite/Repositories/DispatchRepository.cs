@@ -88,4 +88,22 @@ internal sealed class DispatchRepository : SqliteRepositoryBase, IDispatchReposi
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    public async Task RecoverInFlightAsync(DateTimeOffset utcNow, CancellationToken cancellationToken)
+    {
+        // Mark any Dispatch rows left in InFlight as Failed with LastError='App restart during request' (diagnostics).
+        await using var cmd = CreateCommand(
+            """
+            UPDATE Dispatch
+            SET DispatchStatus = $failed,
+                LastError = 'App restart during request',
+                UpdatedUtc = $now
+            WHERE DispatchStatus = $inFlight;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$failed", (int)DispatchStatus.Failed);
+        SqliteSqlBuilder.AddParam(cmd, "$inFlight", (int)DispatchStatus.InFlight);
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
 }

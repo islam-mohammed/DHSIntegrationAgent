@@ -38,9 +38,9 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
             ON CONFLICT(ProviderDhsCode, ProIdClaim)
             DO UPDATE SET
                 CompanyCode = excluded.CompanyCode,
-                MonthKey = excluded.MonthKey,
-                BatchId = COALESCE(excluded.BatchId, Claim.BatchId),
-                BcrId = COALESCE(excluded.BcrId, Claim.BcrId),
+                MonthKey = COALESCE(Claim.MonthKey, excluded.MonthKey),
+                BatchId = COALESCE(Claim.BatchId, excluded.BatchId),
+                BcrId = COALESCE(Claim.BcrId, excluded.BcrId),
                 EnqueueStatus = CASE
                     WHEN Claim.EnqueueStatus = $enqueued THEN Claim.EnqueueStatus
                     ELSE $notsent
@@ -251,6 +251,35 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
                 WHERE k.ProviderDhsCode = Claim.ProviderDhsCode AND k.ProIdClaim = Claim.ProIdClaim
             );
             """;
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task RecoverInFlightAsync(DateTimeOffset utcNow, CancellationToken cancellationToken)
+    {
+        // Mark any Claim rows with InFlightUntilUtc < now as eligible again by clearing LockedBy/InFlightUntilUtc
+        // and restoring EnqueueStatus (NotSent/Failed/Enqueued as appropriate).
+        await using var cmd = CreateCommand(
+            """
+            UPDATE Claim
+            SET EnqueueStatus = CASE
+                    WHEN LockedBy = 'Sender' THEN $notSent
+                    WHEN LockedBy = 'Retry' THEN $failed
+                    WHEN LockedBy = 'Requeue' THEN $enqueued
+                    ELSE EnqueueStatus
+                END,
+                LockedBy = NULL,
+                InFlightUntilUtc = NULL,
+                LastUpdatedUtc = $now
+            WHERE EnqueueStatus = $inFlight
+               OR (InFlightUntilUtc IS NOT NULL AND InFlightUntilUtc <= $now);
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$notSent", (int)EnqueueStatus.NotSent);
+        SqliteSqlBuilder.AddParam(cmd, "$failed", (int)EnqueueStatus.Failed);
+        SqliteSqlBuilder.AddParam(cmd, "$enqueued", (int)EnqueueStatus.Enqueued);
+        SqliteSqlBuilder.AddParam(cmd, "$inFlight", (int)EnqueueStatus.InFlight);
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);

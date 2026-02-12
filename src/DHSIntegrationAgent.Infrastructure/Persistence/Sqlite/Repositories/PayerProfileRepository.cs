@@ -109,4 +109,29 @@ internal sealed class PayerProfileRepository : SqliteRepositoryBase, IPayerProfi
         }
         return list;
     }
+
+    public async Task<PayerProfileRow?> GetByCompanyCodeAsync(string providerDhsCode, string companyCode, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT ProviderDhsCode, CompanyCode, PayerCode, PayerName, IsActive
+            FROM PayerProfile
+            WHERE ProviderDhsCode = $p AND CompanyCode = $cc
+            LIMIT 1;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$cc", companyCode);
+
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (await r.ReadAsync(cancellationToken))
+        {
+            return new PayerProfileRow(
+                ProviderDhsCode: r.GetString(0),
+                CompanyCode: r.GetString(1),
+                PayerCode: r.IsDBNull(2) ? null : r.GetString(2),
+                PayerName: r.IsDBNull(3) ? null : r.GetString(3),
+                IsActive: r.GetInt32(4) == 1);
+        }
+        return null;
+    }
 }

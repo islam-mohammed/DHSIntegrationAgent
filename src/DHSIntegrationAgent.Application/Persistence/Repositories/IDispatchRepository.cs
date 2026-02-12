@@ -29,4 +29,6 @@ public interface IDispatchRepository
         DateTimeOffset utcNow,
         TimeSpan? nextRetryDelay,
         CancellationToken cancellationToken);
+
+    Task RecoverInFlightAsync(DateTimeOffset utcNow, CancellationToken cancellationToken);
 }
