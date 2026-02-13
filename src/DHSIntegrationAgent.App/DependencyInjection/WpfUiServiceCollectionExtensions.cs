@@ -1,6 +1,7 @@
 ﻿using DHSIntegrationAgent.App.UI.Navigation;
 using DHSIntegrationAgent.App.UI.Services;
 using DHSIntegrationAgent.App.UI.ViewModels;
+using DHSIntegrationAgent.Application.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DHSIntegrationAgent.App.DependencyInjection;

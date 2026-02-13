@@ -3,10 +3,10 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
-namespace DHSIntegrationAgent.App.UI.Converters;
-
-public class BooleanToGridLengthConverter : IValueConverter
+namespace DHSIntegrationAgent.App.UI.Converters
 {
+    public class BooleanToGridLengthConverter : IValueConverter
+    {
     public string TrueValue { get; set; } = "220";
     public string FalseValue { get; set; } = "0";
 
@@ -36,8 +36,9 @@ public class BooleanToGridLengthConverter : IValueConverter
         return new GridLength(0);
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-    {
-        throw new NotImplementedException();
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
