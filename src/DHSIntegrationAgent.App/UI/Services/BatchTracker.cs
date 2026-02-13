@@ -30,6 +30,7 @@ public sealed class BatchTracker : IBatchTracker
         {
             InternalBatchId = batch.BatchId,
             BatchNumber = batch.BcrId ?? "Pending...",
+            StatusMessage = "Validating Financial Information",
             TotalClaims = financialSummary?.TotalClaims ?? 0,
             FinancialMessage = financialSummary != null ?
                 $"Claims: {financialSummary.TotalClaims}, Net: {financialSummary.TotalNetAmount:N2} ({(financialSummary.IsValid ? "Valid ✅" : "Invalid ❌")})"
