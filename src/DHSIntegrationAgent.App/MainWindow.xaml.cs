@@ -2,24 +2,25 @@
 using DHSIntegrationAgent.App.UI.ViewModels;
 using Microsoft.Extensions.Logging;
 
-namespace DHSIntegrationAgent.App;
-
-public partial class MainWindow : Window
+namespace DHSIntegrationAgent.App
 {
-    private readonly ILogger<MainWindow> _logger;
-
-    public MainWindow(ILogger<MainWindow> logger, ShellViewModel shellViewModel)
+    public partial class MainWindow : Window
     {
-        InitializeComponent();
+        private readonly ILogger<MainWindow> _logger;
 
-        _logger = logger;
-        DataContext = shellViewModel;
+        public MainWindow(ILogger<MainWindow> logger, ShellViewModel shellViewModel)
+        {
+            InitializeComponent();
 
-        _logger.LogInformation("MainWindow created via DI and bound to ShellViewModel.");
-    }
+            _logger = logger;
+            DataContext = shellViewModel;
 
-    private void Button_Click(object sender, RoutedEventArgs e)
-    {
+            _logger.LogInformation("MainWindow created via DI and bound to ShellViewModel.");
+        }
 
+        private void Button_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
     }
 }
