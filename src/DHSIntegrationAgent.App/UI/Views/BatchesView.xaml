@@ -333,15 +333,15 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="Remaining" FontSize="12"/>
-                                                <TextBlock Grid.Column="1" Text="{Binding RemainingClaims}" FontWeight="SemiBold" Foreground="#FFEF4444"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding RemainingClaims, Mode=OneWay}" FontWeight="SemiBold" Foreground="#FFEF4444"/>
                                             </Grid>
 
                                             <StackPanel>
                                                 <Grid Margin="0,0,0,4">
                                                     <TextBlock Text="Progress" FontSize="11" Foreground="{StaticResource BrushMuted}"/>
-                                                    <TextBlock Text="{Binding ProgressPercentage, StringFormat={}{0:N0}%}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                                    <TextBlock Text="{Binding ProgressPercentage, Mode=OneWay, StringFormat={}{0:N0}%}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right"/>
                                                 </Grid>
-                                                <ProgressBar Value="{Binding ProgressPercentage}" Height="8" Background="#FFE5E7EB" Foreground="{StaticResource BrushPrimary}"/>
+                                                <ProgressBar Value="{Binding ProgressPercentage, Mode=OneWay}" Height="8" Background="#FFE5E7EB" Foreground="{StaticResource BrushPrimary}"/>
                                             </StackPanel>
                                         </StackPanel>
                                     </Border>
