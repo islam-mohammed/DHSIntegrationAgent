@@ -17,6 +17,7 @@ public sealed class BatchTracker : IBatchTracker
     private readonly IWorkerEngine _workerEngine;
 
     public ObservableCollection<BatchProgressViewModel> ActiveBatches { get; } = new();
+    object IBatchTracker.ActiveBatches => ActiveBatches;
 
     public BatchTracker(IFetchStageService fetchStageService, IWorkerEngine workerEngine)
     {
@@ -38,9 +39,9 @@ public sealed class BatchTracker : IBatchTracker
         };
 
         // Ensure we add to collection on UI thread
-        if (Application.Current?.Dispatcher != null)
+        if (System.Windows.Application.Current?.Dispatcher != null)
         {
-            Application.Current.Dispatcher.Invoke(() => ActiveBatches.Add(progressViewModel));
+            System.Windows.Application.Current.Dispatcher.Invoke(() => ActiveBatches.Add(progressViewModel));
         }
         else
         {
@@ -55,7 +56,7 @@ public sealed class BatchTracker : IBatchTracker
                 var progress = new Progress<WorkerProgressReport>(report =>
                 {
                     // Update progressViewModel on UI thread
-                    Application.Current?.Dispatcher.Invoke(() =>
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
                         if (report.BcrId != null) progressViewModel.BatchNumber = report.BcrId;
                         if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
@@ -76,7 +77,7 @@ public sealed class BatchTracker : IBatchTracker
                     await _workerEngine.StartAsync(default);
                 }
 
-                Application.Current?.Dispatcher.Invoke(() =>
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
                     progressViewModel.StatusMessage = "Staged and ready.";
                     progressViewModel.IsCompleted = true;
@@ -84,7 +85,7 @@ public sealed class BatchTracker : IBatchTracker
             }
             catch (Exception ex)
             {
-                Application.Current?.Dispatcher.Invoke(() =>
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
                     progressViewModel.StatusMessage = $"Error: {ex.Message}";
                     progressViewModel.IsError = true;
