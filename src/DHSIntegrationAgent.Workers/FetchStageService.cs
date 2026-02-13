@@ -223,7 +223,7 @@ public sealed class FetchStageService : IFetchStageService
         // 4. Missing mappings discovery (posting is separate)
         progress.Report(new WorkerProgressReport("StreamA", "Scanning for missing domain mappings..."));
 
-        var domains = BaselineDomainScanner.GetBaselineDomains();
+         var domains = BaselineDomainScanner.GetBaselineDomains();
         var distinctValues = await _tablesAdapter.GetDistinctDomainValuesAsync(
             batch.ProviderDhsCode,
             batch.CompanyCode,

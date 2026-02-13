@@ -289,16 +289,16 @@ WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProvider
                 columnName = domain.FieldPath.Substring("claimHeader.".Length);
                 isHeader = true;
             }
-            else if (domain.FieldPath.StartsWith("serviceDetails[]."))
+            else if (domain.FieldPath.StartsWith("serviceDetails."))
             {
                 tableName = DefaultServiceTable;
-                columnName = domain.FieldPath.Substring("serviceDetails[].".Length);
+                columnName = domain.FieldPath.Substring("serviceDetails.".Length);
                 isHeader = false;
             }
-            else if (domain.FieldPath.StartsWith("diagnosisDetails[]."))
+            else if (domain.FieldPath.StartsWith("diagnosisDetails."))
             {
                 tableName = DefaultDiagnosisTable;
-                columnName = domain.FieldPath.Substring("diagnosisDetails[].".Length);
+                columnName = domain.FieldPath.Substring("diagnosisDetails.".Length);
                 isHeader = false;
             }
             else
