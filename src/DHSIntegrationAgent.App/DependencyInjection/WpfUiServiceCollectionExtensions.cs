@@ -35,6 +35,9 @@ public static class WpfUiServiceCollectionExtensions
         // WBS 5.3 login orchestration
         services.AddSingleton<ILoginService, LoginService>();
 
+        // Batch creation tracking
+        services.AddSingleton<IBatchTracker, BatchTracker>();
+
         return services;
     }
 }

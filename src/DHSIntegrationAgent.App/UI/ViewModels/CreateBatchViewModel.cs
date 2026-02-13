@@ -24,6 +24,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
     private readonly ISystemClock _clock;
     private readonly IWorkerEngine _workerEngine;
     private readonly IFetchStageService _fetchStageService;
+    private readonly IBatchTracker _batchTracker;
 
     public event Action? RequestClose;
 
@@ -66,7 +67,8 @@ public sealed class CreateBatchViewModel : ViewModelBase
         IProviderConfigurationService configService,
         ISystemClock clock,
         IWorkerEngine workerEngine,
-        IFetchStageService fetchStageService)
+        IFetchStageService fetchStageService,
+        IBatchTracker batchTracker)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _tablesAdapter = tablesAdapter ?? throw new ArgumentNullException(nameof(tablesAdapter));
@@ -74,6 +76,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
         _fetchStageService = fetchStageService ?? throw new ArgumentNullException(nameof(fetchStageService));
+        _batchTracker = batchTracker ?? throw new ArgumentNullException(nameof(batchTracker));
 
         CreateBatchCommand = new AsyncRelayCommand(ExecuteCreateBatchAsync);
 
@@ -130,9 +133,10 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 }
             }
 
+            FinancialSummary? summary = null;
             if (integrationType.Equals("Tables", StringComparison.OrdinalIgnoreCase))
             {
-                var summary = await _tablesAdapter.GetFinancialSummaryAsync(
+                summary = await _tablesAdapter.GetFinancialSummaryAsync(
                     providerDhsCode,
                     SelectedPayer.CompanyCode,
                     startDateOffset,
@@ -176,7 +180,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 await uow.CommitAsync(default);
             }
 
-            // 5. Run Stream A Fetch & Stage immediately
+            // 5. Run Stream A Fetch & Stage immediately (via Tracker)
             BatchRow? batchRow;
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
             {
@@ -185,15 +189,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
 
             if (batchRow != null)
             {
-                var progress = new Progress<WorkerProgressReport>();
-                await _fetchStageService.ProcessBatchAsync(batchRow, progress, default);
-                await _fetchStageService.PostMissingMappingsAsync(batchRow.ProviderDhsCode, progress, default);
-            }
-
-            // 6. Start Worker Engine if not runningStreamAWorkerStreamAWorkerStreamAWorkerStreamAWorkerStreamAWorker
-            if (!_workerEngine.IsRunning)
-            {
-                await _workerEngine.StartAsync(default);
+                _batchTracker.TrackBatchCreation(batchRow, summary);
             }
 
             RequestClose?.Invoke();

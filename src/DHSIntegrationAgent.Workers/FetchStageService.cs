@@ -63,13 +63,13 @@ public sealed class FetchStageService : IFetchStageService
         // 2. Ensure BcrId exists
         if (string.IsNullOrWhiteSpace(bcrId))
         {
-            progress.Report(new WorkerProgressReport("StreamA", $"Obtaining BcrId for batch {batch.BatchId}..."));
+            progress.Report(new WorkerProgressReport("StreamA", "Creating New Batch on Server", BatchId: batch.BatchId));
 
             var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
             var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
-            var totalClaims = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
+            var totalClaimsCount = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
 
-            var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaims, batch.ProviderDhsCode);
+            var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaimsCount, batch.ProviderDhsCode);
             var result = await _batchClient.CreateBatchAsync(new[] { request }, ct);
 
             if (!result.Succeeded)
@@ -83,10 +83,11 @@ public sealed class FetchStageService : IFetchStageService
         }
 
         // 3. Fetch and Stage Claims
-        progress.Report(new WorkerProgressReport("StreamA", $"Fetching claims for batch {batch.BatchId}..."));
-
         var batchStartDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
         var batchEndDate = batch.EndDateUtc ?? batchStartDate.AddMonths(1).AddTicks(-1);
+        var totalClaims = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, ct);
+
+        progress.Report(new WorkerProgressReport("StreamA", $"Fetching 0 of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: 0, TotalCount: totalClaims, BcrId: bcrId));
 
         int? lastSeen = null;
         const int PageSize = 100;
@@ -159,6 +160,11 @@ public sealed class FetchStageService : IFetchStageService
 
                 processedCount++;
                 lastSeen = key;
+
+                if (processedCount % 10 == 0 || processedCount == totalClaims)
+                {
+                    progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
+                }
             }
 
             // Persist to SQLite in small, write-only transactions.
@@ -253,7 +259,7 @@ public sealed class FetchStageService : IFetchStageService
             await uow.CommitAsync(ct);
         }
 
-        progress.Report(new WorkerProgressReport("StreamA", $"Batch {batch.BatchId} staged successfully. {processedCount} claims processed."));
+        progress.Report(new WorkerProgressReport("StreamA", $"Batch {batch.BatchId} staged successfully. {processedCount} claims processed.", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
     }
 
     private async Task<int> UpsertMissingMappingsAsync(string providerDhsCode, IReadOnlyList<ScannedDomainValue> values, CancellationToken ct)
