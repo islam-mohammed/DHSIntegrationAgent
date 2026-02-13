@@ -20,7 +20,6 @@ public interface ISqliteUnitOfWork : IAsyncDisposable
     IDispatchItemRepository DispatchItems { get; }
 
     IAttachmentRepository Attachments { get; }
-    IValidationIssueRepository ValidationIssues { get; }
 
     IApiCallLogRepository ApiCallLogs { get; }
 
