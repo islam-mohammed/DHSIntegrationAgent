@@ -12,8 +12,10 @@ public sealed class BatchesViewModel : ViewModelBase
 {
     private readonly ISqliteUnitOfWorkFactory _unitOfWorkFactory;
     private readonly IBatchClient _batchClient;
+    private readonly IBatchTracker _batchTracker;
 
     public ObservableCollection<BatchRow> Batches { get; } = new();
+    public object ActiveBatches => _batchTracker.ActiveBatches;
     public ObservableCollection<DispatchRow> DispatchHistory { get; } = new();
 
     private BatchRow? _selectedBatch;
@@ -75,10 +77,11 @@ public sealed class BatchesViewModel : ViewModelBase
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
 
-    public BatchesViewModel(ISqliteUnitOfWorkFactory unitOfWorkFactory, IBatchClient batchClient)
+    public BatchesViewModel(ISqliteUnitOfWorkFactory unitOfWorkFactory, IBatchClient batchClient, IBatchTracker batchTracker)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
+        _batchTracker = batchTracker ?? throw new ArgumentNullException(nameof(batchTracker));
 
         ApplyFilterCommand = new RelayCommand(() => { /* screen-only */ });
         ManualRetrySelectedPacketCommand = new RelayCommand(() => { /* screen-only */ });
