@@ -197,20 +197,6 @@ public sealed class FetchStageService : IFetchStageService
                             ct);
                     }
 
-                    // Persist issues for both success and failure
-                    foreach (var issue in buildResult.Issues)
-                    {
-                        await uow.ValidationIssues.InsertAsync(new ValidationIssueRow(
-                            batch.ProviderDhsCode,
-                            item.ProIdClaim,
-                            issue.IssueType,
-                            issue.FieldPath,
-                            issue.RawValue,
-                            issue.Message,
-                            issue.IsBlocking,
-                            _clock.UtcNow
-                        ), ct);
-                    }
                 }
 
                 await uow.CommitAsync(ct);

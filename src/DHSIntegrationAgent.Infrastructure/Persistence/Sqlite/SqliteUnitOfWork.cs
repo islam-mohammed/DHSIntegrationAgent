@@ -44,7 +44,6 @@ internal sealed class SqliteUnitOfWork : ISqliteUnitOfWork
         DispatchItems = new DispatchItemRepository(_conn, _tx);
 
         // Validation + observability persistence
-        ValidationIssues = new ValidationIssueRepository(_conn, _tx);
         ApiCallLogs = new ApiCallLogRepository(_conn, _tx);
     }
 
@@ -66,7 +65,6 @@ internal sealed class SqliteUnitOfWork : ISqliteUnitOfWork
     public IDispatchItemRepository DispatchItems { get; }
 
     public IAttachmentRepository Attachments { get; }
-    public IValidationIssueRepository ValidationIssues { get; }
 
     public IApiCallLogRepository ApiCallLogs { get; }
 

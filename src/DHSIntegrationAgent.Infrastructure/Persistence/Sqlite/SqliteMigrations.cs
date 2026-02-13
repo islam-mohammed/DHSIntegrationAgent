@@ -289,28 +289,6 @@ internal static class SqliteMigrations
         "CREATE UNIQUE INDEX UX_Attachment_Claim_Sha256 ON Attachment(ProviderDhsCode, ProIdClaim, Sha256) WHERE Sha256 IS NOT NULL AND Sha256 <> '';",
 
         // -----------------------
-        // 5.14 ValidationIssue
-        // -----------------------
-        """
-        CREATE TABLE ValidationIssue (
-            ValidationIssueId INTEGER PRIMARY KEY AUTOINCREMENT,
-            ProviderDhsCode    TEXT NOT NULL,
-            ProIdClaim         INTEGER NULL,
-            IssueType          TEXT NOT NULL,
-            FieldPath          TEXT NULL,
-            RawValue           TEXT NULL,
-            Message            TEXT NOT NULL,
-            IsBlocking         INTEGER NOT NULL DEFAULT 0,
-            CreatedUtc         TEXT NOT NULL,
-            ResolvedUtc        TEXT NULL,
-            ResolvedBy         TEXT NULL,
-            FOREIGN KEY (ProviderDhsCode, ProIdClaim) REFERENCES Claim(ProviderDhsCode, ProIdClaim) ON DELETE CASCADE
-        );
-        """,
-        "CREATE INDEX IX_ValidationIssue_Provider_ProIdClaim ON ValidationIssue(ProviderDhsCode, ProIdClaim);",
-        "CREATE INDEX IX_ValidationIssue_IssueType_IsBlocking ON ValidationIssue(IssueType, IsBlocking);",
-
-        // -----------------------
         // 5.15 ApiCallLog (NO PHI)
         // -----------------------
         """
