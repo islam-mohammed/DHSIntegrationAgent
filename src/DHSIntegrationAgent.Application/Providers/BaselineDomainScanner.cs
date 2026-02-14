@@ -21,7 +21,7 @@ public static class BaselineDomainScanner
         new("PatientIDType", 17, "claimHeader.patientIdType"),
         new("EncounterStatus", 47, "claimHeader.encounterStatus"),
         new("CareType", 33, "claimHeader.careTypeID"),
-        new("EncounterType", 10, "claimHeader.EnconuterTypeID"),
+        new("EncounterType", 10, "claimHeader.EncounterTypeID"),
         new("Religion", 24, "claimHeader.patientReligion"),
         new("AdmissionType", 80, "claimHeader.admissionTypeID"),
         new("TriageCategoryType", 84, "claimHeader.triageCategoryTypeID"),
@@ -35,7 +35,7 @@ public static class BaselineDomainScanner
         new("ExtendedDiagnosisTypeIndicator", 11, "diagnosisDetails.diagnosisType"),
         new("IllnessTypeIndicator", 14, "diagnosisDetails.illnessTypeIndicator"),
         new("OnsetConditionType", 9, "diagnosisDetails.onsetConditionTypeID"),
-        new("DocotrReligion", 24, "doctorDetails.religion_Code"),
+        new("DoctorReligion", 24, "doctorDetails.religion_Code"),
         new("Gender", 12, "doctorDetails.DoctorGender")
     };
 }
