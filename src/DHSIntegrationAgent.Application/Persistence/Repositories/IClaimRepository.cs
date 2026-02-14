@@ -44,4 +44,6 @@ public interface IClaimRepository
     Task IncrementAttemptAsync(IReadOnlyList<ClaimKey> claims, DateTimeOffset utcNow, CancellationToken cancellationToken);
 
     Task RecoverInFlightAsync(DateTimeOffset utcNow, CancellationToken cancellationToken);
+
+    Task<(int Total, int Enqueued)> GetBatchCountsAsync(long batchId, CancellationToken cancellationToken);
 }

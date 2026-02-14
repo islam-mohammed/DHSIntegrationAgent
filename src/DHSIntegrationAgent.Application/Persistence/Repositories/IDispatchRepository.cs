@@ -31,4 +31,6 @@ public interface IDispatchRepository
         CancellationToken cancellationToken);
 
     Task RecoverInFlightAsync(DateTimeOffset utcNow, CancellationToken cancellationToken);
+
+    Task<int> GetNextSequenceNoAsync(long batchId, CancellationToken cancellationToken);
 }

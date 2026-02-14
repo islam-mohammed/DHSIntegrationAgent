@@ -13,6 +13,7 @@ public sealed class BatchProgressViewModel : ViewModelBase
     private string _financialMessage = "";
     private int _totalClaims;
     private int _processedClaims;
+    private double? _percentageOverride;
     private bool _isCompleted;
     private bool _isError;
 
@@ -66,6 +67,18 @@ public sealed class BatchProgressViewModel : ViewModelBase
         }
     }
 
+    public double? PercentageOverride
+    {
+        get => _percentageOverride;
+        set
+        {
+            if (SetProperty(ref _percentageOverride, value))
+            {
+                OnPropertyChanged(nameof(ProgressPercentage));
+            }
+        }
+    }
+
     public bool IsCompleted
     {
         get => _isCompleted;
@@ -80,7 +93,15 @@ public sealed class BatchProgressViewModel : ViewModelBase
 
     public int RemainingClaims => Math.Max(0, TotalClaims - ProcessedClaims);
 
-    public double ProgressPercentage => TotalClaims > 0
-        ? Math.Min(100.0, (double)ProcessedClaims / TotalClaims * 100.0)
-        : 0;
+    public double ProgressPercentage
+    {
+        get
+        {
+            if (PercentageOverride.HasValue) return PercentageOverride.Value;
+
+            return TotalClaims > 0
+                ? Math.Min(100.0, (double)ProcessedClaims / TotalClaims * 100.0)
+                : 0;
+        }
+    }
 }

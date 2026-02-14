@@ -93,6 +93,7 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
               WHERE ProviderDhsCode = $p
                 AND EnqueueStatus IN {inClause}
                 AND (InFlightUntilUtc IS NULL OR InFlightUntilUtc <= $now)
+                {(request.BatchId.HasValue ? "AND BatchId = $bid" : "")}
                 {(request.RequireRetryDue ? "AND (NextRetryUtc IS NULL OR NextRetryUtc <= $now)" : "")}
               ORDER BY ProIdClaim
               LIMIT $take
@@ -112,6 +113,10 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
         SqliteSqlBuilder.AddParam(cmd, "$take", request.Take);
         SqliteSqlBuilder.AddParam(cmd, "$inflight", (int)EnqueueStatus.InFlight);
+        if (request.BatchId.HasValue)
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", request.BatchId.Value);
+        }
 
         var leased = new List<ClaimKey>(request.Take);
         await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -283,5 +288,26 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<(int Total, int Enqueued)> GetBatchCountsAsync(long batchId, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT
+                COUNT(*),
+                SUM(CASE WHEN EnqueueStatus = $enqueued THEN 1 ELSE 0 END)
+            FROM Claim
+            WHERE BatchId = $bid;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+        SqliteSqlBuilder.AddParam(cmd, "$enqueued", (int)EnqueueStatus.Enqueued);
+
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (await r.ReadAsync(cancellationToken))
+        {
+            return (r.GetInt32(0), r.IsDBNull(1) ? 0 : r.GetInt32(1));
+        }
+        return (0, 0);
     }
 }

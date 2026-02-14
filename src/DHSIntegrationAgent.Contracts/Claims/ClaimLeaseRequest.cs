@@ -9,5 +9,6 @@ public sealed record ClaimLeaseRequest(
     DateTimeOffset LeaseUntilUtc,
     int Take,
     IReadOnlyList<EnqueueStatus> EligibleEnqueueStatuses,
-    bool RequireRetryDue
+    bool RequireRetryDue,
+    long? BatchId = null
 );
