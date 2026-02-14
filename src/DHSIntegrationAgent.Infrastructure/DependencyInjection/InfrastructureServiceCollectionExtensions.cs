@@ -1,4 +1,5 @@
 ﻿using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Application.Claims;
 using DHSIntegrationAgent.Application.Configuration;
 using DHSIntegrationAgent.Application.Observability;
 using DHSIntegrationAgent.Application.Persistence;
@@ -88,6 +89,12 @@ public static class InfrastructureServiceCollectionExtensions
         // Domain Mapping API client  ✅ REQUIRED for DomainMappingsViewModel
         // -----------------------------------------------------------
         services.AddSingleton<IDomainMappingClient, DomainMappingClient>();
+
+        // -----------------------------------------------------------
+        // Claims and Resume API clients (WBS 2.5, 2.6)
+        // -----------------------------------------------------------
+        services.AddSingleton<IClaimsClient, ClaimsClient>();
+        services.AddSingleton<IResumeClient, ResumeClient>();
 
         // -----------------------------------------------------------
         // Approved Domain Mapping refresh (Change Request)

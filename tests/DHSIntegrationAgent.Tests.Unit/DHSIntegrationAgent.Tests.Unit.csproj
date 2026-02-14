@@ -30,7 +30,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DHSIntegrationAgent.Application\DHSIntegrationAgent.Application.csproj" />
+    <ProjectReference Include="..\..\src\DHSIntegrationAgent.Bootstrapper\DHSIntegrationAgent.Bootstrapper.csproj" />
     <ProjectReference Include="..\..\src\DHSIntegrationAgent.Contracts\DHSIntegrationAgent.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\DHSIntegrationAgent.Infrastructure\DHSIntegrationAgent.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\DHSIntegrationAgent.Workers\DHSIntegrationAgent.Workers.csproj" />
   </ItemGroup>
 
