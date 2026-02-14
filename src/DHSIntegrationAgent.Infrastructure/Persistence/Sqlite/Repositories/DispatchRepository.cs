@@ -106,4 +106,18 @@ internal sealed class DispatchRepository : SqliteRepositoryBase, IDispatchReposi
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    public async Task<int> GetNextSequenceNoAsync(long batchId, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT COALESCE(MAX(SequenceNo), 0) + 1
+            FROM Dispatch
+            WHERE BatchId = $bid;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return Convert.ToInt32(result);
+    }
 }

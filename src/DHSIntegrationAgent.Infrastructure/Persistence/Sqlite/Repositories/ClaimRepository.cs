@@ -93,6 +93,7 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
               WHERE ProviderDhsCode = $p
                 AND EnqueueStatus IN {inClause}
                 AND (InFlightUntilUtc IS NULL OR InFlightUntilUtc <= $now)
+                {(request.BatchId.HasValue ? "AND BatchId = $bid" : "")}
                 {(request.RequireRetryDue ? "AND (NextRetryUtc IS NULL OR NextRetryUtc <= $now)" : "")}
               ORDER BY ProIdClaim
               LIMIT $take
@@ -112,6 +113,10 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
         SqliteSqlBuilder.AddParam(cmd, "$take", request.Take);
         SqliteSqlBuilder.AddParam(cmd, "$inflight", (int)EnqueueStatus.InFlight);
+        if (request.BatchId.HasValue)
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", request.BatchId.Value);
+        }
 
         var leased = new List<ClaimKey>(request.Take);
         await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
