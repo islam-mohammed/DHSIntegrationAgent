@@ -7,6 +7,7 @@ using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
 using Microsoft.Data.SqlClient;
 using System.Collections.Concurrent;
+using System.Text.Json.Nodes;
 
 namespace DHSIntegrationAgent.Adapters.Tables;
 
@@ -181,86 +182,55 @@ ORDER BY {claimKeyCol} ASC;";
         int proIdClaim,
         CancellationToken ct)
     {
+        var result = await GetClaimBundlesRawBatchAsync(providerDhsCode, new[] { proIdClaim }, ct);
+        return result.FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<ProviderClaimBundleRaw>> GetClaimBundlesRawBatchAsync(
+        string providerDhsCode,
+        IReadOnlyList<int> proIdClaims,
+        CancellationToken ct)
+    {
+        if (proIdClaims.Count == 0) return Array.Empty<ProviderClaimBundleRaw>();
+
         var (headerTable, claimKeyCol, _) = await ResolveConfigAsync(providerDhsCode, ct);
 
         await using var handle = await _providerDbFactory.OpenAsync(providerDhsCode, ct);
 
-        // Header
-        var header = await ReadSingleRowAsync(handle.Connection, $@"
-SELECT *
-FROM {headerTable}
-WHERE {claimKeyCol} = @ClaimKey",
-            providerDhsCode,
-            proIdClaim,
-            ct,
-            includeProviderFilter: true);
+        // Fetch everything in batch queries.
+        var headers = await FetchHeaderBatchAsync(handle.Connection, headerTable, claimKeyCol, providerDhsCode, proIdClaims, ct);
+        var doctors = await FetchSingleRowBatchAsync(handle.Connection, DefaultDoctorTable, "ProIdClaim", proIdClaims, ct);
+        var services = await FetchManyRowsBatchAsync(handle.Connection, DefaultServiceTable, "ProIdClaim", proIdClaims, ct);
+        var diagnoses = await FetchManyRowsBatchAsync(handle.Connection, DefaultDiagnosisTable, "ProIdClaim", proIdClaims, ct);
+        var labs = await FetchManyRowsBatchAsync(handle.Connection, DefaultLabTable, "ProIdClaim", proIdClaims, ct);
+        var radiology = await FetchManyRowsBatchAsync(handle.Connection, DefaultRadiologyTable, "ProIdClaim", proIdClaims, ct);
+        var attachments = await FetchManyRowsBatchAsync(handle.Connection, DefaultAttachmentTable, "ProIdClaim", proIdClaims, ct);
+        var optical = await FetchManyRowsBatchAsync(handle.Connection, DefaultOpticalTable, "ProIdClaim", proIdClaims, ct);
+        var itemDetails = await FetchManyRowsBatchAsync(handle.Connection, DefaultItemDetailsTable, "ProIdClaim", proIdClaims, ct);
+        var achi = await FetchManyRowsBatchAsync(handle.Connection, DefaultAchiTable, "ProIdClaim", proIdClaims, ct);
 
-        if (header is null)
-            return null;
+        var result = new List<ProviderClaimBundleRaw>(proIdClaims.Count);
+        foreach (var id in proIdClaims)
+        {
+            if (!headers.TryGetValue(id, out var header))
+                continue;
 
-        // Doctor (by ProIdClaim; no provider filter in schema)
-        var doctor = await ReadSingleRowAsync(handle.Connection, $@"
-SELECT TOP (1) *
-FROM {DefaultDoctorTable}
-WHERE ProIdClaim = @ClaimKey;",
-            providerDhsCode,
-            proIdClaim,
-            ct,
-            includeProviderFilter: false);
+            result.Add(new ProviderClaimBundleRaw(
+                ProIdClaim: id,
+                Header: header,
+                Doctor: doctors.GetValueOrDefault(id),
+                Services: services.GetValueOrDefault(id, new JsonArray()),
+                Diagnoses: diagnoses.GetValueOrDefault(id, new JsonArray()),
+                Labs: labs.GetValueOrDefault(id, new JsonArray()),
+                Radiology: radiology.GetValueOrDefault(id, new JsonArray()),
+                Attachments: attachments.GetValueOrDefault(id, new JsonArray()),
+                OpticalVitalSigns: optical.GetValueOrDefault(id, new JsonArray()),
+                ItemDetails: itemDetails.GetValueOrDefault(id, new JsonArray()),
+                Achi: achi.GetValueOrDefault(id, new JsonArray())
+            ));
+        }
 
-        // Details arrays (most keyed by ProIdClaim; no provider filter columns in the script)
-        var services = await ReadManyRowsAsync(handle.Connection, $@"
-SELECT *
-FROM {DefaultServiceTable}
-WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProviderFilter: false);
-
-        var diagnoses = await ReadManyRowsAsync(handle.Connection, $@"
-SELECT *
-FROM {DefaultDiagnosisTable}
-WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProviderFilter: false);
-
-        var labs = await ReadManyRowsAsync(handle.Connection, $@"
-SELECT *
-FROM {DefaultLabTable}
-WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProviderFilter: false);
-
-        var radiology = await ReadManyRowsAsync(handle.Connection, $@"
-SELECT *
-FROM {DefaultRadiologyTable}
-WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProviderFilter: false);
-
-        var attachments = await ReadManyRowsAsync(handle.Connection, $@"
-SELECT *
-FROM {DefaultAttachmentTable}
-WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProviderFilter: false);
-
-        var optical = await ReadManyRowsAsync(handle.Connection, $@"
-SELECT *
-FROM {DefaultOpticalTable}
-WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProviderFilter: false);
-
-        var itemDetails = await ReadManyRowsAsync(handle.Connection, $@"
-SELECT *
-FROM {DefaultItemDetailsTable}
-WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProviderFilter: false);
-
-        var achi = await ReadManyRowsAsync(handle.Connection, $@"
-SELECT *
-FROM {DefaultAchiTable}
-WHERE ProIdClaim = @ClaimKey;", providerDhsCode, proIdClaim, ct, includeProviderFilter: false);
-
-        return new ProviderClaimBundleRaw(
-            ProIdClaim: proIdClaim,
-            Header: header,
-            Doctor: doctor,
-            Services: services,
-            Diagnoses: diagnoses,
-            Labs: labs,
-            Radiology: radiology,
-            Attachments: attachments,
-            OpticalVitalSigns: optical,
-            ItemDetails: itemDetails,
-            Achi: achi);
+        return result;
     }
 
     public async Task<IReadOnlyList<ScannedDomainValue>> GetDistinctDomainValuesAsync(
@@ -382,7 +352,7 @@ WHERE h.CompanyCode = @CompanyCode
         return result;
     }
 
-    private static async Task<System.Text.Json.Nodes.JsonObject?> ReadSingleRowAsync(
+    private static async Task<JsonObject?> ReadSingleRowAsync(
         DbConnection conn,
         string sql,
         string providerDhsCode,
@@ -408,7 +378,7 @@ WHERE h.CompanyCode = @CompanyCode
         return reader.ReadRowAsJsonObject();
     }
 
-    private static async Task<System.Text.Json.Nodes.JsonArray> ReadManyRowsAsync(
+    private static async Task<JsonArray> ReadManyRowsAsync(
         DbConnection conn,
         string sql,
         string providerDhsCode,
@@ -429,5 +399,110 @@ WHERE h.CompanyCode = @CompanyCode
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         return await reader.ReadAllRowsAsJsonArrayAsync(ct);
+    }
+
+    private static async Task<Dictionary<int, JsonObject>> FetchHeaderBatchAsync(
+        DbConnection conn,
+        string tableName,
+        string keyCol,
+        string providerDhsCode,
+        IReadOnlyList<int> keys,
+        CancellationToken ct)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
+
+        var keyList = string.Join(",", keys);
+        cmd.CommandText = $@"
+SELECT *
+FROM {tableName}
+WHERE {keyCol} IN ({keyList})";
+
+        // Preserve original behavior of adding ProviderDhsCode parameter even if not explicitly in SQL string
+        cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
+
+        var result = new Dictionary<int, JsonObject>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var row = reader.ReadRowAsJsonObject();
+            if (row.TryGetPropertyValue(keyCol, out var val) && val != null)
+            {
+                if (int.TryParse(val.ToString(), out var id))
+                    result[id] = row;
+            }
+        }
+        return result;
+    }
+
+    private static async Task<Dictionary<int, JsonObject>> FetchSingleRowBatchAsync(
+        DbConnection conn,
+        string tableName,
+        string keyCol,
+        IReadOnlyList<int> keys,
+        CancellationToken ct)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
+
+        var keyList = string.Join(",", keys);
+        cmd.CommandText = $@"
+WITH CTE AS (
+    SELECT *, ROW_NUMBER() OVER(PARTITION BY {keyCol} ORDER BY (SELECT NULL)) as rn
+    FROM {tableName}
+    WHERE {keyCol} IN ({keyList})
+)
+SELECT * FROM CTE WHERE rn = 1";
+
+        var result = new Dictionary<int, JsonObject>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var row = reader.ReadRowAsJsonObject();
+            row.Remove("rn");
+            if (row.TryGetPropertyValue(keyCol, out var val) && val != null)
+            {
+                if (int.TryParse(val.ToString(), out var id))
+                    result[id] = row;
+            }
+        }
+        return result;
+    }
+
+    private static async Task<Dictionary<int, JsonArray>> FetchManyRowsBatchAsync(
+        DbConnection conn,
+        string tableName,
+        string keyCol,
+        IReadOnlyList<int> keys,
+        CancellationToken ct)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
+
+        var keyList = string.Join(",", keys);
+        cmd.CommandText = $@"
+SELECT *
+FROM {tableName}
+WHERE {keyCol} IN ({keyList})";
+
+        var result = new Dictionary<int, JsonArray>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            var row = reader.ReadRowAsJsonObject();
+            if (row.TryGetPropertyValue(keyCol, out var val) && val != null)
+            {
+                if (int.TryParse(val.ToString(), out var id))
+                {
+                    if (!result.TryGetValue(id, out var arr))
+                    {
+                        arr = new JsonArray();
+                        result[id] = arr;
+                    }
+                    arr.Add(row);
+                }
+            }
+        }
+        return result;
     }
 }

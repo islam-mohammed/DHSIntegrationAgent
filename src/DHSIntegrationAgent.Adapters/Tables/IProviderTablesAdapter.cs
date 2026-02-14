@@ -34,6 +34,11 @@ public interface IProviderTablesAdapter
         int proIdClaim,
         CancellationToken ct);
 
+    Task<IReadOnlyList<ProviderClaimBundleRaw>> GetClaimBundlesRawBatchAsync(
+        string providerDhsCode,
+        IReadOnlyList<int> proIdClaims,
+        CancellationToken ct);
+
     Task<IReadOnlyList<ScannedDomainValue>> GetDistinctDomainValuesAsync(
         string providerDhsCode,
         string companyCode,
