@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using DHSIntegrationAgent.Adapters.Claims;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
@@ -109,7 +110,7 @@ public sealed class DispatchService : IDispatchService
             }
 
             var dispatchId = Guid.NewGuid().ToString();
-            var bundles = new List<ClaimBundle>(leased.Count);
+            var bundles = new List<JsonNode>(leased.Count);
             var dispatchItems = new List<DispatchItemRow>(leased.Count);
 
             await using (var uow = await _uowFactory.CreateAsync(ct))
@@ -120,15 +121,18 @@ public sealed class DispatchService : IDispatchService
                     var payloadRow = await uow.ClaimPayloads.GetAsync(key, ct);
                     if (payloadRow != null)
                     {
-                        var bundle = JsonSerializer.Deserialize<ClaimBundle>(payloadRow.PayloadJsonPlaintext, ClaimBundle.JsonDefaults.Canonical);
-                        if (bundle != null)
+                        var node = JsonNode.Parse(payloadRow.PayloadJsonPlaintext);
+                        if (node is JsonObject bundleObj)
                         {
-                            // Inject
-                            bundle.ClaimHeader["provider_dhsCode"] = batch.ProviderDhsCode;
-                            if (long.TryParse(batch.BcrId, out var bcrIdLong))
-                                bundle.ClaimHeader["bCR_Id"] = bcrIdLong;
-
-                            bundles.Add(bundle);
+                            // Inject/Override to ensure they match current batch
+                            var header = bundleObj["claimHeader"]?.AsObject();
+                            if (header != null)
+                            {
+                                header["provider_dhsCode"] = batch.ProviderDhsCode;
+                                if (long.TryParse(batch.BcrId, out var bcrIdLong))
+                                    header["bCR_Id"] = bcrIdLong;
+                            }
+                            bundles.Add(bundleObj);
                         }
                     }
 
@@ -165,6 +169,21 @@ public sealed class DispatchService : IDispatchService
 
             var jsonArray = ClaimBundleJsonPacket.ToJsonArray(bundles);
             packetCount++;
+
+            // Report progress BEFORE sending the chunk
+            int currentChunkStart = enqueuedCount + 1;
+            int currentChunkEnd = enqueuedCount + leased.Count;
+            double currentPercentage = totalClaimsInBatch > 0
+                ? 55 + (((double)enqueuedCount / totalClaimsInBatch) * 45)
+                : 100;
+
+            progress.Report(new WorkerProgressReport(
+                "StreamB",
+                $"Sending claims {currentChunkStart}-{currentChunkEnd} of {totalClaimsInBatch}",
+                Percentage: currentPercentage,
+                BatchId: batch.BatchId,
+                ProcessedCount: enqueuedCount,
+                TotalCount: totalClaimsInBatch));
 
             try
             {
@@ -215,20 +234,18 @@ public sealed class DispatchService : IDispatchService
 
                 await uowResult.CommitAsync(ct);
 
+                // After send, update with final enqueued count for this batch
                 double sendPercentage = totalClaimsInBatch > 0
                     ? 55 + (((double)enqueuedCount / totalClaimsInBatch) * 45)
                     : 100;
 
-                if (packetCount == 1 || packetCount % 40 == 0 || enqueuedCount == totalClaimsInBatch)
-                {
-                    progress.Report(new WorkerProgressReport(
-                        "StreamB",
-                        $"Sending claims {enqueuedCount} of {totalClaimsInBatch} claims",
-                        Percentage: sendPercentage,
-                        BatchId: batch.BatchId,
-                        ProcessedCount: enqueuedCount,
-                        TotalCount: totalClaimsInBatch));
-                }
+                progress.Report(new WorkerProgressReport(
+                    "StreamB",
+                    $"Sent {enqueuedCount} of {totalClaimsInBatch} claims",
+                    Percentage: sendPercentage,
+                    BatchId: batch.BatchId,
+                    ProcessedCount: enqueuedCount,
+                    TotalCount: totalClaimsInBatch));
             }
             catch (Exception ex)
             {
