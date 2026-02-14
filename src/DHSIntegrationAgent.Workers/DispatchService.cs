@@ -73,7 +73,7 @@ public sealed class DispatchService : IDispatchService
                     {
                         await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Enqueued, null, null, _clock.UtcNow, ct);
                     }
-                    progress.Report(new WorkerProgressReport("StreamB", "Batch processing complete.", Percentage: 100, BatchId: batch.BatchId));
+                    progress.Report(new WorkerProgressReport("StreamB", "Batch processing complete.", Percentage: 100, BatchId: batch.BatchId, ProcessedCount: enqueuedCount, TotalCount: totalClaimsInBatch));
                     await uow.CommitAsync(ct);
                     break;
                 }
@@ -200,7 +200,7 @@ public sealed class DispatchService : IDispatchService
                     ? 55 + (((double)enqueuedCount / totalClaimsInBatch) * 45)
                     : 100;
 
-                progress.Report(new WorkerProgressReport("StreamB", $"Sent {bundles.Count} claims for batch {batch.BatchId}", Percentage: sendPercentage, BatchId: batch.BatchId));
+                progress.Report(new WorkerProgressReport("StreamB", $"Sent {bundles.Count} claims for batch {batch.BatchId}", Percentage: sendPercentage, BatchId: batch.BatchId, ProcessedCount: enqueuedCount, TotalCount: totalClaimsInBatch));
             }
             catch (Exception ex)
             {

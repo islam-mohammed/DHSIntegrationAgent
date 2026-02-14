@@ -96,7 +96,7 @@ public sealed class BatchTracker : IBatchTracker
                 await _fetchStageService.ProcessBatchAsync(batch, progress, default);
 
                 // 2. Post any discovered missing mappings
-                await _fetchStageService.PostMissingMappingsAsync(batch.ProviderDhsCode, progress, default);
+                await _fetchStageService.PostMissingMappingsAsync(batch.ProviderDhsCode, progress, default, batch.BatchId);
 
                 // 3. Ensure Worker Engine is running to process the batch (Stream B)
                 if (!_workerEngine.IsRunning)

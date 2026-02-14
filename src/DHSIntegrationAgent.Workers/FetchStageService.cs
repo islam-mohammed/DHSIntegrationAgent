@@ -214,7 +214,7 @@ public sealed class FetchStageService : IFetchStageService
         }
 
         // 4. Missing mappings discovery (posting is separate)
-        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan", Percentage: 30, BatchId: batch.BatchId));
+        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan", Percentage: 30, BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
 
          var domains = BaselineDomainScanner.GetBaselineDomains();
         var distinctValues = await _tablesAdapter.GetDistinctDomainValuesAsync(
@@ -253,7 +253,7 @@ public sealed class FetchStageService : IFetchStageService
                 progress.Report(new WorkerProgressReport("StreamA", $"DETECTED_MISSING_DOMAINS:{discoveredInRun}"));
         }
 
-        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan Complete", Percentage: 40, BatchId: batch.BatchId));
+        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan Complete", Percentage: 40, BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
 
         // 5. Mark batch ready for sender
         await using (var uow = await _uowFactory.CreateAsync(ct))
@@ -294,7 +294,7 @@ public sealed class FetchStageService : IFetchStageService
         return discovered;
     }
 
-    public async Task PostMissingMappingsAsync(string providerDhsCode, IProgress<WorkerProgressReport> progress, CancellationToken ct)
+    public async Task PostMissingMappingsAsync(string providerDhsCode, IProgress<WorkerProgressReport> progress, CancellationToken ct, long? batchId = null)
     {
         _logger.LogInformation("Checking for missing domain mappings to post for provider {ProviderDhsCode}...", providerDhsCode);
 
@@ -306,11 +306,11 @@ public sealed class FetchStageService : IFetchStageService
 
         if (eligible.Count == 0)
         {
-            progress.Report(new WorkerProgressReport("StreamA", "No missing domain mappings to post.", Percentage: 55));
+            progress.Report(new WorkerProgressReport("StreamA", "No missing domain mappings to post.", Percentage: 55, BatchId: batchId));
             return;
         }
 
-        progress.Report(new WorkerProgressReport("StreamA", $"Posting {eligible.Count} missing domain mappings for {providerDhsCode}...", Percentage: 40));
+        progress.Report(new WorkerProgressReport("StreamA", $"Posting {eligible.Count} missing domain mappings for {providerDhsCode}...", Percentage: 40, BatchId: batchId));
 
         const int BatchSize = 500;
         for (int i = 0; i < eligible.Count; i += BatchSize)
@@ -355,7 +355,7 @@ public sealed class FetchStageService : IFetchStageService
             }
         }
 
-        progress.Report(new WorkerProgressReport("StreamA", "Domain mapping posting complete", Percentage: 55));
+        progress.Report(new WorkerProgressReport("StreamA", "Domain mapping posting complete", Percentage: 55, BatchId: batchId));
     }
 
     private static string ComputeSha256(byte[] data)

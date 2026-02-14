@@ -17,5 +17,5 @@ public interface IFetchStageService
     /// <summary>
     /// Posts missing domain mappings to the backend for a specific provider.
     /// </summary>
-    Task PostMissingMappingsAsync(string providerDhsCode, IProgress<WorkerProgressReport> progress, CancellationToken ct);
+    Task PostMissingMappingsAsync(string providerDhsCode, IProgress<WorkerProgressReport> progress, CancellationToken ct, long? batchId = null);
 }
