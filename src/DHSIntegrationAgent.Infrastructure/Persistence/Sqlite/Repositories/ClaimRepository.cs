@@ -289,4 +289,25 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    public async Task<(int Total, int Enqueued)> GetBatchCountsAsync(long batchId, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT
+                COUNT(*),
+                SUM(CASE WHEN EnqueueStatus = $enqueued THEN 1 ELSE 0 END)
+            FROM Claim
+            WHERE BatchId = $bid;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+        SqliteSqlBuilder.AddParam(cmd, "$enqueued", (int)EnqueueStatus.Enqueued);
+
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (await r.ReadAsync(cancellationToken))
+        {
+            return (r.GetInt32(0), r.IsDBNull(1) ? 0 : r.GetInt32(1));
+        }
+        return (0, 0);
+    }
 }

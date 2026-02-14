@@ -23,6 +23,32 @@ public sealed class BatchTracker : IBatchTracker
     {
         _fetchStageService = fetchStageService ?? throw new ArgumentNullException(nameof(fetchStageService));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
+
+        _workerEngine.ProgressChanged += OnWorkerProgressChanged;
+    }
+
+    private void OnWorkerProgressChanged(object? sender, WorkerProgressReport report)
+    {
+        if (report.BatchId.HasValue)
+        {
+            var progressViewModel = ActiveBatches.FirstOrDefault(x => x.InternalBatchId == report.BatchId.Value);
+            if (progressViewModel != null)
+            {
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
+                    if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
+                    if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
+                    if (report.Message != null) progressViewModel.StatusMessage = report.Message;
+                    if (report.IsError) progressViewModel.IsError = true;
+
+                    if (report.Percentage >= 100)
+                    {
+                        progressViewModel.IsCompleted = true;
+                    }
+                });
+            }
+        }
     }
 
     public void TrackBatchCreation(BatchRow batch, FinancialSummary? financialSummary)
@@ -59,6 +85,7 @@ public sealed class BatchTracker : IBatchTracker
                     System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
                         if (report.BcrId != null) progressViewModel.BatchNumber = report.BcrId;
+                        if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
                         if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
                         if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
                         if (report.Message != null) progressViewModel.StatusMessage = report.Message;
@@ -79,8 +106,7 @@ public sealed class BatchTracker : IBatchTracker
 
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    progressViewModel.StatusMessage = "Staged and ready.";
-                    progressViewModel.IsCompleted = true;
+                    progressViewModel.StatusMessage = "Staged and ready. Sending...";
                 });
             }
             catch (Exception ex)

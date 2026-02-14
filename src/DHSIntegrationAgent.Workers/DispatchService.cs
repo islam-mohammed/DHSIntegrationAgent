@@ -38,7 +38,15 @@ public sealed class DispatchService : IDispatchService
             return;
         }
 
-        bool sentAnythingInBatch = false;
+        int totalClaimsInBatch = 0;
+        int enqueuedCount = 0;
+
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, ct);
+            totalClaimsInBatch = counts.Total;
+            enqueuedCount = counts.Enqueued;
+        }
 
         while (!ct.IsCancellationRequested)
         {
@@ -65,6 +73,7 @@ public sealed class DispatchService : IDispatchService
                     {
                         await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Enqueued, null, null, _clock.UtcNow, ct);
                     }
+                    progress.Report(new WorkerProgressReport("StreamB", "Batch processing complete.", Percentage: 100, BatchId: batch.BatchId));
                     await uow.CommitAsync(ct);
                     break;
                 }
@@ -81,7 +90,6 @@ public sealed class DispatchService : IDispatchService
                 await uow.CommitAsync(ct);
             }
 
-            sentAnythingInBatch = true;
             var dispatchId = Guid.NewGuid().ToString();
             var bundles = new List<ClaimBundle>(leased.Count);
             var dispatchItems = new List<DispatchItemRow>(leased.Count);
@@ -156,6 +164,7 @@ public sealed class DispatchService : IDispatchService
                     if (successKeys.Count > 0)
                     {
                         await uowResult.Claims.MarkEnqueuedAsync(successKeys, batch.BcrId, _clock.UtcNow, ct);
+                        enqueuedCount += successKeys.Count;
                     }
 
                     if (failedKeys.Count > 0)
@@ -187,7 +196,11 @@ public sealed class DispatchService : IDispatchService
 
                 await uowResult.CommitAsync(ct);
 
-                progress.Report(new WorkerProgressReport("StreamB", $"Sent {bundles.Count} claims for batch {batch.BatchId}", BatchId: batch.BatchId));
+                double sendPercentage = totalClaimsInBatch > 0
+                    ? 55 + (((double)enqueuedCount / totalClaimsInBatch) * 45)
+                    : 100;
+
+                progress.Report(new WorkerProgressReport("StreamB", $"Sent {bundles.Count} claims for batch {batch.BatchId}", Percentage: sendPercentage, BatchId: batch.BatchId));
             }
             catch (Exception ex)
             {
