@@ -271,35 +271,27 @@ ORDER BY {claimKeyCol} ASC;";
                 columnName = domain.FieldPath.Substring("diagnosisDetails.".Length);
                 isHeader = false;
             }
-            else if (domain.FieldPath.StartsWith("doctorDetails."))
-            {
-                tableName = DefaultDoctorTable;
-                columnName = domain.FieldPath.Substring("doctorDetails.".Length);
-                isHeader = false;
-            }
             else
             {
                 continue;
             }
 
-            try
-            {
-                using var cmd = handle.Connection.CreateCommand();
-                cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
+            using var cmd = handle.Connection.CreateCommand();
+            cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
 
-                if (isHeader)
-                {
-                    cmd.CommandText = $@"
+            if (isHeader)
+            {
+                cmd.CommandText = $@"
 SELECT DISTINCT {columnName}
 FROM {tableName}
 WHERE CompanyCode = @CompanyCode
   AND {dateCol} >= @StartDate
   AND {dateCol} <= @EndDate
   AND {columnName} IS NOT NULL;";
-                }
-                else
-                {
-                    cmd.CommandText = $@"
+            }
+            else
+            {
+                cmd.CommandText = $@"
 SELECT DISTINCT t.{columnName}
 FROM {tableName} t
 INNER JOIN {headerTable} h ON t.{claimKeyCol} = h.{claimKeyCol}
@@ -307,29 +299,23 @@ WHERE h.CompanyCode = @CompanyCode
   AND h.{dateCol} >= @StartDate
   AND h.{dateCol} <= @EndDate
   AND t.{columnName} IS NOT NULL;";
-                }
+            }
 
-                cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
-                cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
-                cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+            cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
+            cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
+            cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
 
-                await using var reader = await cmd.ExecuteReaderAsync(ct);
-                while (await reader.ReadAsync(ct))
+            await using var reader = await cmd.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                if (!reader.IsDBNull(0))
                 {
-                    if (!reader.IsDBNull(0))
+                    var val = reader.GetValue(0).ToString();
+                    if (!string.IsNullOrWhiteSpace(val))
                     {
-                        var val = reader.GetValue(0).ToString();
-                        if (!string.IsNullOrWhiteSpace(val))
-                        {
-                            results.Add(new ScannedDomainValue(domain.DomainName, domain.DomainTableId, val.Trim()));
-                        }
+                        results.Add(new ScannedDomainValue(domain.DomainName, domain.DomainTableId, val.Trim()));
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                // Robustness: Log and continue if one domain scan fails.
-                System.Diagnostics.Trace.WriteLine($"Domain scan failed for {domain.DomainName} ({domain.FieldPath}): {ex.Message}");
             }
         }
 

@@ -12,8 +12,6 @@ public interface IDomainMappingRepository
 
     Task<IReadOnlyList<DomainMappingRow>> GetAllAsync(CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<string>> ListProvidersWithPendingMappingsAsync(CancellationToken ct);
-
     Task UpsertDiscoveredAsync(
         string providerDhsCode,
         string domainName,

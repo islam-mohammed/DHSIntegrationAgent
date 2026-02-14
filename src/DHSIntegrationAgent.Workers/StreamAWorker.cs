@@ -70,10 +70,6 @@ public sealed class StreamAWorker : IWorker
             all.AddRange(draftBatches);
             all.AddRange(readyBatches);
             batchesToProcess = all;
-
-            // Also include any providers that have pending missing mappings to ensure they fire even without active batches.
-            var providersWithPending = await uow.DomainMappings.ListProvidersWithPendingMappingsAsync(ct);
-            foreach (var p in providersWithPending) providerCodes.Add(p);
         }
 
         foreach (var batch in batchesToProcess)
