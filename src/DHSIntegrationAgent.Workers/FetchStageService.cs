@@ -114,19 +114,15 @@ public sealed class FetchStageService : IFetchStageService
             if (keys.Count == 0)
                 break;
 
-            // Build payloads OUTSIDE any SQLite transaction.
-            var workItems = new List<StageWorkItem>(keys.Count);
+            // Fetch full bundles in batch (WBS 3.2 efficiency optimization)
+            var rawBundles = await _tablesAdapter.GetClaimBundlesRawBatchAsync(batch.ProviderDhsCode, keys, ct);
 
-            foreach (var key in keys)
+            // Build payloads OUTSIDE any SQLite transaction.
+            var workItems = new List<StageWorkItem>(rawBundles.Count);
+
+            foreach (var rawBundle in rawBundles)
             {
                 if (ct.IsCancellationRequested) break;
-
-                var rawBundle = await _tablesAdapter.GetClaimBundleRawAsync(batch.ProviderDhsCode, key, ct);
-                if (rawBundle == null)
-                {
-                    lastSeen = key;
-                    continue;
-                }
 
                 var buildResult = builder.Build(new CanonicalClaimParts(
                     rawBundle.Header,
@@ -153,19 +149,23 @@ public sealed class FetchStageService : IFetchStageService
                 }
 
                 workItems.Add(new StageWorkItem(
-                    ProIdClaim: key,
+                    ProIdClaim: rawBundle.ProIdClaim,
                     BuildResult: buildResult,
                     PayloadBytes: payloadBytes,
                     Sha256: sha256));
 
                 processedCount++;
-                lastSeen = key;
+                lastSeen = rawBundle.ProIdClaim;
 
                 if (processedCount % 10 == 0 || processedCount == totalClaims)
                 {
                     progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
                 }
             }
+
+            // Ensure lastSeen is updated even if some bundles were skipped (shouldn't happen with batch fetch)
+            if (keys.Count > 0)
+                lastSeen = keys[^1];
 
             // Persist to SQLite in small, write-only transactions.
             for (var i = 0; i < workItems.Count; i += MaxClaimsPerTx)
