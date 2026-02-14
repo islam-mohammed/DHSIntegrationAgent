@@ -170,6 +170,10 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 }
             }
 
+            // Close the modal immediately after confirmation to allow the user to continue
+            // while creation and staging happen in the background.
+            RequestClose?.Invoke();
+
             // 4. Create Batch locally
             long batchId;
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
@@ -192,8 +196,6 @@ public sealed class CreateBatchViewModel : ViewModelBase
             {
                 _batchTracker.TrackBatchCreation(batchRow, summary);
             }
-
-            RequestClose?.Invoke();
         }
         catch (Exception ex)
         {
