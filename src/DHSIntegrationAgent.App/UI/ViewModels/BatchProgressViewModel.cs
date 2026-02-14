@@ -16,6 +16,7 @@ public sealed class BatchProgressViewModel : ViewModelBase
     private double? _percentageOverride;
     private bool _isCompleted;
     private bool _isError;
+    private bool _isSending;
 
     public long InternalBatchId
     {
@@ -90,6 +91,20 @@ public sealed class BatchProgressViewModel : ViewModelBase
         get => _isError;
         set => SetProperty(ref _isError, value);
     }
+
+    public bool IsSending
+    {
+        get => _isSending;
+        set
+        {
+            if (SetProperty(ref _isSending, value))
+            {
+                OnPropertyChanged(nameof(ProcessedLabel));
+            }
+        }
+    }
+
+    public string ProcessedLabel => IsSending ? "Sent" : "Processed";
 
     public int RemainingClaims => Math.Max(0, TotalClaims - ProcessedClaims);
 

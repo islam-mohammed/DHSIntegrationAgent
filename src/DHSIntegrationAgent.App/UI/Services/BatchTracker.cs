@@ -36,6 +36,7 @@ public sealed class BatchTracker : IBatchTracker
             {
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
+                    if (report.WorkerId == "StreamB") progressViewModel.IsSending = true;
                     if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
                     if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
                     if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
