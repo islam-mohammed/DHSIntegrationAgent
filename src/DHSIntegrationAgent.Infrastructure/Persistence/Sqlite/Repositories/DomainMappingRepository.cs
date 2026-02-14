@@ -58,29 +58,6 @@ internal sealed class DomainMappingRepository : SqliteRepositoryBase, IDomainMap
         return results;
     }
 
-    public async Task<IReadOnlyList<string>> ListProvidersWithPendingMappingsAsync(CancellationToken ct)
-    {
-        await using var cmd = CreateCommand(
-            """
-            SELECT DISTINCT ProviderDhsCode
-            FROM MissingDomainMapping
-            WHERE domainStatus IN ($m, $f);
-            """);
-
-        SqliteSqlBuilder.AddParam(cmd, "$m", (int)MappingStatus.Missing);
-        SqliteSqlBuilder.AddParam(cmd, "$f", (int)MappingStatus.PostFailed);
-
-        await using var reader = await cmd.ExecuteReaderAsync(ct);
-        var results = new List<string>();
-
-        while (await reader.ReadAsync(ct))
-        {
-            results.Add(reader.GetString(0));
-        }
-
-        return results;
-    }
-
     public async Task<IReadOnlyList<MissingDomainMappingRow>> GetAllMissingAsync(CancellationToken cancellationToken)
     {
         await using var cmd = CreateCommand(
