@@ -125,6 +125,9 @@ public sealed class FetchStageService : IFetchStageService
                 progress.Report(new WorkerProgressReport("StreamA", $"DETECTED_MISSING_DOMAINS:{discoveredInRun}"));
         }
 
+        // Trigger posting of missing mappings immediately after scanning (prioritized)
+        await PostMissingMappingsAsync(batch.ProviderDhsCode, progress, ct);
+
         // 4. Fetch and Stage Claims
         int processedCount = 0;
         int totalClaimsCount = 0;
