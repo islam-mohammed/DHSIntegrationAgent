@@ -67,9 +67,9 @@ public sealed class FetchStageService : IFetchStageService
 
             var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
             var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
-            var totalClaimsCount = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
+            var initialTotalClaimsCount = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
 
-            var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaimsCount, batch.ProviderDhsCode);
+            var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, initialTotalClaimsCount, batch.ProviderDhsCode);
             var result = await _batchClient.CreateBatchAsync(new[] { request }, ct);
 
             if (!result.Succeeded)
@@ -82,12 +82,65 @@ public sealed class FetchStageService : IFetchStageService
             await uow.CommitAsync(ct);
         }
 
-        // 3. Fetch and Stage Claims
+        // 3. Domain Scanning (prioritized so it fires even if staging is slow/fails)
+        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan", BatchId: batch.BatchId));
+
         var batchStartDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
         var batchEndDate = batch.EndDateUtc ?? batchStartDate.AddMonths(1).AddTicks(-1);
-        var totalClaims = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, ct);
 
-        progress.Report(new WorkerProgressReport("StreamA", $"Fetching 0 of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: 0, TotalCount: totalClaims, BcrId: bcrId));
+        var domains = BaselineDomainScanner.GetBaselineDomains();
+        var distinctValues = await _tablesAdapter.GetDistinctDomainValuesAsync(
+            batch.ProviderDhsCode,
+            batch.CompanyCode,
+            batchStartDate,
+            batchEndDate,
+            domains,
+            ct);
+
+        if (distinctValues.Count > 0)
+        {
+            int discoveredInRun = 0;
+
+            // Batch upserts to keep transactions short.
+            const int MappingTxBatchSize = 200;
+            var buffer = new List<ScannedDomainValue>(MappingTxBatchSize);
+
+            foreach (var mm in distinctValues)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                buffer.Add(mm);
+
+                if (buffer.Count >= MappingTxBatchSize)
+                {
+                    discoveredInRun += await UpsertMissingMappingsAsync(batch.ProviderDhsCode, buffer, ct);
+                    buffer.Clear();
+                }
+            }
+
+            if (buffer.Count > 0)
+                discoveredInRun += await UpsertMissingMappingsAsync(batch.ProviderDhsCode, buffer, ct);
+
+            if (discoveredInRun > 0)
+                progress.Report(new WorkerProgressReport("StreamA", $"DETECTED_MISSING_DOMAINS:{discoveredInRun}"));
+        }
+
+        // Trigger posting of missing mappings immediately after scanning (prioritized)
+        await PostMissingMappingsAsync(batch.ProviderDhsCode, progress, ct);
+
+        // 4. Fetch and Stage Claims
+        int processedCount = 0;
+        int totalClaimsCount = 0;
+
+        if (batch.BatchStatus != BatchStatus.Draft)
+        {
+            _logger.LogInformation("Batch {BatchId} status is {Status}; skipping claim fetching.", batch.BatchId, batch.BatchStatus);
+        }
+        else
+        {
+            totalClaimsCount = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, ct);
+
+        progress.Report(new WorkerProgressReport("StreamA", $"Fetching 0 of {totalClaimsCount} from HIS system", BatchId: batch.BatchId, ProcessedCount: 0, TotalCount: totalClaimsCount, BcrId: bcrId));
 
         int? lastSeen = null;
         const int PageSize = 100;
@@ -98,7 +151,6 @@ public sealed class FetchStageService : IFetchStageService
         const int MaxClaimsPerTx = 25;
 
         var builder = new ClaimBundleBuilder();
-        int processedCount = 0;
 
         while (true)
         {
@@ -157,9 +209,9 @@ public sealed class FetchStageService : IFetchStageService
                 processedCount++;
                 lastSeen = rawBundle.ProIdClaim;
 
-                if (processedCount % 10 == 0 || processedCount == totalClaims)
+                if (processedCount % 10 == 0 || processedCount == totalClaimsCount)
                 {
-                    progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
+                    progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaimsCount} from HIS system", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaimsCount));
                 }
             }
 
@@ -211,45 +263,6 @@ public sealed class FetchStageService : IFetchStageService
             if (keys.Count < PageSize)
                 break;
         }
-
-        // 4. Missing mappings discovery (posting is separate)
-        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan", BatchId: batch.BatchId));
-
-         var domains = BaselineDomainScanner.GetBaselineDomains();
-        var distinctValues = await _tablesAdapter.GetDistinctDomainValuesAsync(
-            batch.ProviderDhsCode,
-            batch.CompanyCode,
-            batchStartDate,
-            batchEndDate,
-            domains,
-            ct);
-
-        if (distinctValues.Count > 0)
-        {
-            int discoveredInRun = 0;
-
-            // Batch upserts to keep transactions short.
-            const int MappingTxBatchSize = 200;
-            var buffer = new List<ScannedDomainValue>(MappingTxBatchSize);
-
-            foreach (var mm in distinctValues)
-            {
-                if (ct.IsCancellationRequested) break;
-
-                buffer.Add(mm);
-
-                if (buffer.Count >= MappingTxBatchSize)
-                {
-                    discoveredInRun += await UpsertMissingMappingsAsync(batch.ProviderDhsCode, buffer, ct);
-                    buffer.Clear();
-                }
-            }
-
-            if (buffer.Count > 0)
-                discoveredInRun += await UpsertMissingMappingsAsync(batch.ProviderDhsCode, buffer, ct);
-
-            if (discoveredInRun > 0)
-                progress.Report(new WorkerProgressReport("StreamA", $"DETECTED_MISSING_DOMAINS:{discoveredInRun}"));
         }
 
         // 5. Mark batch ready for sender
@@ -259,7 +272,7 @@ public sealed class FetchStageService : IFetchStageService
             await uow.CommitAsync(ct);
         }
 
-        progress.Report(new WorkerProgressReport("StreamA", $"Batch {batch.BatchId} staged successfully. {processedCount} claims processed.", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
+        progress.Report(new WorkerProgressReport("StreamA", $"Batch {batch.BatchId} staged successfully. {processedCount} claims processed.", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaimsCount));
     }
 
     private async Task<int> UpsertMissingMappingsAsync(string providerDhsCode, IReadOnlyList<ScannedDomainValue> values, CancellationToken ct)
