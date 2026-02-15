@@ -117,7 +117,8 @@ public sealed class ClaimBundleBuilder
             diagnosisDetails: parts.DiagnosisDetails ?? new JsonArray(),
             labDetails: parts.LabDetails ?? new JsonArray(),
             radiologyDetails: parts.RadiologyDetails ?? new JsonArray(),
-            opticalVitalSigns: parts.OpticalVitalSigns ?? new JsonArray()
+            opticalVitalSigns: parts.OpticalVitalSigns ?? new JsonArray(),
+            doctorDetails: parts.DoctorDetails
         );
 
         // 5) Normalize detail items: ensure each detail (if object) has proIdClaim for traceability
@@ -126,6 +127,14 @@ public sealed class ClaimBundleBuilder
         EnsureProIdClaimWithoutIssues(bundle.LabDetails, proIdClaim);
         EnsureProIdClaimWithoutIssues(bundle.RadiologyDetails, proIdClaim);
         EnsureProIdClaimWithoutIssues(bundle.OpticalVitalSigns, proIdClaim);
+
+        if (bundle.DoctorDetails is not null)
+        {
+            if (!bundle.DoctorDetails.TryGetPropertyValue("proIdClaim", out _))
+            {
+                bundle.DoctorDetails["proIdClaim"] = proIdClaim;
+            }
+        }
 
         return new ClaimBundleBuildResult(
             Succeeded: true,

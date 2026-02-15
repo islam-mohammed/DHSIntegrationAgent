@@ -271,6 +271,12 @@ ORDER BY {claimKeyCol} ASC;";
                 columnName = domain.FieldPath.Substring("diagnosisDetails.".Length);
                 isHeader = false;
             }
+            else if (domain.FieldPath.StartsWith("doctorDetails."))
+            {
+                tableName = DefaultDoctorTable;
+                columnName = domain.FieldPath.Substring("doctorDetails.".Length);
+                isHeader = false;
+            }
             else
             {
                 continue;
