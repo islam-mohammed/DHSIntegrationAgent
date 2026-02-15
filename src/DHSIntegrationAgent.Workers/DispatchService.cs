@@ -128,7 +128,8 @@ public sealed class DispatchService : IDispatchService
                             var header = bundleObj["claimHeader"]?.AsObject();
                             if (header != null)
                             {
-                                header["provider_dhsCode"] = batch.ProviderDhsCode;
+                                header.Remove("provider_dhsCode");
+                                header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
                             }

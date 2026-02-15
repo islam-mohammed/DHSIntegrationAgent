@@ -75,7 +75,8 @@ public sealed class ClaimBundleBuilder
             return Fail(issues);
         }
 
-        // Force canonical field name: proIdClaim
+        // Force canonical field name: proIdClaim (ensure no duplicates)
+        RemovePropertyIgnoreCase(header, "proIdClaim");
         header["proIdClaim"] = proIdClaim;
 
         // 2) Ensure CompanyCode exists (inject if missing)
@@ -130,10 +131,8 @@ public sealed class ClaimBundleBuilder
 
         if (bundle.DoctorDetails is not null)
         {
-            if (!bundle.DoctorDetails.TryGetPropertyValue("proIdClaim", out _))
-            {
-                bundle.DoctorDetails["proIdClaim"] = proIdClaim;
-            }
+            RemovePropertyIgnoreCase(bundle.DoctorDetails, "proIdClaim");
+            bundle.DoctorDetails["proIdClaim"] = proIdClaim;
         }
 
         return new ClaimBundleBuildResult(
@@ -157,11 +156,9 @@ public sealed class ClaimBundleBuilder
             if (details[i] is not JsonObject obj)
                 continue;
 
-            // If missing, inject for traceability.
-            if (!obj.TryGetPropertyValue("proIdClaim", out _))
-            {
-                obj["proIdClaim"] = proIdClaim;
-            }
+            // Remove existing variations to ensure no duplicates
+            RemovePropertyIgnoreCase(obj, "proIdClaim");
+            obj["proIdClaim"] = proIdClaim;
         }
     }
 
@@ -210,6 +207,17 @@ public sealed class ClaimBundleBuilder
         }
 
         return false;
+    }
+
+    private static void RemovePropertyIgnoreCase(JsonObject obj, string name)
+    {
+        var keysToRemove = obj.Select(kv => kv.Key)
+                              .Where(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase))
+                              .ToList();
+        foreach (var key in keysToRemove)
+        {
+            obj.Remove(key);
+        }
     }
 
     private static bool TryReadString(JsonObject obj, IReadOnlyList<string> candidates, out string? value)

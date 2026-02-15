@@ -323,7 +323,7 @@
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding ProcessedLabel}" FontSize="12"/>
+                                                <TextBlock Text="{Binding ProcessedLabel, Mode=OneWay}" FontSize="12"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding ProcessedClaims}" FontWeight="SemiBold" Foreground="#FF10B981"/>
                                             </Grid>
 
