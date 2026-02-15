@@ -130,7 +130,8 @@ public sealed class FetchStageService : IFetchStageService
                     rawBundle.Diagnoses,
                     rawBundle.Labs,
                     rawBundle.Radiology,
-                    rawBundle.OpticalVitalSigns
+                    rawBundle.OpticalVitalSigns,
+                    DoctorDetails: rawBundle.Doctor
                 ), batch.CompanyCode);
 
                 byte[]? payloadBytes = null;
