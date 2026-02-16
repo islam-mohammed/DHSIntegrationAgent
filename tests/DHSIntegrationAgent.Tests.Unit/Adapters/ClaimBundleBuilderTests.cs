@@ -23,16 +23,19 @@ public class ClaimBundleBuilderTests
             ["doctorName"] = "Dr. Smith",
             ["specialty"] = "General"
         };
-        var parts = new CanonicalClaimParts(header, DoctorDetails: doctor);
+        var doctorArr = new JsonArray { doctor };
+        var parts = new CanonicalClaimParts(header, DoctorDetails: doctorArr);
 
         // Act
         var result = builder.Build(parts, "COMP1");
 
         // Assert
         Assert.True(result.Succeeded);
-        Assert.NotNull(result.Bundle.DoctorDetails);
-        Assert.Equal("Dr. Smith", result.Bundle.DoctorDetails["doctorName"]?.ToString());
-        Assert.Equal(123, result.Bundle.DoctorDetails["proIdClaim"]?.GetValue<int>());
+        Assert.NotEmpty(result.Bundle.DoctorDetails);
+        var firstDoctor = result.Bundle.DoctorDetails[0] as JsonObject;
+        Assert.NotNull(firstDoctor);
+        Assert.Equal("Dr. Smith", firstDoctor["doctorName"]?.ToString());
+        Assert.Equal(123, firstDoctor["proIdClaim"]?.GetValue<int>());
     }
 
     [Fact]
@@ -53,7 +56,7 @@ public class ClaimBundleBuilderTests
 
         // Assert
         Assert.True(result.Succeeded);
-        Assert.Null(result.Bundle.DoctorDetails);
+        Assert.Empty(result.Bundle.DoctorDetails);
     }
 
     [Fact]
@@ -62,12 +65,13 @@ public class ClaimBundleBuilderTests
         // Arrange
         var header = new JsonObject { ["proIdClaim"] = 123 };
         var doctor = new JsonObject { ["doctorName"] = "Dr. Smith" };
-        var bundle = new ClaimBundle(header, doctorDetails: doctor);
+        var doctorArr = new JsonArray { doctor };
+        var bundle = new ClaimBundle(header, doctorDetails: doctorArr);
 
         // Act
         var json = bundle.ToJsonString();
 
         // Assert
-        Assert.Contains("\"doctorDetails\":{\"doctorName\":\"Dr. Smith\"}", json);
+        Assert.Contains("\"dhsDoctors\":[{\"doctorName\":\"Dr. Smith\"", json);
     }
 }

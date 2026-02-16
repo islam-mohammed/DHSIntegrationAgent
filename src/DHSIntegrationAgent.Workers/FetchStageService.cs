@@ -298,10 +298,13 @@ public sealed class FetchStageService : IFetchStageService
             }
             else if (domain.FieldPath.StartsWith("doctorDetails."))
             {
-                if (bundle.DoctorDetails == null) continue;
+                
                 var field = domain.FieldPath.Substring("doctorDetails.".Length);
-                if (TryGetFieldValue(bundle.DoctorDetails, field, out var val))
-                    discovered.Add((domain.DomainName, domain.DomainTableId, val));
+                foreach (var doctor in bundle.DoctorDetails.OfType<JsonObject>())
+                {
+                    if (TryGetFieldValue(doctor, field, out var val))
+                        discovered.Add((domain.DomainName, domain.DomainTableId, val));
+                }
             }
         }
     }

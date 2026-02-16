@@ -91,10 +91,7 @@ public sealed class StreamAWorker : IWorker
             }
         }
 
-        // IMPORTANT: Do not spawn Task.Run writers here.
-        // Posting missing mappings used to run in parallel via Task.Run, which created concurrent SQLite writers
-        // and was a frequent source of SQLITE_BUSY ("database is locked") during Stream A staging.
-        //
+   
         // For stability, we post sequentially per provider after staging completes.
         // (A dedicated poster worker can be introduced later under WBS 4.6.)
         foreach (var providerCode in providerCodes)

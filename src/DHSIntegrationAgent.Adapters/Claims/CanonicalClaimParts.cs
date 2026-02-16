@@ -17,5 +17,5 @@ public sealed record CanonicalClaimParts(
     JsonArray? LabDetails = null,
     JsonArray? RadiologyDetails = null,
     JsonArray? OpticalVitalSigns = null,
-    JsonObject? DoctorDetails = null
+    JsonArray? DoctorDetails = null
 );

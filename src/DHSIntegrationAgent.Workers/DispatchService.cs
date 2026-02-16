@@ -157,9 +157,10 @@ public sealed class DispatchService : IDispatchService
                             //if (diagnosisDetails != null)
                             //    EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
 
-                            var doctorDetails = bundleObj["doctorDetails"]?.AsObject();
+                            var doctorDetails = bundleObj["doctorDetails"]?.AsArray();
                             if (doctorDetails != null)
                                 EnrichDoctorDetails(doctorDetails, mappingLookup);
+
 
                             bundles.Add(bundleObj);
                         }
@@ -295,7 +296,7 @@ public sealed class DispatchService : IDispatchService
         var fields = new[]
         {
             ("fK_ClaimType_ID", "ClaimType", "claimType"),
-            ("fK_GenderId", "Gender", "patientGender"),
+            ("fK_GenderId", "PatientGender", "patientGender"),
             ("fK_PatientIDType_ID", "PatientIDType", "patientIdType"),
             ("fK_MaritalStatus_ID", "MaritalStatus", "maritalStatus"),
             ("fK_Dept_ID", "Department", "BenHead"),
@@ -305,7 +306,7 @@ public sealed class DispatchService : IDispatchService
             ("fK_EncounterStatus_ID", "EncounterStatus", "encounterStatus"),
             ("fK_EmergencyArrivalCode_ID", "EmergencyArrivalCode", "emergencyArrivalCode"),
             ("fK_ServiceEventType_ID", "ServiceEventType", "serviceEventType"),
-            ("fK_TriageCategory_ID", "TriageCategoryType", "triageCategoryTypeID"),
+            ("fK_TriageCategory_ID", "TriageCategory", "triageCategoryTypeID"),
             ("fK_DispositionCode_ID", "DispositionCode", "EmergencyDepositionTypeID"),
             ("fK_InvestigationResult_ID", "InvestigationResult", "investigationResult"),
             ("fK_VisitType_ID", "VisitType", "visitType"),
@@ -374,15 +375,27 @@ public sealed class DispatchService : IDispatchService
         }
     }
 
-    private void EnrichDoctorDetails(JsonObject doctorDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    private void EnrichDoctorDetails(JsonArray doctorDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
-        if (TryGetMapping(doctorDetails, "DoctorGender", "doctorGender", mappingLookup, out var mapping))
+        var fields = new[]
+         {
+            ("fK_Gender", "DoctorGender", "doctorGender"),
+     
+        };
+
+        foreach (var item in doctorDetails.OfType<JsonObject>())
         {
-            doctorDetails["fK_Gender"] = new JsonObject
+            foreach (var (targetField, domainName, sourceField) in fields)
             {
-                ["id"] = mapping.DomainTableId.ToString(),
-                ["code"] = mapping.SourceValue
-            };
+                if (TryGetMapping(item, sourceField, domainName, mappingLookup, out var mapping))
+                {
+                    item[targetField] = new JsonObject
+                    {
+                        ["id"] = mapping.DomainTableId.ToString(),
+                        ["code"] = mapping.SourceValue
+                    };
+                }
+            }
         }
     }
 

@@ -215,10 +215,13 @@ ORDER BY {claimKeyCol} ASC;";
             if (!headers.TryGetValue(id, out var header))
                 continue;
 
+            var doctorObj = doctors.GetValueOrDefault(id);
+            var doctorArr = doctorObj != null ? new JsonArray { CloneObject(doctorObj) } : new JsonArray();
+
             result.Add(new ProviderClaimBundleRaw(
                 ProIdClaim: id,
                 Header: header,
-                Doctor: doctors.GetValueOrDefault(id),
+                Doctor: doctorArr,
                 Services: services.GetValueOrDefault(id, new JsonArray()),
                 Diagnoses: diagnoses.GetValueOrDefault(id, new JsonArray()),
                 Labs: labs.GetValueOrDefault(id, new JsonArray()),
@@ -231,6 +234,12 @@ ORDER BY {claimKeyCol} ASC;";
         }
 
         return result;
+    }
+
+    private static JsonObject CloneObject(JsonObject obj)
+    {
+        var json = obj.ToJsonString();
+        return JsonNode.Parse(json) as JsonObject ?? new JsonObject();
     }
 
     public async Task<IReadOnlyList<ScannedDomainValue>> GetDistinctDomainValuesAsync(
