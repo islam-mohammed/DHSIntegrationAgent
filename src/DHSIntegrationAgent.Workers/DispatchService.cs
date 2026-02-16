@@ -120,10 +120,10 @@ public sealed class DispatchService : IDispatchService
                 approvedMappings = await uowMappings.DomainMappings.GetAllApprovedAsync(ct);
             }
 
-            // Index mappings by (DomainName, SourceValue) for fast lookup.
-            // Use case-insensitive comparison for both DomainName and SourceValue.
+            // Index mappings by (DomainTableId, SourceValue) for fast lookup.
+            // DomainTableId is the most stable identifier across different HIS systems and backend versions.
             var mappingLookup = approvedMappings
-                .GroupBy(m => (m.DomainName.ToLowerInvariant(), m.SourceValue.Trim().ToLowerInvariant()))
+                .GroupBy(m => (m.DomainTableId, m.SourceValue.Trim().ToLowerInvariant()))
                 .ToDictionary(g => g.Key, g => g.First());
 
             await using (var uow = await _uowFactory.CreateAsync(ct))
@@ -290,8 +290,10 @@ public sealed class DispatchService : IDispatchService
 
     }
 
-    private void EnrichClaimHeader(JsonObject header, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    private void EnrichClaimHeader(JsonObject header, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
+        var baselineDomains = Application.Providers.BaselineDomainScanner.GetBaselineDomains();
+
         // Define fields to enrich in claimHeader
         var fields = new[]
         {
@@ -316,7 +318,10 @@ public sealed class DispatchService : IDispatchService
 
         foreach (var (targetField, domainName, sourceField) in fields)
         {
-            if (TryGetMapping(header, sourceField, domainName, mappingLookup, out var mapping))
+            var domain = baselineDomains.FirstOrDefault(d => string.Equals(d.DomainName, domainName, StringComparison.OrdinalIgnoreCase));
+            if (domain == null) continue;
+
+            if (TryGetMapping(header, sourceField, domain.DomainTableId, mappingLookup, out var mapping))
             {
                 header[targetField] = new JsonObject
                 {
@@ -329,8 +334,10 @@ public sealed class DispatchService : IDispatchService
         }
     }
 
-    private void EnrichServiceDetails(JsonArray serviceDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    private void EnrichServiceDetails(JsonArray serviceDetails, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
+        var baselineDomains = Application.Providers.BaselineDomainScanner.GetBaselineDomains();
+
         var fields = new[]
         {
             ("fK_ServiceType_ID", "ServiceType", "serviceType"),
@@ -342,7 +349,10 @@ public sealed class DispatchService : IDispatchService
         {
             foreach (var (targetField, domainName, sourceField) in fields)
             {
-                if (TryGetMapping(item, sourceField, domainName, mappingLookup, out var mapping))
+                var domain = baselineDomains.FirstOrDefault(d => string.Equals(d.DomainName, domainName, StringComparison.OrdinalIgnoreCase));
+                if (domain == null) continue;
+
+                if (TryGetMapping(item, sourceField, domain.DomainTableId, mappingLookup, out var mapping))
                 {
                     item[targetField] = new JsonObject
                     {
@@ -356,18 +366,23 @@ public sealed class DispatchService : IDispatchService
         }
     }
 
-    private void EnrichDiagnosisDetails(JsonArray diagnosisDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    private void EnrichDiagnosisDetails(JsonArray diagnosisDetails, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
+        var baselineDomains = Application.Providers.BaselineDomainScanner.GetBaselineDomains();
+
         var fields = new[]
         {
-            ("fK_DiagnosisOnAdmission_ID", "DiagnosisOnAdmission", "diagnosisOnAdmission")
+            ("fK_DiagnosisOnAdmission_ID", "ConditionOnset", "diagnosisOnAdmission")
         };
 
         foreach (var item in diagnosisDetails.OfType<JsonObject>())
         {
             foreach (var (targetField, domainName, sourceField) in fields)
             {
-                if (TryGetMapping(item, sourceField, domainName, mappingLookup, out var mapping))
+                var domain = baselineDomains.FirstOrDefault(d => string.Equals(d.DomainName, domainName, StringComparison.OrdinalIgnoreCase));
+                if (domain == null) continue;
+
+                if (TryGetMapping(item, sourceField, domain.DomainTableId, mappingLookup, out var mapping))
                 {
                     item[targetField] = new JsonObject
                     {
@@ -381,8 +396,10 @@ public sealed class DispatchService : IDispatchService
         }
     }
 
-    private void EnrichDoctorDetails(JsonArray doctorDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    private void EnrichDoctorDetails(JsonArray doctorDetails, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
+        var baselineDomains = Application.Providers.BaselineDomainScanner.GetBaselineDomains();
+
         var fields = new[]
         {
             ("fK_Gender", "DoctorGender", "doctorGender")
@@ -392,7 +409,10 @@ public sealed class DispatchService : IDispatchService
         {
             foreach (var (targetField, domainName, sourceField) in fields)
             {
-                if (TryGetMapping(item, sourceField, domainName, mappingLookup, out var mapping))
+                var domain = baselineDomains.FirstOrDefault(d => string.Equals(d.DomainName, domainName, StringComparison.OrdinalIgnoreCase));
+                if (domain == null) continue;
+
+                if (TryGetMapping(item, sourceField, domain.DomainTableId, mappingLookup, out var mapping))
                 {
                     item[targetField] = new JsonObject
                     {
@@ -409,8 +429,8 @@ public sealed class DispatchService : IDispatchService
     private bool TryGetMapping(
         JsonObject obj,
         string sourceField,
-        string domainName,
-        Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup,
+        int domainTableId,
+        Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup,
         out ApprovedDomainMappingRow mapping)
     {
         mapping = null!;
@@ -430,6 +450,6 @@ public sealed class DispatchService : IDispatchService
         var val = node.ToString().Trim();
         if (string.IsNullOrWhiteSpace(val)) return false;
 
-        return mappingLookup.TryGetValue((domainName.ToLowerInvariant(), val.ToLowerInvariant()), out mapping);
+        return mappingLookup.TryGetValue((domainTableId, val.ToLowerInvariant()), out mapping);
     }
 }
