@@ -153,13 +153,13 @@ public sealed class DispatchService : IDispatchService
                             if (serviceDetails != null)
                                 EnrichServiceDetails(serviceDetails, mappingLookup);
 
-                            //var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
-                            //if (diagnosisDetails != null)
-                            //    EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
+                            var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
+                            if (diagnosisDetails != null)
+                                EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
 
-                            var doctorDetails = bundleObj["doctorDetails"]?.AsObject();
-                            if (doctorDetails != null)
-                                EnrichDoctorDetails(doctorDetails, mappingLookup);
+                            var dhsDoctors = bundleObj["dhsDoctors"]?.AsArray();
+                            if (dhsDoctors != null)
+                                EnrichDoctorDetails(dhsDoctors, mappingLookup);
 
                             bundles.Add(bundleObj);
                         }
@@ -303,6 +303,7 @@ public sealed class DispatchService : IDispatchService
             ("fK_Nationality_ID", "Country", "nationality"),
             ("fK_BirthCountry_ID", "BirthCountry", "birthCountry"),
             ("fK_BirthCity_ID", "BirthCity", "birthCity"),
+            ("fK_Religion_ID", "Religion", "patientReligion"),
             ("fK_AdmissionSpecialty_ID", "AdmissionSpecialty", "admissionSpecialty"),
             ("fK_DischargeSpeciality_ID", "DischargeSpeciality", "dischargeSpecialty"),
             ("fK_DischargeDisposition_ID", "DischargeDisposition", "DischargeDepositionsTypeID"),
@@ -325,11 +326,15 @@ public sealed class DispatchService : IDispatchService
         {
             if (TryGetMapping(header, sourceField, domainName, mappingLookup, out var mapping))
             {
-                header[targetField] = new JsonObject
+                if (targetField == "fK_InvestigationResult_ID")
                 {
-                    ["id"] = mapping.DomainTableId.ToString(),
-                    ["code"] = mapping.SourceValue
-                };
+                    if (int.TryParse(mapping.TargetValue, out var intVal))
+                        header[targetField] = intVal;
+                }
+                else
+                {
+                    header[targetField] = CreateCommonType(mapping);
+                }
             }
         }
     }
@@ -349,11 +354,7 @@ public sealed class DispatchService : IDispatchService
             {
                 if (TryGetMapping(item, sourceField, domainName, mappingLookup, out var mapping))
                 {
-                    item[targetField] = new JsonObject
-                    {
-                        ["id"] = mapping.DomainTableId.ToString(),
-                        ["code"] = mapping.SourceValue
-                    };
+                    item[targetField] = CreateCommonType(mapping);
                 }
             }
         }
@@ -363,7 +364,9 @@ public sealed class DispatchService : IDispatchService
     {
         var fields = new[]
         {
-            ("fK_DiagnosisOnAdmission_ID", "DiagnosisOnAdmission", "diagnosisOnAdmission")
+            ("fK_DiagnosisOnAdmission_ID", "DiagnosisOnAdmission", "diagnosisOnAdmission"),
+            ("fK_DiagnosisType_ID", "DiagnosisType", "diagnosisTypeID"),
+            ("fK_ConditionOnset_ID", "ConditionOnset", "onsetConditionTypeID")
         };
 
         foreach (var item in diagnosisDetails.OfType<JsonObject>())
@@ -372,26 +375,54 @@ public sealed class DispatchService : IDispatchService
             {
                 if (TryGetMapping(item, sourceField, domainName, mappingLookup, out var mapping))
                 {
-                    item[targetField] = new JsonObject
+                    if (targetField == "fK_DiagnosisType_ID" || targetField == "fK_ConditionOnset_ID")
                     {
-                        ["id"] = mapping.DomainTableId.ToString(),
-                        ["code"] = mapping.SourceValue
-                    };
+                        if (int.TryParse(mapping.TargetValue, out var intVal))
+                            item[targetField] = intVal;
+                    }
+                    else
+                    {
+                        item[targetField] = CreateCommonType(mapping);
+                    }
                 }
             }
         }
     }
 
-    private void EnrichDoctorDetails(JsonObject doctorDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    private void EnrichDoctorDetails(JsonArray dhsDoctors, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
-        if (TryGetMapping(doctorDetails, "DoctorGender", "doctorGender", mappingLookup, out var mapping))
+        var fields = new[]
         {
-            doctorDetails["fK_Gender"] = new JsonObject
+            ("fK_Gender", "DoctorGender", "doctorGender"),
+            ("fK_Nationality", "Country", "doctorNationality"),
+            ("fK_Religion", "DoctorReligion", "religion_Code"),
+            ("fK_PractitionerRoleType", "PractitionerRoleType", "practitionerRoleType"),
+            ("fK_ClaimCareTeamRole", "ClaimCareTeamRole", "claimCareTeamRole")
+        };
+
+        foreach (var doctor in dhsDoctors.OfType<JsonObject>())
+        {
+            foreach (var (targetField, domainName, sourceField) in fields)
             {
-                ["id"] = mapping.DomainTableId.ToString(),
-                ["code"] = mapping.SourceValue
-            };
+                if (TryGetMapping(doctor, sourceField, domainName, mappingLookup, out var mapping))
+                {
+                    doctor[targetField] = CreateCommonType(mapping);
+                }
+            }
         }
+    }
+
+    private JsonObject CreateCommonType(ApprovedDomainMappingRow mapping)
+    {
+        return new JsonObject
+        {
+            ["id"] = mapping.TargetValue,
+            ["code"] = mapping.CodeValue ?? mapping.TargetValue,
+            ["name"] = mapping.DisplayValue ?? mapping.SourceValue,
+            ["ksaID"] = null,
+            ["ksaCode"] = null,
+            ["ksaName"] = null
+        };
     }
 
     private bool TryGetMapping(

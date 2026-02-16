@@ -48,10 +48,13 @@ public static class BaselineDomainScanner
         new("ServiceEventType", 72, "serviceDetails.serviceEventType"),
         new("Pharmacist Selection Reason", 77, "serviceDetails.pharmacistSelectionReason"),
         new("Pharmacist Substitute", 78, "serviceDetails.pharmacistSubstitute"),
+        new("DiagnosisOnAdmission", 108, "diagnosisDetails.diagnosisOnAdmission"),
         new("DiagnosisType", 7, "diagnosisDetails.diagnosisTypeID"),
         new("ExtendedDiagnosisTypeIndicator", 11, "diagnosisDetails.diagnosisType"),
         new("IllnessTypeIndicator", 14, "diagnosisDetails.illnessTypeIndicator"),
         new("ConditionOnset", 75, "diagnosisDetails.onsetConditionTypeID"),
         new("DoctorReligion", 24, "doctorDetails.religion_Code"),
+        new("PractitionerRoleType", 109, "doctorDetails.practitionerRoleType"),
+        new("ClaimCareTeamRole", 110, "doctorDetails.claimCareTeamRole"),
     };
 }
