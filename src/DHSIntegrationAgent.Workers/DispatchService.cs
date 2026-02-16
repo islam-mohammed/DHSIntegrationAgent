@@ -121,9 +121,9 @@ public sealed class DispatchService : IDispatchService
             }
 
             // Index mappings by (DomainName, SourceValue) for fast lookup.
-            // Use case-insensitive comparison for SourceValue.
+            // Use case-insensitive comparison for both DomainName and SourceValue.
             var mappingLookup = approvedMappings
-                .GroupBy(m => (m.DomainName, m.SourceValue.Trim().ToLowerInvariant()))
+                .GroupBy(m => (m.DomainName.ToLowerInvariant(), m.SourceValue.Trim().ToLowerInvariant()))
                 .ToDictionary(g => g.Key, g => g.First());
 
             await using (var uow = await _uowFactory.CreateAsync(ct))
@@ -153,9 +153,9 @@ public sealed class DispatchService : IDispatchService
                             if (serviceDetails != null)
                                 EnrichServiceDetails(serviceDetails, mappingLookup);
 
-                            //var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
-                            //if (diagnosisDetails != null)
-                            //    EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
+                            var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
+                            if (diagnosisDetails != null)
+                                EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
 
                             var doctorDetails = bundleObj["doctorDetails"]?.AsArray();
                             if (doctorDetails != null)
@@ -320,8 +320,10 @@ public sealed class DispatchService : IDispatchService
             {
                 header[targetField] = new JsonObject
                 {
-                    ["id"] = mapping.DomainTableId.ToString(),
-                    ["code"] = mapping.SourceValue
+                    // mapping.TargetValue corresponds to dhsDomainValue requested by user.
+                    ["id"] = mapping.TargetValue,
+                    ["code"] = mapping.CodeValue,
+                    ["name"] = mapping.DisplayValue
                 };
             }
         }
@@ -344,8 +346,10 @@ public sealed class DispatchService : IDispatchService
                 {
                     item[targetField] = new JsonObject
                     {
-                        ["id"] = mapping.DomainTableId.ToString(),
-                        ["code"] = mapping.SourceValue
+                        // mapping.TargetValue corresponds to dhsDomainValue requested by user.
+                        ["id"] = mapping.TargetValue,
+                        ["code"] = mapping.CodeValue,
+                        ["name"] = mapping.DisplayValue
                     };
                 }
             }
@@ -367,8 +371,10 @@ public sealed class DispatchService : IDispatchService
                 {
                     item[targetField] = new JsonObject
                     {
-                        ["id"] = mapping.DomainTableId.ToString(),
-                        ["code"] = mapping.SourceValue
+                        // mapping.TargetValue corresponds to dhsDomainValue requested by user.
+                        ["id"] = mapping.TargetValue,
+                        ["code"] = mapping.CodeValue,
+                        ["name"] = mapping.DisplayValue
                     };
                 }
             }
@@ -378,9 +384,8 @@ public sealed class DispatchService : IDispatchService
     private void EnrichDoctorDetails(JsonArray doctorDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
         var fields = new[]
-         {
-            ("fK_Gender", "DoctorGender", "doctorGender"),
-     
+        {
+            ("fK_Gender", "DoctorGender", "doctorGender")
         };
 
         foreach (var item in doctorDetails.OfType<JsonObject>())
@@ -391,8 +396,10 @@ public sealed class DispatchService : IDispatchService
                 {
                     item[targetField] = new JsonObject
                     {
-                        ["id"] = mapping.DomainTableId.ToString(),
-                        ["code"] = mapping.SourceValue
+                        // mapping.TargetValue corresponds to dhsDomainValue requested by user.
+                        ["id"] = mapping.TargetValue,
+                        ["code"] = mapping.CodeValue,
+                        ["name"] = mapping.DisplayValue
                     };
                 }
             }
@@ -423,6 +430,6 @@ public sealed class DispatchService : IDispatchService
         var val = node.ToString().Trim();
         if (string.IsNullOrWhiteSpace(val)) return false;
 
-        return mappingLookup.TryGetValue((domainName, val.ToLowerInvariant()), out mapping);
+        return mappingLookup.TryGetValue((domainName.ToLowerInvariant(), val.ToLowerInvariant()), out mapping);
     }
 }

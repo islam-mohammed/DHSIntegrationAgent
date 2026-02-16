@@ -72,6 +72,6 @@ public class ClaimBundleBuilderTests
         var json = bundle.ToJsonString();
 
         // Assert
-        Assert.Contains("\"dhsDoctors\":[{\"doctorName\":\"Dr. Smith\"", json);
+        Assert.Contains("\"doctorDetails\":[{\"doctorName\":\"Dr. Smith\"", json);
     }
 }
