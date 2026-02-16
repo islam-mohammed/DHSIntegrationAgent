@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Nodes;
 using DHSIntegrationAgent.Adapters.Claims;
+using DHSIntegrationAgent.Domain.Claims;
 using DHSIntegrationAgent.Adapters.Tables;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
@@ -99,6 +101,8 @@ public sealed class FetchStageService : IFetchStageService
 
         var builder = new ClaimBundleBuilder();
         int processedCount = 0;
+        var domains = BaselineDomainScanner.GetBaselineDomains();
+        var discoveredValues = new HashSet<(string DomainName, int DomainTableId, string Value)>();
 
         while (true)
         {
@@ -139,6 +143,9 @@ public sealed class FetchStageService : IFetchStageService
 
                 if (buildResult.Succeeded && buildResult.Bundle is not null)
                 {
+                    // In-memory domain discovery (optimization)
+                    DiscoverDomainValues(buildResult.Bundle, domains, discoveredValues);
+
                     // Injected fields per your request
                     buildResult.Bundle.ClaimHeader.Remove("provider_dhsCode");
                     buildResult.Bundle.ClaimHeader["providerCode"] = batch.ProviderDhsCode;
@@ -218,16 +225,7 @@ public sealed class FetchStageService : IFetchStageService
         // 4. Missing mappings discovery (posting is separate)
         progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan", Percentage: 30, BatchId: batch.BatchId));
 
-         var domains = BaselineDomainScanner.GetBaselineDomains();
-        var distinctValues = await _tablesAdapter.GetDistinctDomainValuesAsync(
-            batch.ProviderDhsCode,
-            batch.CompanyCode,
-            batchStartDate,
-            batchEndDate,
-            domains,
-            ct);
-
-        if (distinctValues.Count > 0)
+        if (discoveredValues.Count > 0)
         {
             int discoveredInRun = 0;
 
@@ -235,11 +233,11 @@ public sealed class FetchStageService : IFetchStageService
             const int MappingTxBatchSize = 200;
             var buffer = new List<ScannedDomainValue>(MappingTxBatchSize);
 
-            foreach (var mm in distinctValues)
+            foreach (var item in discoveredValues)
             {
                 if (ct.IsCancellationRequested) break;
 
-                buffer.Add(mm);
+                buffer.Add(new ScannedDomainValue(item.DomainName, item.DomainTableId, item.Value));
 
                 if (buffer.Count >= MappingTxBatchSize)
                 {
@@ -265,6 +263,65 @@ public sealed class FetchStageService : IFetchStageService
         }
 
         progress.Report(new WorkerProgressReport("StreamA", $"Batch {batch.BatchId} staged successfully. {processedCount} claims processed.", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
+    }
+
+    private void DiscoverDomainValues(
+        ClaimBundle bundle,
+        IReadOnlyList<BaselineDomain> domains,
+        HashSet<(string DomainName, int DomainTableId, string Value)> discovered)
+    {
+        foreach (var domain in domains)
+        {
+            if (domain.FieldPath.StartsWith("claimHeader."))
+            {
+                var field = domain.FieldPath.Substring("claimHeader.".Length);
+                if (TryGetFieldValue(bundle.ClaimHeader, field, out var val))
+                    discovered.Add((domain.DomainName, domain.DomainTableId, val));
+            }
+            else if (domain.FieldPath.StartsWith("serviceDetails."))
+            {
+                var field = domain.FieldPath.Substring("serviceDetails.".Length);
+                foreach (var item in bundle.ServiceDetails.OfType<JsonObject>())
+                {
+                    if (TryGetFieldValue(item, field, out var val))
+                        discovered.Add((domain.DomainName, domain.DomainTableId, val));
+                }
+            }
+            else if (domain.FieldPath.StartsWith("diagnosisDetails."))
+            {
+                var field = domain.FieldPath.Substring("diagnosisDetails.".Length);
+                foreach (var item in bundle.DiagnosisDetails.OfType<JsonObject>())
+                {
+                    if (TryGetFieldValue(item, field, out var val))
+                        discovered.Add((domain.DomainName, domain.DomainTableId, val));
+                }
+            }
+            else if (domain.FieldPath.StartsWith("doctorDetails."))
+            {
+                if (bundle.DoctorDetails == null) continue;
+                var field = domain.FieldPath.Substring("doctorDetails.".Length);
+                if (TryGetFieldValue(bundle.DoctorDetails, field, out var val))
+                    discovered.Add((domain.DomainName, domain.DomainTableId, val));
+            }
+        }
+    }
+
+    private static bool TryGetFieldValue(JsonObject obj, string fieldName, out string value)
+    {
+        value = "";
+        // Case-insensitive lookup
+        foreach (var kv in obj)
+        {
+            if (string.Equals(kv.Key, fieldName, StringComparison.OrdinalIgnoreCase))
+            {
+                if (kv.Value == null) return false;
+                var val = kv.Value.ToString().Trim();
+                if (string.IsNullOrWhiteSpace(val)) return false;
+                value = val;
+                return true;
+            }
+        }
+        return false;
     }
 
     private async Task<int> UpsertMissingMappingsAsync(string providerDhsCode, IReadOnlyList<ScannedDomainValue> values, CancellationToken ct)

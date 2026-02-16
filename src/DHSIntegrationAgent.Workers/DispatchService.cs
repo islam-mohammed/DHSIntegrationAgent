@@ -113,6 +113,19 @@ public sealed class DispatchService : IDispatchService
             var bundles = new List<JsonNode>(leased.Count);
             var dispatchItems = new List<DispatchItemRow>(leased.Count);
 
+            // Load approved mappings for enrichment
+            IReadOnlyList<ApprovedDomainMappingRow> approvedMappings;
+            await using (var uowMappings = await _uowFactory.CreateAsync(ct))
+            {
+                approvedMappings = await uowMappings.DomainMappings.GetAllApprovedAsync(ct);
+            }
+
+            // Index mappings by (DomainName, SourceValue) for fast lookup.
+            // Use case-insensitive comparison for SourceValue.
+            var mappingLookup = approvedMappings
+                .GroupBy(m => (m.DomainName, m.SourceValue.Trim().ToLowerInvariant()))
+                .ToDictionary(g => g.Key, g => g.First());
+
             await using (var uow = await _uowFactory.CreateAsync(ct))
             {
                 for (int i = 0; i < leased.Count; i++)
@@ -132,7 +145,22 @@ public sealed class DispatchService : IDispatchService
                                 header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
+
+                                EnrichClaimHeader(header, mappingLookup);
                             }
+
+                            var serviceDetails = bundleObj["serviceDetails"]?.AsArray();
+                            if (serviceDetails != null)
+                                EnrichServiceDetails(serviceDetails, mappingLookup);
+
+                            var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
+                            if (diagnosisDetails != null)
+                                EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
+
+                            var doctorDetails = bundleObj["doctorDetails"]?.AsObject();
+                            if (doctorDetails != null)
+                                EnrichDoctorDetails(doctorDetails, mappingLookup);
+
                             bundles.Add(bundleObj);
                         }
                     }
@@ -259,5 +287,137 @@ public sealed class DispatchService : IDispatchService
             }
         }
 
+    }
+
+    private void EnrichClaimHeader(JsonObject header, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    {
+        // Define fields to enrich in claimHeader
+        var fields = new[]
+        {
+            ("fK_ClaimType_ID", "ClaimType", "claimType"),
+            ("fK_ClaimSubtype_ID", "ClaimSubtype", "claimSubtype"),
+            ("fK_GenderId", "Gender", "patientGender"),
+            ("fK_PatientIDType_ID", "PatientIDType", "patientIdType"),
+            ("fK_MaritalStatus_ID", "MaritalStatus", "maritalStatus"),
+            ("fK_Dept_ID", "Department", "department"),
+            ("fK_Nationality_ID", "Country", "nationality"),
+            ("fK_BirthCountry_ID", "Country", "birthCountry"),
+            ("fK_BirthCity_ID", "City", "birthCity"),
+            ("fK_AdmissionSpecialty_ID", "Specialty", "admissionSpecialty"),
+            ("fK_DischargeSpeciality_ID", "Specialty", "dischargeSpecialty"),
+            ("fK_DischargeDisposition_ID", "DischargeDisposition", "dischargeDisposition"),
+            ("fK_EncounterAdmitSource_ID", "EncounterAdmitSource", "encounterAdmitSource"),
+            ("fK_EncounterClass_ID", "EncounterClass", "encounterClass"),
+            ("fK_EncounterStatus_ID", "EncounterStatus", "encounterStatus"),
+            ("fK_ReAdmission_ID", "ReAdmission", "reAdmission"),
+            ("fK_EmergencyArrivalCode_ID", "EmergencyArrivalCode", "emergencyArrivalCode"),
+            ("fK_ServiceEventType_ID", "ServiceEventType", "serviceEventType"),
+            ("fK_IntendedLengthOfStay_ID", "IntendedLengthOfStay", "intendedLengthOfStay"),
+            ("fK_TriageCategory_ID", "TriageCategoryType", "triageCategoryTypeID"),
+            ("fK_DispositionCode_ID", "DispositionCode", "dispositionCode"),
+            ("fK_InvestigationResult_ID", "InvestigationResult", "investigationResult"),
+            ("fK_VisitType_ID", "VisitType", "visitType"),
+            ("fK_PatientOccupation_Id", "PatientOccupation", "patientOccupation"),
+            ("fK_SubscriberRelationship_ID", "SubscriberRelationship", "subscriberRelationship")
+        };
+
+        foreach (var (targetField, domainName, sourceField) in fields)
+        {
+            if (TryGetMapping(header, sourceField, domainName, mappingLookup, out var mapping))
+            {
+                header[targetField] = new JsonObject
+                {
+                    ["id"] = mapping.DomainTableId.ToString(),
+                    ["code"] = mapping.SourceValue
+                };
+            }
+        }
+    }
+
+    private void EnrichServiceDetails(JsonArray serviceDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    {
+        var fields = new[]
+        {
+            ("fK_ServiceType_ID", "ServiceType", "serviceType"),
+            ("fK_PharmacistSubstitute_ID", "PharmacistSubstitute", "pharmacistSubstitute"),
+            ("fK_PharmacistSelectionReason_ID", "PharmacistSelectionReason", "pharmacistSelectionReason")
+        };
+
+        foreach (var item in serviceDetails.OfType<JsonObject>())
+        {
+            foreach (var (targetField, domainName, sourceField) in fields)
+            {
+                if (TryGetMapping(item, sourceField, domainName, mappingLookup, out var mapping))
+                {
+                    item[targetField] = new JsonObject
+                    {
+                        ["id"] = mapping.DomainTableId.ToString(),
+                        ["code"] = mapping.SourceValue
+                    };
+                }
+            }
+        }
+    }
+
+    private void EnrichDiagnosisDetails(JsonArray diagnosisDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    {
+        var fields = new[]
+        {
+            ("fK_DiagnosisOnAdmission_ID", "DiagnosisOnAdmission", "diagnosisOnAdmission")
+        };
+
+        foreach (var item in diagnosisDetails.OfType<JsonObject>())
+        {
+            foreach (var (targetField, domainName, sourceField) in fields)
+            {
+                if (TryGetMapping(item, sourceField, domainName, mappingLookup, out var mapping))
+                {
+                    item[targetField] = new JsonObject
+                    {
+                        ["id"] = mapping.DomainTableId.ToString(),
+                        ["code"] = mapping.SourceValue
+                    };
+                }
+            }
+        }
+    }
+
+    private void EnrichDoctorDetails(JsonObject doctorDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    {
+        if (TryGetMapping(doctorDetails, "DoctorGender", "Gender", mappingLookup, out var mapping))
+        {
+            doctorDetails["fK_Gender"] = new JsonObject
+            {
+                ["id"] = mapping.DomainTableId.ToString(),
+                ["code"] = mapping.SourceValue
+            };
+        }
+    }
+
+    private bool TryGetMapping(
+        JsonObject obj,
+        string sourceField,
+        string domainName,
+        Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup,
+        out ApprovedDomainMappingRow mapping)
+    {
+        mapping = null!;
+        // Case-insensitive lookup for property
+        JsonNode? node = null;
+        foreach (var kv in obj)
+        {
+            if (string.Equals(kv.Key, sourceField, StringComparison.OrdinalIgnoreCase))
+            {
+                node = kv.Value;
+                break;
+            }
+        }
+
+        if (node == null) return false;
+
+        var val = node.ToString().Trim();
+        if (string.IsNullOrWhiteSpace(val)) return false;
+
+        return mappingLookup.TryGetValue((domainName, val.ToLowerInvariant()), out mapping);
     }
 }
