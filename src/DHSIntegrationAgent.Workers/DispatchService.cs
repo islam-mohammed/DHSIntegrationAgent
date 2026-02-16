@@ -153,9 +153,9 @@ public sealed class DispatchService : IDispatchService
                             if (serviceDetails != null)
                                 EnrichServiceDetails(serviceDetails, mappingLookup);
 
-                            var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
-                            if (diagnosisDetails != null)
-                                EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
+                            //var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
+                            //if (diagnosisDetails != null)
+                            //    EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
 
                             var doctorDetails = bundleObj["doctorDetails"]?.AsObject();
                             if (doctorDetails != null)
@@ -295,26 +295,18 @@ public sealed class DispatchService : IDispatchService
         var fields = new[]
         {
             ("fK_ClaimType_ID", "ClaimType", "claimType"),
-            ("fK_ClaimSubtype_ID", "ClaimSubtype", "claimSubtype"),
             ("fK_GenderId", "Gender", "patientGender"),
             ("fK_PatientIDType_ID", "PatientIDType", "patientIdType"),
             ("fK_MaritalStatus_ID", "MaritalStatus", "maritalStatus"),
-            ("fK_Dept_ID", "Department", "department"),
+            ("fK_Dept_ID", "Department", "BenHead"),
             ("fK_Nationality_ID", "Country", "nationality"),
-            ("fK_BirthCountry_ID", "Country", "birthCountry"),
-            ("fK_BirthCity_ID", "City", "birthCity"),
-            ("fK_AdmissionSpecialty_ID", "Specialty", "admissionSpecialty"),
-            ("fK_DischargeSpeciality_ID", "Specialty", "dischargeSpecialty"),
-            ("fK_DischargeDisposition_ID", "DischargeDisposition", "dischargeDisposition"),
-            ("fK_EncounterAdmitSource_ID", "EncounterAdmitSource", "encounterAdmitSource"),
-            ("fK_EncounterClass_ID", "EncounterClass", "encounterClass"),
+            ("fK_DischargeDisposition_ID", "DischargeDisposition", "DischargeDepositionsTypeID"),
+            ("fK_EncounterClass_ID", "EncounterClass", "enconuterTypeId"),
             ("fK_EncounterStatus_ID", "EncounterStatus", "encounterStatus"),
-            ("fK_ReAdmission_ID", "ReAdmission", "reAdmission"),
             ("fK_EmergencyArrivalCode_ID", "EmergencyArrivalCode", "emergencyArrivalCode"),
             ("fK_ServiceEventType_ID", "ServiceEventType", "serviceEventType"),
-            ("fK_IntendedLengthOfStay_ID", "IntendedLengthOfStay", "intendedLengthOfStay"),
             ("fK_TriageCategory_ID", "TriageCategoryType", "triageCategoryTypeID"),
-            ("fK_DispositionCode_ID", "DispositionCode", "dispositionCode"),
+            ("fK_DispositionCode_ID", "DispositionCode", "EmergencyDepositionTypeID"),
             ("fK_InvestigationResult_ID", "InvestigationResult", "investigationResult"),
             ("fK_VisitType_ID", "VisitType", "visitType"),
             ("fK_PatientOccupation_Id", "PatientOccupation", "patientOccupation"),
@@ -339,8 +331,8 @@ public sealed class DispatchService : IDispatchService
         var fields = new[]
         {
             ("fK_ServiceType_ID", "ServiceType", "serviceType"),
-            ("fK_PharmacistSubstitute_ID", "PharmacistSubstitute", "pharmacistSubstitute"),
-            ("fK_PharmacistSelectionReason_ID", "PharmacistSelectionReason", "pharmacistSelectionReason")
+            ("fK_PharmacistSubstitute_ID", "Pharmacist Substitute", "pharmacistSubstitute"),
+            ("fK_PharmacistSelectionReason_ID", "Pharmacist Selection Reason", "pharmacistSelectionReason")
         };
 
         foreach (var item in serviceDetails.OfType<JsonObject>())
@@ -384,7 +376,7 @@ public sealed class DispatchService : IDispatchService
 
     private void EnrichDoctorDetails(JsonObject doctorDetails, Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
-        if (TryGetMapping(doctorDetails, "DoctorGender", "Gender", mappingLookup, out var mapping))
+        if (TryGetMapping(doctorDetails, "DoctorGender", "doctorGender", mappingLookup, out var mapping))
         {
             doctorDetails["fK_Gender"] = new JsonObject
             {
