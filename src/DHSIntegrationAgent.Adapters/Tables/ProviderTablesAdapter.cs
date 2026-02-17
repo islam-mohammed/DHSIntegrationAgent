@@ -221,7 +221,7 @@ ORDER BY {claimKeyCol} ASC;";
             result.Add(new ProviderClaimBundleRaw(
                 ProIdClaim: id,
                 Header: header,
-                Doctor: doctorArr,
+                DhsDoctors: doctorArr,
                 Services: services.GetValueOrDefault(id, new JsonArray()),
                 Diagnoses: diagnoses.GetValueOrDefault(id, new JsonArray()),
                 Labs: labs.GetValueOrDefault(id, new JsonArray()),

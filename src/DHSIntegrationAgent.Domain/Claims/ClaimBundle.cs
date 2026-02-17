@@ -28,8 +28,8 @@ public sealed class ClaimBundle
     [JsonPropertyName("opticalVitalSigns")]
     public JsonArray OpticalVitalSigns { get; }
 
-    [JsonPropertyName("doctorDetails")]
-    public JsonArray? DoctorDetails { get; }
+    [JsonPropertyName("dhsDoctors")]
+    public JsonArray DhsDoctors { get; }
 
     public ClaimBundle(
         JsonObject claimHeader,
@@ -38,7 +38,7 @@ public sealed class ClaimBundle
         JsonArray? labDetails = null,
         JsonArray? radiologyDetails = null,
         JsonArray? opticalVitalSigns = null,
-        JsonArray? doctorDetails = null)
+        JsonArray? dhsDoctors = null)
     {
         ClaimHeader = claimHeader ?? throw new ArgumentNullException(nameof(claimHeader));
         ServiceDetails = serviceDetails ?? new JsonArray();
@@ -46,7 +46,7 @@ public sealed class ClaimBundle
         LabDetails = labDetails ?? new JsonArray();
         RadiologyDetails = radiologyDetails ?? new JsonArray();
         OpticalVitalSigns = opticalVitalSigns ?? new JsonArray();
-        DoctorDetails = doctorDetails ?? new JsonArray();
+        DhsDoctors = dhsDoctors ?? new JsonArray();
     }
 
     /// <summary>
@@ -65,7 +65,7 @@ public sealed class ClaimBundle
             ["labDetails"] = LabDetails,
             ["radiologyDetails"] = RadiologyDetails,
             ["opticalVitalSigns"] = OpticalVitalSigns,
-            ["doctorDetails"] = DoctorDetails
+            ["dhsDoctors"] = DhsDoctors
         };
 
     public static class JsonDefaults

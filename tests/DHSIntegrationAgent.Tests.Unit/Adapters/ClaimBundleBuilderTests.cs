@@ -24,15 +24,15 @@ public class ClaimBundleBuilderTests
             ["specialty"] = "General"
         };
         var doctorArr = new JsonArray { doctor };
-        var parts = new CanonicalClaimParts(header, DoctorDetails: doctorArr);
+        var parts = new CanonicalClaimParts(header, DhsDoctors: doctorArr);
 
         // Act
         var result = builder.Build(parts, "COMP1");
 
         // Assert
         Assert.True(result.Succeeded);
-        Assert.NotEmpty(result.Bundle.DoctorDetails);
-        var firstDoctor = result.Bundle.DoctorDetails[0] as JsonObject;
+        Assert.NotEmpty(result.Bundle.DhsDoctors);
+        var firstDoctor = result.Bundle.DhsDoctors[0] as JsonObject;
         Assert.NotNull(firstDoctor);
         Assert.Equal("Dr. Smith", firstDoctor["doctorName"]?.ToString());
         Assert.Equal(123, firstDoctor["proIdClaim"]?.GetValue<int>());
@@ -49,14 +49,14 @@ public class ClaimBundleBuilderTests
             ["companyCode"] = "COMP1",
             ["invoiceDate"] = "2023-10-01"
         };
-        var parts = new CanonicalClaimParts(header, DoctorDetails: null);
+        var parts = new CanonicalClaimParts(header, DhsDoctors: null);
 
         // Act
         var result = builder.Build(parts, "COMP1");
 
         // Assert
         Assert.True(result.Succeeded);
-        Assert.Empty(result.Bundle.DoctorDetails);
+        Assert.Empty(result.Bundle.DhsDoctors);
     }
 
     [Fact]
@@ -66,12 +66,12 @@ public class ClaimBundleBuilderTests
         var header = new JsonObject { ["proIdClaim"] = 123 };
         var doctor = new JsonObject { ["doctorName"] = "Dr. Smith" };
         var doctorArr = new JsonArray { doctor };
-        var bundle = new ClaimBundle(header, doctorDetails: doctorArr);
+        var bundle = new ClaimBundle(header, dhsDoctors: doctorArr);
 
         // Act
         var json = bundle.ToJsonString();
 
         // Assert
-        Assert.Contains("\"doctorDetails\":[{\"doctorName\":\"Dr. Smith\"", json);
+        Assert.Contains("\"dhsDoctors\":[{\"doctorName\":\"Dr. Smith\"", json);
     }
 }

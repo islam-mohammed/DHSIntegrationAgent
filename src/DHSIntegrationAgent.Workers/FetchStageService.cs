@@ -135,7 +135,7 @@ public sealed class FetchStageService : IFetchStageService
                     rawBundle.Labs,
                     rawBundle.Radiology,
                     rawBundle.OpticalVitalSigns,
-                    DoctorDetails: rawBundle.Doctor
+                    DhsDoctors: rawBundle.DhsDoctors
                 ), batch.CompanyCode);
 
                 byte[]? payloadBytes = null;
@@ -296,11 +296,11 @@ public sealed class FetchStageService : IFetchStageService
                         discovered.Add((domain.DomainName, domain.DomainTableId, val));
                 }
             }
-            else if (domain.FieldPath.StartsWith("doctorDetails."))
+            else if (domain.FieldPath.StartsWith("dhsDoctors."))
             {
                 
-                var field = domain.FieldPath.Substring("doctorDetails.".Length);
-                foreach (var doctor in bundle.DoctorDetails.OfType<JsonObject>())
+                var field = domain.FieldPath.Substring("dhsDoctors.".Length);
+                foreach (var doctor in bundle.DhsDoctors.OfType<JsonObject>())
                 {
                     if (TryGetFieldValue(doctor, field, out var val))
                         discovered.Add((domain.DomainName, domain.DomainTableId, val));

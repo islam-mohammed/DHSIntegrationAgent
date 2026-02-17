@@ -5,7 +5,7 @@ namespace DHSIntegrationAgent.Adapters.Tables;
 public sealed record ProviderClaimBundleRaw(
     int ProIdClaim,
     JsonObject Header,
-    JsonArray? Doctor,
+    JsonArray? DhsDoctors,
     JsonArray Services,
     JsonArray Diagnoses,
     JsonArray Labs,
