@@ -181,26 +181,29 @@ public sealed class ClaimBundleBuilder
             if (diagnosisDetails[i] is not JsonObject obj)
                 continue;
 
-            // Try both 'diagnosisDate' and 'diagnosis_Date' variations
-            if ((TryGetPropertyIgnoreCase(obj, "diagnosisDate", out var node) ||
+            // Try 'DiagnosisDate', 'diagnosisDate' and 'diagnosis_Date' variations
+            if ((TryGetPropertyIgnoreCase(obj, "DiagnosisDate", out var node) ||
+                 TryGetPropertyIgnoreCase(obj, "diagnosisDate", out node) ||
                  TryGetPropertyIgnoreCase(obj, "diagnosis_Date", out node)) && node != null)
             {
-                var raw = node.ToString();
+                var raw = node.ToString().Trim('"');
                 if (string.IsNullOrWhiteSpace(raw)) continue;
 
                 if (DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dto))
                 {
                     // Remove ALL variations to ensure no duplicates
+                    RemovePropertyIgnoreCase(obj, "DiagnosisDate");
                     RemovePropertyIgnoreCase(obj, "diagnosisDate");
                     RemovePropertyIgnoreCase(obj, "diagnosis_Date");
-                    obj["diagnosisDate"] = dto.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                    obj["DiagnosisDate"] = dto.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 }
                 else if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt))
                 {
                     // Remove ALL variations to ensure no duplicates
+                    RemovePropertyIgnoreCase(obj, "DiagnosisDate");
                     RemovePropertyIgnoreCase(obj, "diagnosisDate");
                     RemovePropertyIgnoreCase(obj, "diagnosis_Date");
-                    obj["diagnosisDate"] = dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                    obj["DiagnosisDate"] = dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 }
             }
         }
@@ -291,7 +294,7 @@ public sealed class ClaimBundleBuilder
             if (!TryGetPropertyIgnoreCase(obj, name, out var node))
                 continue;
 
-            raw = node?.ToString();
+            raw = node?.ToString()?.Trim('"');
             if (string.IsNullOrWhiteSpace(raw))
                 continue;
 
