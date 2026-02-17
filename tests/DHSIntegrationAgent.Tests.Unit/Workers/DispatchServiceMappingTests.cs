@@ -12,14 +12,14 @@ namespace DHSIntegrationAgent.Tests.Unit.Workers;
 public class DispatchServiceMappingTests
 {
     [Fact]
-    public void TryGetMapping_ShouldSucceed_WhenUsingDomainTableId_EvenIfNameIsMessy()
+    public void EnrichSection_ShouldSucceed_WhenUsingDomainTableId_EvenIfNameIsMessy()
     {
         // Arrange
-        // We use reflection because TryGetMapping is private.
+        // We use reflection because EnrichSection is private.
         // We don't need real dependencies for this specific logic test.
         var service = (DispatchService)Activator.CreateInstance(typeof(DispatchService), new object[] { null!, null!, null!, null! })!;
 
-        var method = typeof(DispatchService).GetMethod("TryGetMapping", BindingFlags.NonPublic | BindingFlags.Instance);
+        var method = typeof(DispatchService).GetMethod("EnrichSection", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
         var obj = new JsonObject
@@ -27,7 +27,15 @@ public class DispatchServiceMappingTests
             ["nationality"] = "JORDANIAN"
         };
 
-        // This simulates the "messy" dictionary from the image where DomainName == SourceValue
+        var sectionLookup = new Dictionary<string, List<(string TargetField, string DomainName, string SourceField)>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["nationality"] = new List<(string TargetField, string DomainName, string SourceField)>
+            {
+                ("fK_Nationality_ID", "Country", "nationality")
+            }
+        };
+
+        // This simulates the "messy" dictionary where DomainName == SourceValue
         var mappingLookup = new Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow>
         {
             [(5, "jordanian")] = new ApprovedDomainMappingRow(
@@ -48,14 +56,13 @@ public class DispatchServiceMappingTests
         };
 
         // Act
-        var parameters = new object[] { obj, "nationality", 5, mappingLookup, null! };
-        var result = (bool)method.Invoke(service, parameters)!;
-        var mapping = (ApprovedDomainMappingRow)parameters[4];
+        var parameters = new object[] { obj, sectionLookup, mappingLookup };
+        method.Invoke(service, parameters);
 
         // Assert
-        Assert.True(result);
-        Assert.NotNull(mapping);
-        Assert.Equal("1", mapping.TargetValue);
-        Assert.Equal("Jordan", mapping.DisplayValue);
+        Assert.NotNull(obj["fK_Nationality_ID"]);
+        var enriched = obj["fK_Nationality_ID"]!.AsObject();
+        Assert.Equal("1", enriched["id"]!.ToString());
+        Assert.Equal("Jordan", enriched["name"]!.ToString());
     }
 }

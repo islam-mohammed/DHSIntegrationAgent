@@ -102,6 +102,19 @@ public sealed class FetchStageService : IFetchStageService
         var builder = new ClaimBundleBuilder();
         int processedCount = 0;
         var domains = BaselineDomainScanner.GetBaselineDomains();
+
+        // Optimization: Pre-group domains by section and lowercase field name for O(N) discovery.
+        var domainLookup = domains
+            .GroupBy(d => d.FieldPath.Split('.')[0])
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(d => d.FieldPath.Split('.')[1].ToLowerInvariant())
+                      .ToDictionary(
+                          gg => gg.Key,
+                          gg => gg.ToList()
+                      )
+            );
+
         var discoveredValues = new HashSet<(string DomainName, int DomainTableId, string Value)>();
 
         while (true)
@@ -144,7 +157,7 @@ public sealed class FetchStageService : IFetchStageService
                 if (buildResult.Succeeded && buildResult.Bundle is not null)
                 {
                     // In-memory domain discovery (optimization)
-                    DiscoverDomainValues(buildResult.Bundle, domains, discoveredValues);
+                    DiscoverDomainValues(buildResult.Bundle, domainLookup, discoveredValues);
 
                     // Injected fields per your request
                     buildResult.Bundle.ClaimHeader.Remove("provider_dhsCode");
@@ -267,64 +280,46 @@ public sealed class FetchStageService : IFetchStageService
 
     private void DiscoverDomainValues(
         ClaimBundle bundle,
-        IReadOnlyList<BaselineDomain> domains,
+        Dictionary<string, Dictionary<string, List<BaselineDomain>>> domainLookup,
         HashSet<(string DomainName, int DomainTableId, string Value)> discovered)
     {
-        foreach (var domain in domains)
-        {
-            if (domain.FieldPath.StartsWith("claimHeader."))
-            {
-                var field = domain.FieldPath.Substring("claimHeader.".Length);
-                if (TryGetFieldValue(bundle.ClaimHeader, field, out var val))
-                    discovered.Add((domain.DomainName, domain.DomainTableId, val));
-            }
-            else if (domain.FieldPath.StartsWith("serviceDetails."))
-            {
-                var field = domain.FieldPath.Substring("serviceDetails.".Length);
-                foreach (var item in bundle.ServiceDetails.OfType<JsonObject>())
-                {
-                    if (TryGetFieldValue(item, field, out var val))
-                        discovered.Add((domain.DomainName, domain.DomainTableId, val));
-                }
-            }
-            else if (domain.FieldPath.StartsWith("diagnosisDetails."))
-            {
-                var field = domain.FieldPath.Substring("diagnosisDetails.".Length);
-                foreach (var item in bundle.DiagnosisDetails.OfType<JsonObject>())
-                {
-                    if (TryGetFieldValue(item, field, out var val))
-                        discovered.Add((domain.DomainName, domain.DomainTableId, val));
-                }
-            }
-            else if (domain.FieldPath.StartsWith("dhsDoctors."))
-            {
-                
-                var field = domain.FieldPath.Substring("dhsDoctors.".Length);
-                foreach (var doctor in bundle.DhsDoctors.OfType<JsonObject>())
-                {
-                    if (TryGetFieldValue(doctor, field, out var val))
-                        discovered.Add((domain.DomainName, domain.DomainTableId, val));
-                }
-            }
-        }
+        ProcessSection(bundle.ClaimHeader, "claimHeader", domainLookup, discovered);
+
+        foreach (var item in bundle.ServiceDetails.OfType<JsonObject>())
+            ProcessSection(item, "serviceDetails", domainLookup, discovered);
+
+        foreach (var item in bundle.DiagnosisDetails.OfType<JsonObject>())
+            ProcessSection(item, "diagnosisDetails", domainLookup, discovered);
+
+        foreach (var item in bundle.DhsDoctors.OfType<JsonObject>())
+            ProcessSection(item, "dhsDoctors", domainLookup, discovered);
     }
 
-    private static bool TryGetFieldValue(JsonObject obj, string fieldName, out string value)
+    private static void ProcessSection(
+        JsonObject obj,
+        string sectionName,
+        Dictionary<string, Dictionary<string, List<BaselineDomain>>> domainLookup,
+        HashSet<(string DomainName, int DomainTableId, string Value)> discovered)
     {
-        value = "";
-        // Case-insensitive lookup
+        if (!domainLookup.TryGetValue(sectionName, out var sectionDomains))
+            return;
+
         foreach (var kv in obj)
         {
-            if (string.Equals(kv.Key, fieldName, StringComparison.OrdinalIgnoreCase))
+            if (kv.Value == null) continue;
+
+            var keyLower = kv.Key.ToLowerInvariant();
+            if (sectionDomains.TryGetValue(keyLower, out var domains))
             {
-                if (kv.Value == null) return false;
-                var val = kv.Value.ToString().Trim();
-                if (string.IsNullOrWhiteSpace(val)) return false;
-                value = val;
-                return true;
+                var val = kv.Value.ToString().Trim().Trim('"');
+                if (string.IsNullOrWhiteSpace(val)) continue;
+
+                foreach (var domain in domains)
+                {
+                    discovered.Add((domain.DomainName, domain.DomainTableId, val));
+                }
             }
         }
-        return false;
     }
 
     private async Task<int> UpsertMissingMappingsAsync(string providerDhsCode, IReadOnlyList<ScannedDomainValue> values, CancellationToken ct)

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using DHSIntegrationAgent.Adapters.Claims;
 using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Application.Providers;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Contracts.Claims;
 using DHSIntegrationAgent.Contracts.Persistence;
@@ -18,6 +19,58 @@ public sealed class DispatchService : IDispatchService
     private readonly IClaimsClient _claimsClient;
     private readonly ISystemClock _clock;
     private readonly ILogger<DispatchService> _logger;
+
+    private static readonly Dictionary<string, BaselineDomain> _domainLookupByName =
+        Application.Providers.BaselineDomainScanner.GetBaselineDomains()
+            .ToDictionary(d => d.DomainName, StringComparer.OrdinalIgnoreCase);
+
+    private static readonly Dictionary<string, List<(string TargetField, string DomainName, string SourceField)>> _headerFieldLookup =
+        new[]
+        {
+            ("fK_ClaimType_ID", "ClaimType", "ClaimType"),
+            ("fK_GenderId", "PatientGender", "PatientGender"),
+            ("fK_PatientIDType_ID", "PatientIDType", "PatientIdType"),
+            ("fK_MaritalStatus_ID", "MaritalStatus", "MaritalStatus"),
+            ("fK_Dept_ID", "Department", "BenHead"),
+            ("fK_Nationality_ID", "Country", "Nationality"),
+            ("fK_DischargeDisposition_ID", "DischargeDisposition", "DischargeDepositionsTypeID"),
+            ("fK_EncounterClass_ID", "EncounterClass", "EnconuterTypeId"),
+            ("fK_EncounterStatus_ID", "EncounterStatus", "EncounterStatus"),
+            ("fK_EmergencyArrivalCode_ID", "EmergencyArrivalCode", "EmergencyArrivalCode"),
+            ("fK_ServiceEventType_ID", "ServiceEventType", "ServiceEventType"),
+            ("fK_TriageCategory_ID", "TriageCategory", "TriageCategoryTypeID"),
+            ("fK_DispositionCode_ID", "DispositionCode", "EmergencyDepositionTypeID"),
+            ("fK_InvestigationResult_ID", "InvestigationResult", "InvestigationResult"),
+            ("fK_VisitType_ID", "VisitType", "VisitType"),
+            ("fK_PatientOccupation_Id", "PatientOccupation", "PatientOccupation"),
+            ("fK_SubscriberRelationship_ID", "SubscriberRelationship", "SubscriberRelationship")
+        }.GroupBy(f => f.Item3, StringComparer.OrdinalIgnoreCase)
+         .ToDictionary(g => g.Key, g => g.Select(x => (x.Item1, x.Item2, x.Item3)).ToList(), StringComparer.OrdinalIgnoreCase);
+
+    private static readonly Dictionary<string, List<(string TargetField, string DomainName, string SourceField)>> _serviceFieldLookup =
+        new[]
+        {
+            ("fK_ServiceType_ID", "ServiceType", "serviceType"),
+            ("fK_PharmacistSubstitute_ID", "Pharmacist Substitute", "PharmacistSubstitute"),
+            ("fK_PharmacistSelectionReason_ID", "Pharmacist Selection Reason", "PharmacistSelectionReason")
+        }.GroupBy(f => f.Item3, StringComparer.OrdinalIgnoreCase)
+         .ToDictionary(g => g.Key, g => g.Select(x => (x.Item1, x.Item2, x.Item3)).ToList(), StringComparer.OrdinalIgnoreCase);
+
+    private static readonly Dictionary<string, List<(string TargetField, string DomainName, string SourceField)>> _diagnosisFieldLookup =
+        new[]
+        {
+            ("fK_DiagnosisOnAdmission_ID", "ConditionOnset", "DiagnosisOnAdmission")
+        }.GroupBy(f => f.Item3, StringComparer.OrdinalIgnoreCase)
+         .ToDictionary(g => g.Key, g => g.Select(x => (x.Item1, x.Item2, x.Item3)).ToList(), StringComparer.OrdinalIgnoreCase);
+
+    private static readonly Dictionary<string, List<(string TargetField, string DomainName, string SourceField)>> _doctorFieldLookup =
+        new[]
+        {
+            ("fK_Gender", "DoctorGender", "DoctorGender"),
+            ("fk_DoctorType", "DoctorType", "DoctorType_Code"),
+            ("fK_DoctorReligion", "DoctorReligion", "religion_Code")
+        }.GroupBy(f => f.Item3, StringComparer.OrdinalIgnoreCase)
+         .ToDictionary(g => g.Key, g => g.Select(x => (x.Item1, x.Item2, x.Item3)).ToList(), StringComparer.OrdinalIgnoreCase);
 
     public DispatchService(
         ISqliteUnitOfWorkFactory uowFactory,
@@ -113,15 +166,13 @@ public sealed class DispatchService : IDispatchService
             var bundles = new List<JsonNode>(leased.Count);
             var dispatchItems = new List<DispatchItemRow>(leased.Count);
 
-            // Load approved mappings for enrichment
+            // Load approved mappings for enrichment (once per packet to ensure fresh data)
             IReadOnlyList<ApprovedDomainMappingRow> approvedMappings;
             await using (var uowMappings = await _uowFactory.CreateAsync(ct))
             {
                 approvedMappings = await uowMappings.DomainMappings.GetAllApprovedAsync(ct);
             }
 
-            // Index mappings by (DomainTableId, SourceValue) for fast lookup.
-            // DomainTableId is the most stable identifier across different HIS systems and backend versions.
             var mappingLookup = approvedMappings
                 .GroupBy(m => (m.DomainTableId, m.SourceValue.Trim().ToLowerInvariant()))
                 .ToDictionary(g => g.Key, g => g.First());
@@ -292,166 +343,74 @@ public sealed class DispatchService : IDispatchService
 
     private void EnrichClaimHeader(JsonObject header, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
-        var baselineDomains = Application.Providers.BaselineDomainScanner.GetBaselineDomains();
-
-        // Define fields to enrich in claimHeader
-        var fields = new[]
-        {
-            ("fK_ClaimType_ID", "ClaimType", "ClaimType"),
-            ("fK_GenderId", "PatientGender", "PatientGender"),
-            ("fK_PatientIDType_ID", "PatientIDType", "PatientIdType"),
-            ("fK_MaritalStatus_ID", "MaritalStatus", "MaritalStatus"),
-            ("fK_Dept_ID", "Department", "BenHead"),
-            ("fK_Nationality_ID", "Country", "Nationality"),
-            ("fK_DischargeDisposition_ID", "DischargeDisposition", "DischargeDepositionsTypeID"),
-            ("fK_EncounterClass_ID", "EncounterClass", "EnconuterTypeId"),
-            ("fK_EncounterStatus_ID", "EncounterStatus", "EncounterStatus"),
-            ("fK_EmergencyArrivalCode_ID", "EmergencyArrivalCode", "EmergencyArrivalCode"),
-            ("fK_ServiceEventType_ID", "ServiceEventType", "ServiceEventType"),
-            ("fK_TriageCategory_ID", "TriageCategory", "TriageCategoryTypeID"),
-            ("fK_DispositionCode_ID", "DispositionCode", "EmergencyDepositionTypeID"),
-            ("fK_InvestigationResult_ID", "InvestigationResult", "InvestigationResult"),
-            ("fK_VisitType_ID", "VisitType", "VisitType"),
-            ("fK_PatientOccupation_Id", "PatientOccupation", "PatientOccupation"),
-            ("fK_SubscriberRelationship_ID", "SubscriberRelationship", "SubscriberRelationship")
-        };
-
-        foreach (var (targetField, domainName, sourceField) in fields)
-        {
-            var domain = baselineDomains.FirstOrDefault(d => string.Equals(d.DomainName, domainName, StringComparison.OrdinalIgnoreCase));
-            if (domain == null) continue;
-
-            if (TryGetMapping(header, sourceField, domain.DomainTableId, mappingLookup, out var mapping))
-            {
-                header[targetField] = new JsonObject
-                {
-                    // mapping.TargetValue corresponds to dhsDomainValue requested by user.
-                    ["id"] = mapping.TargetValue,
-                    ["code"] = mapping.CodeValue,
-                    ["name"] = mapping.DisplayValue
-                };
-            }
-        }
+        EnrichSection(header, _headerFieldLookup, mappingLookup);
     }
 
     private void EnrichServiceDetails(JsonArray serviceDetails, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
-        var baselineDomains = Application.Providers.BaselineDomainScanner.GetBaselineDomains();
-
-        var fields = new[]
-        {
-            ("fK_ServiceType_ID", "ServiceType", "serviceType"),
-            ("fK_PharmacistSubstitute_ID", "Pharmacist Substitute", "PharmacistSubstitute"),
-            ("fK_PharmacistSelectionReason_ID", "Pharmacist Selection Reason", "PharmacistSelectionReason")
-        };
-
         foreach (var item in serviceDetails.OfType<JsonObject>())
         {
-            foreach (var (targetField, domainName, sourceField) in fields)
-            {
-                var domain = baselineDomains.FirstOrDefault(d => string.Equals(d.DomainName, domainName, StringComparison.OrdinalIgnoreCase));
-                if (domain == null) continue;
-
-                if (TryGetMapping(item, sourceField, domain.DomainTableId, mappingLookup, out var mapping))
-                {
-                    item[targetField] = new JsonObject
-                    {
-                        // mapping.TargetValue corresponds to dhsDomainValue requested by user.
-                        ["id"] = mapping.TargetValue,
-                        ["code"] = mapping.CodeValue,
-                        ["name"] = mapping.DisplayValue
-                    };
-                }
-            }
+            EnrichSection(item, _serviceFieldLookup, mappingLookup);
         }
     }
 
     private void EnrichDiagnosisDetails(JsonArray diagnosisDetails, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
-        var baselineDomains = Application.Providers.BaselineDomainScanner.GetBaselineDomains();
-
-        var fields = new[]
-        {
-            ("fK_DiagnosisOnAdmission_ID", "ConditionOnset", "DiagnosisOnAdmission")
-        };
-
         foreach (var item in diagnosisDetails.OfType<JsonObject>())
         {
-            foreach (var (targetField, domainName, sourceField) in fields)
-            {
-                var domain = baselineDomains.FirstOrDefault(d => string.Equals(d.DomainName, domainName, StringComparison.OrdinalIgnoreCase));
-                if (domain == null) continue;
-
-                if (TryGetMapping(item, sourceField, domain.DomainTableId, mappingLookup, out var mapping))
-                {
-                    item[targetField] = new JsonObject
-                    {
-                        // mapping.TargetValue corresponds to dhsDomainValue requested by user.
-                        ["id"] = mapping.TargetValue,
-                        ["code"] = mapping.CodeValue,
-                        ["name"] = mapping.DisplayValue
-                    };
-                }
-            }
+            EnrichSection(item, _diagnosisFieldLookup, mappingLookup);
         }
     }
 
     private void EnrichDoctorDetails(JsonArray dhsDoctors, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
-        var baselineDomains = Application.Providers.BaselineDomainScanner.GetBaselineDomains();
-
-        var fields = new[]
-        {
-            ("fK_Gender", "DoctorGender", "DoctorGender"),
-            ("fk_DoctorType", "DoctorType", "DoctorType_Code"),
-            ("fK_DoctorReligion", "DoctorReligion", "religion_Code")
-        };
-
         foreach (var item in dhsDoctors.OfType<JsonObject>())
         {
-            foreach (var (targetField, domainName, sourceField) in fields)
-            {
-                var domain = baselineDomains.FirstOrDefault(d => string.Equals(d.DomainName, domainName, StringComparison.OrdinalIgnoreCase));
-                if (domain == null) continue;
-
-                if (TryGetMapping(item, sourceField, domain.DomainTableId, mappingLookup, out var mapping))
-                {
-                    item[targetField] = new JsonObject
-                    {
-                        // mapping.TargetValue corresponds to dhsDomainValue requested by user.
-                        ["id"] = mapping.TargetValue,
-                        ["code"] = mapping.CodeValue,
-                        ["name"] = mapping.DisplayValue
-                    };
-                }
-            }
+            EnrichSection(item, _doctorFieldLookup, mappingLookup);
         }
     }
 
-    private bool TryGetMapping(
+    private void EnrichSection(
         JsonObject obj,
-        string sourceField,
-        int domainTableId,
-        Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup,
-        out ApprovedDomainMappingRow mapping)
+        Dictionary<string, List<(string TargetField, string DomainName, string SourceField)>> sectionLookup,
+        Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
-        mapping = null!;
-        // Case-insensitive lookup for property
-        JsonNode? node = null;
+        List<(string TargetField, JsonObject Value)>? enrichments = null;
+
         foreach (var kv in obj)
         {
-            if (string.Equals(kv.Key, sourceField, StringComparison.OrdinalIgnoreCase))
+            if (sectionLookup.TryGetValue(kv.Key, out var fields))
             {
-                node = kv.Value;
-                break;
+                if (kv.Value == null) continue;
+                var val = kv.Value.ToString().Trim().Trim('"');
+                if (string.IsNullOrWhiteSpace(val)) continue;
+                var valLower = val.ToLowerInvariant();
+
+                foreach (var f in fields)
+                {
+                    if (_domainLookupByName.TryGetValue(f.DomainName, out var domain))
+                    {
+                        if (mappingLookup.TryGetValue((domain.DomainTableId, valLower), out var mapping))
+                        {
+                            enrichments ??= new();
+                            enrichments.Add((f.TargetField, new JsonObject
+                            {
+                                ["id"] = mapping.TargetValue,
+                                ["code"] = mapping.CodeValue,
+                                ["name"] = mapping.DisplayValue
+                            }));
+                        }
+                    }
+                }
             }
         }
 
-        if (node == null) return false;
-
-        var val = node.ToString().Trim();
-        if (string.IsNullOrWhiteSpace(val)) return false;
-
-        return mappingLookup.TryGetValue((domainTableId, val.ToLowerInvariant()), out mapping);
+        if (enrichments != null)
+        {
+            foreach (var e in enrichments)
+            {
+                obj[e.TargetField] = e.Value;
+            }
+        }
     }
 }

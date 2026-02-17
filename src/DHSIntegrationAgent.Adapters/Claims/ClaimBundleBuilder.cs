@@ -66,9 +66,10 @@ public sealed class ClaimBundleBuilder
         }
 
         var header = CloneObject(parts.ClaimHeader);
+        var headerKeys = BuildKeyMap(header);
 
         // 1) Ensure ProIdClaim exists and is int
-        if (!TryReadInt(header, _options.ProIdClaimFieldCandidates, out var proIdClaim, out var rawProId))
+        if (!TryReadInt(header, headerKeys, _options.ProIdClaimFieldCandidates, out var proIdClaim, out var rawProId))
         {
             issues.Add(Block("MissingProIdClaim", "claimHeader.proIdClaim", rawProId,
                 "ProIdClaim is required and must be int-compatible."));
@@ -76,7 +77,7 @@ public sealed class ClaimBundleBuilder
         }
 
         // Force canonical field name: proIdClaim (ensure no duplicates)
-        RemovePropertyIgnoreCase(header, "proIdClaim");
+        RemovePropertyIgnoreCase(header, headerKeys, "proIdClaim");
         header["proIdClaim"] = proIdClaim;
 
         // 2) Ensure CompanyCode exists (inject if missing)
@@ -88,7 +89,7 @@ public sealed class ClaimBundleBuilder
             return Fail(issues);
         }
 
-        if (!TryReadString(header, _options.CompanyCodeFieldCandidates, out var existingCompanyCode))
+        if (!TryReadString(header, headerKeys, _options.CompanyCodeFieldCandidates, out var existingCompanyCode))
         {
             header["companyCode"] = canonicalCompanyCode;
         }
@@ -99,7 +100,7 @@ public sealed class ClaimBundleBuilder
         }
 
         // 3) Compute MonthKey (YYYYMM) from a date field
-        if (!TryReadDate(header, _options.DateFieldCandidatesForMonthKey, out var dt, out var rawDate))
+        if (!TryReadDate(header, headerKeys, _options.DateFieldCandidatesForMonthKey, out var dt, out var rawDate))
         {
             issues.Add(Block("MissingMonthKeyDate", "claimHeader.invoiceDate|claimDate", rawDate,
                 "A date field is required to compute MonthKey (YYYYMM)."));
@@ -157,8 +158,9 @@ public sealed class ClaimBundleBuilder
             if (details[i] is not JsonObject obj)
                 continue;
 
+            var keyMap = BuildKeyMap(obj);
             // Remove existing variations to ensure no duplicates
-            RemovePropertyIgnoreCase(obj, "proIdClaim");
+            RemovePropertyIgnoreCase(obj, keyMap, "proIdClaim");
             obj[targetFieldName] = value;
         }
     }
@@ -170,7 +172,8 @@ public sealed class ClaimBundleBuilder
             if (details[i] is not JsonObject obj)
                 continue;
 
-            RemovePropertyIgnoreCase(obj, "proIdClaim");
+            var keyMap = BuildKeyMap(obj);
+            RemovePropertyIgnoreCase(obj, keyMap, "proIdClaim");
         }
     }
 
@@ -181,42 +184,41 @@ public sealed class ClaimBundleBuilder
             if (diagnosisDetails[i] is not JsonObject obj)
                 continue;
 
-            // Try 'DiagnosisDate', 'diagnosisDate' and 'diagnosis_Date' variations
-            if ((TryGetPropertyIgnoreCase(obj, "DiagnosisDate", out var node) ||
-                 TryGetPropertyIgnoreCase(obj, "diagnosisDate", out node) ||
-                 TryGetPropertyIgnoreCase(obj, "diagnosis_Date", out node)) && node != null)
+            var keyMap = BuildKeyMap(obj);
+
+            // Try variations. 'DiagnosisDate' covers 'diagnosisDate' due to case-insensitive keyMap.
+            if ((TryGetPropertyIgnoreCase(obj, keyMap, "DiagnosisDate", out var node) ||
+                 TryGetPropertyIgnoreCase(obj, keyMap, "diagnosis_Date", out node)) && node != null)
             {
                 var raw = node.ToString().Trim('"');
                 if (string.IsNullOrWhiteSpace(raw)) continue;
 
                 if (DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dto))
                 {
-                    // Remove ALL variations to ensure no duplicates
-                    RemovePropertyIgnoreCase(obj, "DiagnosisDate");
-                    RemovePropertyIgnoreCase(obj, "diagnosisDate");
-                    RemovePropertyIgnoreCase(obj, "diagnosis_Date");
+                    // Remove variations to ensure no duplicates.
+                    RemovePropertyIgnoreCase(obj, keyMap, "DiagnosisDate");
+                    RemovePropertyIgnoreCase(obj, keyMap, "diagnosis_Date");
                     obj["DiagnosisDate"] = dto.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 }
                 else if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt))
                 {
-                    // Remove ALL variations to ensure no duplicates
-                    RemovePropertyIgnoreCase(obj, "DiagnosisDate");
-                    RemovePropertyIgnoreCase(obj, "diagnosisDate");
-                    RemovePropertyIgnoreCase(obj, "diagnosis_Date");
+                    // Remove variations to ensure no duplicates
+                    RemovePropertyIgnoreCase(obj, keyMap, "DiagnosisDate");
+                    RemovePropertyIgnoreCase(obj, keyMap, "diagnosis_Date");
                     obj["DiagnosisDate"] = dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 }
             }
         }
     }
 
-    private static bool TryReadInt(JsonObject obj, IReadOnlyList<string> candidates, out int value, out string? raw)
+    private static bool TryReadInt(JsonObject obj, Dictionary<string, List<string>> keyMap, IReadOnlyList<string> candidates, out int value, out string? raw)
     {
         value = default;
         raw = null;
 
         foreach (var name in candidates)
         {
-            if (!TryGetPropertyIgnoreCase(obj, name, out var node))
+            if (!TryGetPropertyIgnoreCase(obj, keyMap, name, out var node))
                 continue;
 
             raw = node?.ToString();
@@ -256,24 +258,25 @@ public sealed class ClaimBundleBuilder
         return false;
     }
 
-    private static void RemovePropertyIgnoreCase(JsonObject obj, string name)
+    private static void RemovePropertyIgnoreCase(JsonObject obj, Dictionary<string, List<string>> keyMap, string name)
     {
-        var keysToRemove = obj.Select(kv => kv.Key)
-                              .Where(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase))
-                              .ToList();
-        foreach (var key in keysToRemove)
+        if (keyMap.TryGetValue(name, out var keysToRemove))
         {
-            obj.Remove(key);
+            foreach (var key in keysToRemove)
+            {
+                obj.Remove(key);
+            }
+            keyMap.Remove(name);
         }
     }
 
-    private static bool TryReadString(JsonObject obj, IReadOnlyList<string> candidates, out string? value)
+    private static bool TryReadString(JsonObject obj, Dictionary<string, List<string>> keyMap, IReadOnlyList<string> candidates, out string? value)
     {
         value = null;
 
         foreach (var name in candidates)
         {
-            if (!TryGetPropertyIgnoreCase(obj, name, out var node))
+            if (!TryGetPropertyIgnoreCase(obj, keyMap, name, out var node))
                 continue;
 
             value = NormalizeString(node?.ToString());
@@ -284,14 +287,14 @@ public sealed class ClaimBundleBuilder
         return false;
     }
 
-    private static bool TryReadDate(JsonObject obj, IReadOnlyList<string> candidates, out DateTimeOffset dt, out string? raw)
+    private static bool TryReadDate(JsonObject obj, Dictionary<string, List<string>> keyMap, IReadOnlyList<string> candidates, out DateTimeOffset dt, out string? raw)
     {
         dt = default;
         raw = null;
 
         foreach (var name in candidates)
         {
-            if (!TryGetPropertyIgnoreCase(obj, name, out var node))
+            if (!TryGetPropertyIgnoreCase(obj, keyMap, name, out var node))
                 continue;
 
             raw = node?.ToString()?.Trim('"');
@@ -312,25 +315,29 @@ public sealed class ClaimBundleBuilder
         return false;
     }
 
-    private static bool TryGetPropertyIgnoreCase(JsonObject obj, string name, out JsonNode? node)
+    private static bool TryGetPropertyIgnoreCase(JsonObject obj, Dictionary<string, List<string>> keyMap, string name, out JsonNode? node)
     {
         node = null;
+        if (keyMap.TryGetValue(name, out var originalKeys) && originalKeys.Count > 0)
+        {
+            return obj.TryGetPropertyValue(originalKeys[0], out node);
+        }
+        return false;
+    }
 
-        // Exact
-        if (obj.TryGetPropertyValue(name, out node))
-            return true;
-
-        // Case-insensitive scan
+    private static Dictionary<string, List<string>> BuildKeyMap(JsonObject obj)
+    {
+        var map = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var kv in obj)
         {
-            if (string.Equals(kv.Key, name, StringComparison.OrdinalIgnoreCase))
+            if (!map.TryGetValue(kv.Key, out var list))
             {
-                node = kv.Value;
-                return true;
+                list = new List<string>();
+                map[kv.Key] = list;
             }
+            list.Add(kv.Key);
         }
-
-        return false;
+        return map;
     }
 
     private static JsonObject CloneObject(JsonObject obj)
