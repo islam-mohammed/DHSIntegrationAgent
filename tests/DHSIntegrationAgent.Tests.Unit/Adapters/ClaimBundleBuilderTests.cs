@@ -132,14 +132,19 @@ public class ClaimBundleBuilderTests
         var diagnosis1 = new JsonObject
         {
             ["diagnosisCode"] = "D1",
-            ["diagnosisDate"] = "2023-10-27T10:00:00Z"
+            ["DiagnosisDate"] = "2023-10-27T10:00:00Z"
         };
         var diagnosis2 = new JsonObject
         {
             ["diagnosisCode"] = "D2",
             ["diagnosis_Date"] = "2023-10-28 14:00:00"
         };
-        var parts = new CanonicalClaimParts(header, DiagnosisDetails: new JsonArray { diagnosis1, diagnosis2 });
+        var diagnosis3 = new JsonObject
+        {
+            ["diagnosisCode"] = "D3",
+            ["diagnosisDate"] = new DateTime(2023, 10, 29, 10, 0, 0) // Test DateTime object
+        };
+        var parts = new CanonicalClaimParts(header, DiagnosisDetails: new JsonArray { diagnosis1, diagnosis2, diagnosis3 });
 
         // Act
         var result = builder.Build(parts, "COMP1");
@@ -147,11 +152,18 @@ public class ClaimBundleBuilderTests
         // Assert
         Assert.True(result.Succeeded);
         var firstDiag = result.Bundle.DiagnosisDetails[0] as JsonObject;
-        Assert.Equal("2023-10-27", firstDiag?["diagnosisDate"]?.ToString());
+        Assert.Equal("2023-10-27", firstDiag?["DiagnosisDate"]?.ToString());
+        Assert.False(firstDiag?.ContainsKey("diagnosisDate"));
         Assert.False(firstDiag?.ContainsKey("diagnosis_Date"));
 
         var secondDiag = result.Bundle.DiagnosisDetails[1] as JsonObject;
-        Assert.Equal("2023-10-28", secondDiag?["diagnosisDate"]?.ToString());
+        Assert.Equal("2023-10-28", secondDiag?["DiagnosisDate"]?.ToString());
+        Assert.False(secondDiag?.ContainsKey("diagnosisDate"));
         Assert.False(secondDiag?.ContainsKey("diagnosis_Date"));
+
+        var thirdDiag = result.Bundle.DiagnosisDetails[2] as JsonObject;
+        Assert.Equal("2023-10-29", thirdDiag?["DiagnosisDate"]?.ToString());
+        Assert.False(thirdDiag?.ContainsKey("diagnosisDate"));
+        Assert.False(thirdDiag?.ContainsKey("diagnosis_Date"));
     }
 }
