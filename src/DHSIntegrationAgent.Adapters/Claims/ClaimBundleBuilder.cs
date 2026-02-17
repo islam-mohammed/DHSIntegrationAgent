@@ -76,7 +76,7 @@ public sealed class ClaimBundleBuilder
         }
 
         // Force canonical field name: proIdClaim (ensure no duplicates)
-        RemovePropertyIgnoreCase(header, "proIdClaim");
+        ClaimPayloadNormalizer.RemovePropertyIgnoreCase(header, "proIdClaim");
         header["proIdClaim"] = proIdClaim;
 
         // 2) Ensure CompanyCode exists (inject if missing)
@@ -134,7 +134,7 @@ public sealed class ClaimBundleBuilder
         RemoveProIdClaim(bundle.DhsDoctors);
 
         // 6) Normalize specific fields
-        NormalizeDiagnosisDates(bundle.DiagnosisDetails);
+        ClaimPayloadNormalizer.NormalizeDiagnosisDates(bundle.DiagnosisDetails);
 
         return new ClaimBundleBuildResult(
             Succeeded: true,
@@ -158,7 +158,7 @@ public sealed class ClaimBundleBuilder
                 continue;
 
             // Remove existing variations to ensure no duplicates
-            RemovePropertyIgnoreCase(obj, "proIdClaim");
+            ClaimPayloadNormalizer.RemovePropertyIgnoreCase(obj, "proIdClaim");
             obj[targetFieldName] = value;
         }
     }
@@ -170,39 +170,7 @@ public sealed class ClaimBundleBuilder
             if (details[i] is not JsonObject obj)
                 continue;
 
-            RemovePropertyIgnoreCase(obj, "proIdClaim");
-        }
-    }
-
-    private static void NormalizeDiagnosisDates(JsonArray diagnosisDetails)
-    {
-        for (var i = 0; i < diagnosisDetails.Count; i++)
-        {
-            if (diagnosisDetails[i] is not JsonObject obj)
-                continue;
-
-            // Try both 'diagnosisDate' and 'diagnosis_Date' variations
-            if ((TryGetPropertyIgnoreCase(obj, "diagnosisDate", out var node) ||
-                 TryGetPropertyIgnoreCase(obj, "diagnosis_Date", out node)) && node != null)
-            {
-                var raw = node.ToString();
-                if (string.IsNullOrWhiteSpace(raw)) continue;
-
-                if (DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dto))
-                {
-                    // Remove ALL variations to ensure no duplicates
-                    RemovePropertyIgnoreCase(obj, "diagnosisDate");
-                    RemovePropertyIgnoreCase(obj, "diagnosis_Date");
-                    obj["diagnosisDate"] = dto.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                }
-                else if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt))
-                {
-                    // Remove ALL variations to ensure no duplicates
-                    RemovePropertyIgnoreCase(obj, "diagnosisDate");
-                    RemovePropertyIgnoreCase(obj, "diagnosis_Date");
-                    obj["diagnosisDate"] = dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-                }
-            }
+            ClaimPayloadNormalizer.RemovePropertyIgnoreCase(obj, "proIdClaim");
         }
     }
 
@@ -253,16 +221,6 @@ public sealed class ClaimBundleBuilder
         return false;
     }
 
-    private static void RemovePropertyIgnoreCase(JsonObject obj, string name)
-    {
-        var keysToRemove = obj.Select(kv => kv.Key)
-                              .Where(k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase))
-                              .ToList();
-        foreach (var key in keysToRemove)
-        {
-            obj.Remove(key);
-        }
-    }
 
     private static bool TryReadString(JsonObject obj, IReadOnlyList<string> candidates, out string? value)
     {

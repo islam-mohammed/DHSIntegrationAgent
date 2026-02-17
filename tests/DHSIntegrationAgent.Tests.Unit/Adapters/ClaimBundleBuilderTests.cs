@@ -154,4 +154,33 @@ public class ClaimBundleBuilderTests
         Assert.Equal("2023-10-28", secondDiag?["diagnosisDate"]?.ToString());
         Assert.False(secondDiag?.ContainsKey("diagnosis_Date"));
     }
+
+    [Fact]
+    public void Build_ShouldNormalizePascalCaseDiagnosisDate()
+    {
+        // Arrange
+        var builder = new ClaimBundleBuilder();
+        var header = new JsonObject
+        {
+            ["proIdClaim"] = 123,
+            ["companyCode"] = "COMP1",
+            ["invoiceDate"] = "2023-10-01"
+        };
+        var diagnosis = new JsonObject
+        {
+            ["DiagnosisDate"] = "2025-08-02T00:00:00"
+        };
+        var parts = new CanonicalClaimParts(header, DiagnosisDetails: new JsonArray { diagnosis });
+
+        // Act
+        var result = builder.Build(parts, "COMP1");
+
+        // Assert
+        Assert.True(result.Succeeded);
+        var firstDiag = result.Bundle.DiagnosisDetails[0] as JsonObject;
+        Assert.NotNull(firstDiag);
+        Assert.True(firstDiag.ContainsKey("diagnosisDate"));
+        Assert.False(firstDiag.ContainsKey("DiagnosisDate"));
+        Assert.Equal("2025-08-02", firstDiag["diagnosisDate"]?.ToString());
+    }
 }

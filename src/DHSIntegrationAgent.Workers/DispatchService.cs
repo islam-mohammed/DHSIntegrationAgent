@@ -155,7 +155,10 @@ public sealed class DispatchService : IDispatchService
 
                             var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
                             if (diagnosisDetails != null)
+                            {
+                                ClaimPayloadNormalizer.NormalizeDiagnosisDates(diagnosisDetails);
                                 EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
+                            }
 
                             var dhsDoctors = bundleObj["dhsDoctors"]?.AsArray();
                             if (dhsDoctors != null)
