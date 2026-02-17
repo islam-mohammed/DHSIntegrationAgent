@@ -104,7 +104,7 @@ public sealed class BatchProgressViewModel : ViewModelBase
         }
     }
 
-    public string ProcessedLabel => IsSending ? "Sent" : "Processed";
+    public string ProcessedLabel => IsSending ? "Sent" : "Fetched";
 
     public int RemainingClaims => Math.Max(0, TotalClaims - ProcessedClaims);
 
