@@ -396,7 +396,7 @@ public sealed class DispatchService : IDispatchService
         }
     }
 
-    private void EnrichDoctorDetails(JsonArray doctorDetails, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
+    private void EnrichDoctorDetails(JsonArray dhsDoctors, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)
     {
         var baselineDomains = Application.Providers.BaselineDomainScanner.GetBaselineDomains();
 
@@ -405,7 +405,7 @@ public sealed class DispatchService : IDispatchService
             ("fK_Gender", "DoctorGender", "DoctorGender")
         };
 
-        foreach (var item in doctorDetails.OfType<JsonObject>())
+        foreach (var item in dhsDoctors.OfType<JsonObject>())
         {
             foreach (var (targetField, domainName, sourceField) in fields)
             {

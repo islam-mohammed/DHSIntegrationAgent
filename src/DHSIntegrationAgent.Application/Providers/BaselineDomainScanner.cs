@@ -44,6 +44,6 @@ public static class BaselineDomainScanner
         new("ExtendedDiagnosisTypeIndicator", 11, "diagnosisDetails.diagnosisType"),
         new("IllnessTypeIndicator", 14, "diagnosisDetails.illnessTypeIndicator"),
         new("ConditionOnset", 75, "diagnosisDetails.onsetConditionTypeID"),
-        new("DoctorReligion", 24, "doctorDetails.religion_Code"),
+        new("DoctorReligion", 24, "dhsDoctors.religion_Code"),
     };
 }
