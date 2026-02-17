@@ -74,4 +74,74 @@ public class ClaimBundleBuilderTests
         // Assert
         Assert.Contains("\"dhsDoctors\":[{\"doctorName\":\"Dr. Smith\"", json);
     }
+
+    [Fact]
+    public void Build_ShouldUseLowercaseProidclaimForServiceDetails()
+    {
+        // Arrange
+        var builder = new ClaimBundleBuilder();
+        var header = new JsonObject
+        {
+            ["proIdClaim"] = 123,
+            ["companyCode"] = "COMP1",
+            ["invoiceDate"] = "2023-10-01"
+        };
+        var service = new JsonObject
+        {
+            ["serviceCode"] = "S1"
+        };
+        var diagnosis = new JsonObject
+        {
+            ["diagnosisCode"] = "D1"
+        };
+        var parts = new CanonicalClaimParts(
+            header,
+            ServiceDetails: new JsonArray { service },
+            DiagnosisDetails: new JsonArray { diagnosis });
+
+        // Act
+        var result = builder.Build(parts, "COMP1");
+
+        // Assert
+        Assert.True(result.Succeeded);
+
+        var firstService = result.Bundle.ServiceDetails[0] as JsonObject;
+        Assert.NotNull(firstService);
+        Assert.True(firstService.ContainsKey("proidclaim"));
+        Assert.False(firstService.ContainsKey("proIdClaim"));
+        Assert.Equal(123, firstService["proidclaim"]?.GetValue<int>());
+
+        var firstDiagnosis = result.Bundle.DiagnosisDetails[0] as JsonObject;
+        Assert.NotNull(firstDiagnosis);
+        Assert.True(firstDiagnosis.ContainsKey("proIdClaim"));
+        Assert.False(firstDiagnosis.ContainsKey("proidclaim"));
+        Assert.Equal(123, firstDiagnosis["proIdClaim"]?.GetValue<int>());
+    }
+
+    [Fact]
+    public void Build_ShouldFormatDiagnosisDateAsDateOnly()
+    {
+        // Arrange
+        var builder = new ClaimBundleBuilder();
+        var header = new JsonObject
+        {
+            ["proIdClaim"] = 123,
+            ["companyCode"] = "COMP1",
+            ["invoiceDate"] = "2023-10-01"
+        };
+        var diagnosis = new JsonObject
+        {
+            ["diagnosisCode"] = "D1",
+            ["diagnosisDate"] = "2023-10-27T10:00:00Z"
+        };
+        var parts = new CanonicalClaimParts(header, DiagnosisDetails: new JsonArray { diagnosis });
+
+        // Act
+        var result = builder.Build(parts, "COMP1");
+
+        // Assert
+        Assert.True(result.Succeeded);
+        var firstDiag = result.Bundle.DiagnosisDetails[0] as JsonObject;
+        Assert.Equal("2023-10-27", firstDiag?["diagnosisDate"]?.ToString());
+    }
 }

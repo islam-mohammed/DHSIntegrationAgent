@@ -123,12 +123,16 @@ public sealed class ClaimBundleBuilder
         );
 
         // 5) Normalize detail items: ensure each detail (if object) has proIdClaim for traceability
-        EnsureProIdClaimWithoutIssues(bundle.ServiceDetails, proIdClaim);
+        // serviceDetails uses all-lowercase 'proidclaim' per latest requirement.
+        EnsureProIdClaimWithoutIssues(bundle.ServiceDetails, proIdClaim, "proidclaim");
         EnsureProIdClaimWithoutIssues(bundle.DiagnosisDetails, proIdClaim);
         EnsureProIdClaimWithoutIssues(bundle.LabDetails, proIdClaim);
         EnsureProIdClaimWithoutIssues(bundle.RadiologyDetails, proIdClaim);
         EnsureProIdClaimWithoutIssues(bundle.OpticalVitalSigns, proIdClaim);
         EnsureProIdClaimWithoutIssues(bundle.DhsDoctors, proIdClaim);
+
+        // 6) Normalize specific fields
+        NormalizeDiagnosisDates(bundle.DiagnosisDetails);
 
         return new ClaimBundleBuildResult(
             Succeeded: true,
@@ -144,7 +148,7 @@ public sealed class ClaimBundleBuilder
     // Normalization helpers
     // -------------------------
 
-    private static void EnsureProIdClaimWithoutIssues(JsonArray details, int proIdClaim)
+    private static void EnsureProIdClaimWithoutIssues(JsonArray details, int proIdClaim, string targetFieldName = "proIdClaim")
     {
         for (var i = 0; i < details.Count; i++)
         {
@@ -153,7 +157,31 @@ public sealed class ClaimBundleBuilder
 
             // Remove existing variations to ensure no duplicates
             RemovePropertyIgnoreCase(obj, "proIdClaim");
-            obj["proIdClaim"] = proIdClaim;
+            obj[targetFieldName] = proIdClaim;
+        }
+    }
+
+    private static void NormalizeDiagnosisDates(JsonArray diagnosisDetails)
+    {
+        for (var i = 0; i < diagnosisDetails.Count; i++)
+        {
+            if (diagnosisDetails[i] is not JsonObject obj)
+                continue;
+
+            if (TryGetPropertyIgnoreCase(obj, "diagnosisDate", out var node) && node != null)
+            {
+                var raw = node.ToString();
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+
+                if (DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dto))
+                {
+                    obj["diagnosisDate"] = dto.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                }
+                else if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt))
+                {
+                    obj["diagnosisDate"] = dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                }
+            }
         }
     }
 
