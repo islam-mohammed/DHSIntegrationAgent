@@ -157,9 +157,9 @@ public sealed class DispatchService : IDispatchService
                             if (diagnosisDetails != null)
                                 EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
 
-                            var doctorDetails = bundleObj["doctorDetails"]?.AsArray();
-                            if (doctorDetails != null)
-                                EnrichDoctorDetails(doctorDetails, mappingLookup);
+                            var dhsDoctors = bundleObj["dhsDoctors"]?.AsArray();
+                            if (dhsDoctors != null)
+                                EnrichDoctorDetails(dhsDoctors, mappingLookup);
 
 
                             bundles.Add(bundleObj);
@@ -299,7 +299,7 @@ public sealed class DispatchService : IDispatchService
         {
             ("fK_ClaimType_ID", "ClaimType", "ClaimType"),
             ("fK_GenderId", "PatientGender", "PatientGender"),
-            ("fK_PatientIDType_ID", "PatientIDType", "PatientIDType"),
+            ("fK_PatientIDType_ID", "PatientIDType", "PatientIdType"),
             ("fK_MaritalStatus_ID", "MaritalStatus", "MaritalStatus"),
             ("fK_Dept_ID", "Department", "BenHead"),
             ("fK_Nationality_ID", "Country", "Nationality"),
@@ -340,7 +340,7 @@ public sealed class DispatchService : IDispatchService
 
         var fields = new[]
         {
-            ("fK_ServiceType_ID", "ServiceType", "ServiceType"),
+            ("fK_ServiceType_ID", "ServiceType", "serviceType"),
             ("fK_PharmacistSubstitute_ID", "Pharmacist Substitute", "PharmacistSubstitute"),
             ("fK_PharmacistSelectionReason_ID", "Pharmacist Selection Reason", "PharmacistSelectionReason")
         };
@@ -372,7 +372,7 @@ public sealed class DispatchService : IDispatchService
 
         var fields = new[]
         {
-            ("fK_DiagnosisOnAdmission_ID", "DiagnosisOnAdmission", "diagnosisOnAdmission")
+            ("fK_DiagnosisOnAdmission_ID", "ConditionOnset", "DiagnosisOnAdmission")
         };
 
         foreach (var item in diagnosisDetails.OfType<JsonObject>())
@@ -429,8 +429,8 @@ public sealed class DispatchService : IDispatchService
     private bool TryGetMapping(
         JsonObject obj,
         string sourceField,
-        string domainName,
-        Dictionary<(string DomainName, string SourceValue), ApprovedDomainMappingRow> mappingLookup,
+        int domainTableId,
+        Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup,
         out ApprovedDomainMappingRow mapping)
     {
         mapping = null!;
@@ -445,13 +445,11 @@ public sealed class DispatchService : IDispatchService
             }
         }
 
-        if (!obj.TryGetPropertyValue(sourceField, out JsonNode? node))
-            return false;
+        if (node == null) return false;
 
-        var val = node?.ToString()?.Trim();
-        if (string.IsNullOrWhiteSpace(val))
-            return false;
+        var val = node.ToString().Trim();
+        if (string.IsNullOrWhiteSpace(val)) return false;
 
-        return mappingLookup.TryGetValue((domainName.ToLowerInvariant(), val.ToLowerInvariant()), out mapping);
+        return mappingLookup.TryGetValue((domainTableId, val.ToLowerInvariant()), out mapping);
     }
 }
