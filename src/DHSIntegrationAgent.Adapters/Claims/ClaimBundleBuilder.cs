@@ -122,14 +122,16 @@ public sealed class ClaimBundleBuilder
             dhsDoctors: parts.DhsDoctors ?? new JsonArray()
         );
 
-        // 5) Normalize detail items: ensure each detail (if object) has proIdClaim for traceability
-        // serviceDetails uses all-lowercase 'proidclaim' per latest requirement.
-        EnsureProIdClaimWithoutIssues(bundle.ServiceDetails, proIdClaim, "proidclaim");
-        EnsureProIdClaimWithoutIssues(bundle.DiagnosisDetails, proIdClaim);
-        EnsureProIdClaimWithoutIssues(bundle.LabDetails, proIdClaim);
-        EnsureProIdClaimWithoutIssues(bundle.RadiologyDetails, proIdClaim);
-        EnsureProIdClaimWithoutIssues(bundle.OpticalVitalSigns, proIdClaim);
-        EnsureProIdClaimWithoutIssues(bundle.DhsDoctors, proIdClaim);
+        // 5) Normalize detail items
+        // serviceDetails uses all-lowercase 'proidclaim' as STRING per latest requirement (only here).
+        EnsureProIdClaimWithoutIssues(bundle.ServiceDetails, proIdClaim.ToString(CultureInfo.InvariantCulture), "proidclaim");
+
+        // Other detail sets MUST NOT have proIdClaim per latest requirement (only in serviceDetails).
+        RemoveProIdClaim(bundle.DiagnosisDetails);
+        RemoveProIdClaim(bundle.LabDetails);
+        RemoveProIdClaim(bundle.RadiologyDetails);
+        RemoveProIdClaim(bundle.OpticalVitalSigns);
+        RemoveProIdClaim(bundle.DhsDoctors);
 
         // 6) Normalize specific fields
         NormalizeDiagnosisDates(bundle.DiagnosisDetails);
@@ -148,7 +150,7 @@ public sealed class ClaimBundleBuilder
     // Normalization helpers
     // -------------------------
 
-    private static void EnsureProIdClaimWithoutIssues(JsonArray details, int proIdClaim, string targetFieldName = "proIdClaim")
+    private static void EnsureProIdClaimWithoutIssues(JsonArray details, string value, string targetFieldName = "proIdClaim")
     {
         for (var i = 0; i < details.Count; i++)
         {
@@ -157,7 +159,18 @@ public sealed class ClaimBundleBuilder
 
             // Remove existing variations to ensure no duplicates
             RemovePropertyIgnoreCase(obj, "proIdClaim");
-            obj[targetFieldName] = proIdClaim;
+            obj[targetFieldName] = value;
+        }
+    }
+
+    private static void RemoveProIdClaim(JsonArray details)
+    {
+        for (var i = 0; i < details.Count; i++)
+        {
+            if (details[i] is not JsonObject obj)
+                continue;
+
+            RemovePropertyIgnoreCase(obj, "proIdClaim");
         }
     }
 
@@ -168,17 +181,25 @@ public sealed class ClaimBundleBuilder
             if (diagnosisDetails[i] is not JsonObject obj)
                 continue;
 
-            if (TryGetPropertyIgnoreCase(obj, "diagnosisDate", out var node) && node != null)
+            // Try both 'diagnosisDate' and 'diagnosis_Date' variations
+            if ((TryGetPropertyIgnoreCase(obj, "diagnosisDate", out var node) ||
+                 TryGetPropertyIgnoreCase(obj, "diagnosis_Date", out node)) && node != null)
             {
                 var raw = node.ToString();
                 if (string.IsNullOrWhiteSpace(raw)) continue;
 
                 if (DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dto))
                 {
+                    // Remove ALL variations to ensure no duplicates
+                    RemovePropertyIgnoreCase(obj, "diagnosisDate");
+                    RemovePropertyIgnoreCase(obj, "diagnosis_Date");
                     obj["diagnosisDate"] = dto.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 }
                 else if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt))
                 {
+                    // Remove ALL variations to ensure no duplicates
+                    RemovePropertyIgnoreCase(obj, "diagnosisDate");
+                    RemovePropertyIgnoreCase(obj, "diagnosis_Date");
                     obj["diagnosisDate"] = dt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
                 }
             }
