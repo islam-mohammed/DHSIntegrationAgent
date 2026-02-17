@@ -402,7 +402,9 @@ public sealed class DispatchService : IDispatchService
 
         var fields = new[]
         {
-            ("fK_Gender", "DoctorGender", "DoctorGender")
+            ("fK_Gender", "DoctorGender", "DoctorGender"),
+            ("fk_DoctorType", "DoctorType", "DoctorType_Code"),
+            ("fK_DoctorReligion", "DoctorReligion", "religion_Code")
         };
 
         foreach (var item in dhsDoctors.OfType<JsonObject>())

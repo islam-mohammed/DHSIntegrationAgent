@@ -18,7 +18,8 @@ public static class BaselineDomainScanner
         new("VisitType", 27, "claimHeader.visitType"),
         new("SubscriberRelationship", 55, "claimHeader.subscriberRelationship"),
         new("MaritalStatus", 15, "claimHeader.maritalStatus"),
-        new("Country", 5, "claimHeader.nationality"),
+        new("PatientCountry", 5, "claimHeader.nationality"),
+        new("DoctorCountry", 5, "claimHeader.Nationality_Code"),
         new("PatientIDType", 17, "claimHeader.patientIdType"),
         new("EncounterStatus", 47, "claimHeader.encounterStatus"),
         new("CareType", 33, "claimHeader.careTypeID"),
@@ -45,5 +46,6 @@ public static class BaselineDomainScanner
         new("IllnessTypeIndicator", 14, "diagnosisDetails.illnessTypeIndicator"),
         new("ConditionOnset", 75, "diagnosisDetails.onsetConditionTypeID"),
         new("DoctorReligion", 24, "dhsDoctors.religion_Code"),
+        new("DoctorType", 70, "dhsDoctors.DoctorType_Code"),
     };
 }
