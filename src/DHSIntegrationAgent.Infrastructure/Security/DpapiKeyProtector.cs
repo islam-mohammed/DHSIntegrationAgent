@@ -2,13 +2,13 @@
 
 namespace DHSIntegrationAgent.Infrastructure.Security;
 
-internal interface IKeyProtector
+public interface IKeyProtector
 {
     byte[] Protect(byte[] plaintext);
     byte[] Unprotect(byte[] protectedBlob);
 }
 
-internal sealed class DpapiKeyProtector : IKeyProtector
+public sealed class DpapiKeyProtector : IKeyProtector
 {
     public byte[] Protect(byte[] plaintext)
     {

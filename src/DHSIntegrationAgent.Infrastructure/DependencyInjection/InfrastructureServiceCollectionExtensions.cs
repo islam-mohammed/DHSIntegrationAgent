@@ -11,6 +11,7 @@ using DHSIntegrationAgent.Infrastructure.Observability;
 using DHSIntegrationAgent.Infrastructure.Persistence.Sqlite;
 using DHSIntegrationAgent.Infrastructure.Providers;
 using DHSIntegrationAgent.Infrastructure.Security;
+using DHSIntegrationAgent.Infrastructure.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -96,6 +97,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IClaimsClient, ClaimsClient>();
         services.AddSingleton<IResumeClient, ResumeClient>();
         services.AddSingleton<IAttachmentClient, AttachmentClient>();
+        services.AddSingleton<IAttachmentService, AttachmentService>();
 
         // -----------------------------------------------------------
         // Approved Domain Mapping refresh (Change Request)

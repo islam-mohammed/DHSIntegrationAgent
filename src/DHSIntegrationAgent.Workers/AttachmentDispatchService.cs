@@ -64,66 +64,75 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
             _logger.LogInformation("Processing attachments for batch {BatchId} ({ClaimCount} claims)", batchId, claimKeys.Count);
 
             int processedClaims = 0;
-            foreach (var key in claimKeys)
+            const int HISBatchSize = 50;
+
+            for (int i = 0; i < claimKeys.Count; i += HISBatchSize)
             {
                 if (ct.IsCancellationRequested) break;
 
-                // 1. Fetch attachments from HIS for this claim
-                var rawBundle = await _tablesAdapter.GetClaimBundleRawAsync(key.ProviderDhsCode, key.ProIdClaim, ct);
-                if (rawBundle?.Attachments != null && rawBundle.Attachments.Count > 0)
+                var currentBatchKeys = claimKeys.Skip(i).Take(HISBatchSize).ToList();
+                var providerCode = currentBatchKeys[0].ProviderDhsCode;
+                var proIdClaims = currentBatchKeys.Select(k => k.ProIdClaim).ToList();
+
+                // 1. Fetch full bundles in batch from HIS
+                var rawBundles = await _tablesAdapter.GetClaimBundlesRawBatchAsync(providerCode, proIdClaims, ct);
+
+                foreach (var rawBundle in rawBundles)
                 {
-                    var onlineUrls = new List<(string AttachmentId, string OnlineUrl)>();
+                    if (ct.IsCancellationRequested) break;
 
-                    foreach (var attNode in rawBundle.Attachments)
+                    if (rawBundle.Attachments != null && rawBundle.Attachments.Count > 0)
                     {
-                        if (attNode is not JsonObject attObj) continue;
+                        var onlineUrls = new List<(string AttachmentId, string OnlineUrl)>();
+                        var key = new ClaimKey(providerCode, rawBundle.ProIdClaim);
 
-                        var row = AttachmentMapper.MapToAttachmentRow(key.ProviderDhsCode, key.ProIdClaim, attObj, _clock.UtcNow);
-                        if (row == null) continue;
-
-                        // Check if already uploaded
-                        // For simplicity, we just try to upload if status is not Uploaded in our DB
-                        // But wait, we might not even have it in our DB yet.
-
-                        await using (var uow = await _uowFactory.CreateAsync(ct))
+                        foreach (var attNode in rawBundle.Attachments)
                         {
-                            await uow.Attachments.UpsertAsync(row, ct);
-                            await uow.CommitAsync(ct);
-                        }
+                            if (attNode is not JsonObject attObj) continue;
 
-                        try
-                        {
-                            var onlineUrl = await _attachmentService.UploadAsync(row, ct);
+                            var row = AttachmentMapper.MapToAttachmentRow(providerCode, rawBundle.ProIdClaim, attObj, _clock.UtcNow);
+                            if (row == null) continue;
+
                             await using (var uow = await _uowFactory.CreateAsync(ct))
                             {
-                                await uow.Attachments.UpdateStatusAsync(row.AttachmentId, UploadStatus.Uploaded, onlineUrl, null, _clock.UtcNow, null, ct);
+                                await uow.Attachments.UpsertAsync(row, ct);
                                 await uow.CommitAsync(ct);
                             }
-                            onlineUrls.Add((row.AttachmentId, onlineUrl));
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to upload attachment {AttachmentId}", row.AttachmentId);
-                            await using (var uow = await _uowFactory.CreateAsync(ct))
+
+                            try
                             {
-                                await uow.Attachments.UpdateStatusAsync(row.AttachmentId, UploadStatus.Failed, null, ex.Message, _clock.UtcNow, TimeSpan.FromMinutes(5), ct);
-                                await uow.CommitAsync(ct);
+                                var onlineUrl = await _attachmentService.UploadAsync(row, ct);
+                                await using (var uow = await _uowFactory.CreateAsync(ct))
+                                {
+                                    await uow.Attachments.UpdateStatusAsync(row.AttachmentId, UploadStatus.Uploaded, onlineUrl, null, _clock.UtcNow, null, ct);
+                                    await uow.CommitAsync(ct);
+                                }
+                                onlineUrls.Add((row.AttachmentId, onlineUrl));
                             }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to upload attachment {AttachmentId}", row.AttachmentId);
+                                await using (var uow = await _uowFactory.CreateAsync(ct))
+                                {
+                                    await uow.Attachments.UpdateStatusAsync(row.AttachmentId, UploadStatus.Failed, null, ex.Message, _clock.UtcNow, TimeSpan.FromMinutes(5), ct);
+                                    await uow.CommitAsync(ct);
+                                }
+                            }
+                        }
+
+                        if (onlineUrls.Count > 0)
+                        {
+                            // 2. Update ClaimPayload JSON and Notify Backend
+                            await UpdateClaimAndNotifyBackendAsync(key, onlineUrls, ct);
                         }
                     }
 
-                    if (onlineUrls.Count > 0)
+                    processedClaims++;
+                    if (processedClaims % 5 == 0 || processedClaims == claimKeys.Count)
                     {
-                        // 2. Update ClaimPayload JSON and Notify Backend
-                        await UpdateClaimAndNotifyBackendAsync(key, onlineUrls, ct);
+                        double percentage = 10 + ((double)processedClaims / claimKeys.Count * 90);
+                        progress.Report(new WorkerProgressReport("StreamC", $"Uploading attachments: {processedClaims}/{claimKeys.Count} claims", BatchId: batchId, Percentage: percentage, ProcessedCount: processedClaims, TotalCount: claimKeys.Count));
                     }
-                }
-
-                processedClaims++;
-                if (processedClaims % 5 == 0 || processedClaims == claimKeys.Count)
-                {
-                    double percentage = 10 + ((double)processedClaims / claimKeys.Count * 90);
-                    progress.Report(new WorkerProgressReport("StreamC", $"Uploading attachments: {processedClaims}/{claimKeys.Count} claims", BatchId: batchId, Percentage: percentage, ProcessedCount: processedClaims, TotalCount: claimKeys.Count));
                 }
             }
 
