@@ -128,4 +128,66 @@ internal sealed class AttachmentRepository : SqliteRepositoryBase, IAttachmentRe
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<AttachmentRow>> GetByClaimAsync(string providerDhsCode, int proIdClaim, CancellationToken ct)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT AttachmentId, ProviderDhsCode, ProIdClaim, AttachmentSourceType,
+                   LocationPathEncrypted, LocationBytesEncrypted, AttachBitBase64Encrypted,
+                   FileName, ContentType, SizeBytes, Sha256,
+                   OnlineUrlEncrypted, UploadStatus, AttemptCount, NextRetryUtc, LastError, CreatedUtc, UpdatedUtc
+            FROM Attachment
+            WHERE ProviderDhsCode = $p AND ProIdClaim = $cid;
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$cid", proIdClaim);
+
+        var result = new List<AttachmentRow>();
+
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct))
+        {
+            var lpEnc = r["LocationPathEncrypted"] as byte[];
+            var lbEnc = r["LocationBytesEncrypted"] as byte[];
+            var abEnc = r["AttachBitBase64Encrypted"] as byte[];
+            var urlEnc = r["OnlineUrlEncrypted"] as byte[];
+
+            string? lp = null;
+            if (lpEnc != null) lp = Encoding.UTF8.GetString(await _encryptor.DecryptAsync(lpEnc, ct));
+
+            byte[]? lb = null;
+            if (lbEnc != null) lb = await _encryptor.DecryptAsync(lbEnc, ct);
+
+            byte[]? ab = null;
+            if (abEnc != null) ab = await _encryptor.DecryptAsync(abEnc, ct);
+
+            string? url = null;
+            if (urlEnc != null) url = Encoding.UTF8.GetString(await _encryptor.DecryptAsync(urlEnc, ct));
+
+            result.Add(new AttachmentRow(
+                AttachmentId: r.GetString(0),
+                ProviderDhsCode: r.GetString(1),
+                ProIdClaim: r.GetInt32(2),
+                SourceType: (AttachmentSourceType)r.GetInt32(3),
+                LocationPathPlaintext: lp,
+                LocationBytesPlaintext: lb,
+                AttachBitBase64Plaintext: ab,
+                FileName: r.IsDBNull(7) ? null : r.GetString(7),
+                ContentType: r.IsDBNull(8) ? null : r.GetString(8),
+                SizeBytes: r.IsDBNull(9) ? null : r.GetInt64(9),
+                Sha256: r.IsDBNull(10) ? null : r.GetString(10),
+                OnlineUrlPlaintext: url,
+                UploadStatus: (UploadStatus)r.GetInt32(12),
+                AttemptCount: r.GetInt32(13),
+                NextRetryUtc: r.IsDBNull(14) ? null : SqliteUtc.FromIso(r.GetString(14)),
+                LastError: r.IsDBNull(15) ? null : r.GetString(15),
+                CreatedUtc: SqliteUtc.FromIso(r.GetString(16)),
+                UpdatedUtc: SqliteUtc.FromIso(r.GetString(17))
+            ));
+        }
+
+        return result;
+    }
 }

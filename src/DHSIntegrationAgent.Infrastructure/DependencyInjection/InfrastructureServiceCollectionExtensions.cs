@@ -95,6 +95,7 @@ public static class InfrastructureServiceCollectionExtensions
         // -----------------------------------------------------------
         services.AddSingleton<IClaimsClient, ClaimsClient>();
         services.AddSingleton<IResumeClient, ResumeClient>();
+        services.AddSingleton<IAttachmentClient, AttachmentClient>();
 
         // -----------------------------------------------------------
         // Approved Domain Mapping refresh (Change Request)

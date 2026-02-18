@@ -14,6 +14,7 @@ public static class WorkersServiceCollectionExtensions
         // Infrastructure services for workers
         services.AddSingleton<IFetchStageService, FetchStageService>();
         services.AddSingleton<IDispatchService, DispatchService>();
+        services.AddSingleton<IAttachmentDispatchService, AttachmentDispatchService>();
 
         // Worker implementations
         services.AddSingleton<IWorker, StreamAWorker>();

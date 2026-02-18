@@ -310,4 +310,23 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         }
         return (0, 0);
     }
+
+    public async Task<IReadOnlyList<ClaimKey>> ListByBatchAsync(long batchId, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT ProviderDhsCode, ProIdClaim
+            FROM Claim
+            WHERE BatchId = $bid;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+
+        var result = new List<ClaimKey>();
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken))
+        {
+            result.Add(new ClaimKey(r.GetString(0), r.GetInt32(1)));
+        }
+        return result;
+    }
 }
