@@ -15,6 +15,11 @@ public interface IBatchTracker
     void TrackBatchCreation(BatchRow batch, FinancialSummary? financialSummary);
 
     /// <summary>
+    /// Starts tracking attachment uploads for multiple batches.
+    /// </summary>
+    void TrackAttachmentUpload(IEnumerable<BatchRow> batches);
+
+    /// <summary>
     /// Gets the collection of active batch creation progress items.
     /// Note: In this project, we're returning the ViewModel collection directly for simplicity.
     /// </summary>

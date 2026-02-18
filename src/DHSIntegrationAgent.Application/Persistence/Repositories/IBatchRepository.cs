@@ -9,6 +9,8 @@ public interface IBatchRepository
 
     Task<BatchRow?> GetByIdAsync(long batchId, CancellationToken cancellationToken);
 
+    Task<BatchRow?> GetByBcrIdAsync(string bcrId, CancellationToken cancellationToken);
+
     Task<long> EnsureBatchAsync(
         BatchKey key,
         BatchStatus batchStatus,

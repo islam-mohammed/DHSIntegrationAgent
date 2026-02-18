@@ -1,0 +1,44 @@
+using System.Net;
+using System.Text;
+using System.Text.Json;
+using DHSIntegrationAgent.Application.Abstractions;
+
+namespace DHSIntegrationAgent.Infrastructure.Http.Clients;
+
+public sealed class AttachmentClient : IAttachmentClient
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+
+    public AttachmentClient(IHttpClientFactory httpClientFactory)
+    {
+        _httpClientFactory = httpClientFactory;
+    }
+
+    public async Task<UpdateAttachmentsResult> UpdateAttachmentsAsync(string providerDhsCode, int proIdClaim, string attachmentsJson, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("BackendApi");
+        const string path = "api/Claims/UpdateAttachments";
+
+        var payload = new
+        {
+            providerDhsCode,
+            proIdClaim,
+            attachments = JsonDocument.Parse(attachmentsJson).RootElement
+        };
+
+        var json = JsonSerializer.Serialize(payload);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = content };
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+        var httpCode = (int)response.StatusCode;
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            return new UpdateAttachmentsResult(true, null, httpCode);
+        }
+
+        var body = await response.Content.ReadAsStringAsync(ct);
+        return new UpdateAttachmentsResult(false, body, httpCode);
+    }
+}

@@ -229,17 +229,29 @@
                             </DataGridTemplateColumn>
 
                             <!-- Actions Column -->
-                            <DataGridTemplateColumn Header="Actions" Width="80">
+                            <DataGridTemplateColumn Header="Actions" Width="120">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Button ToolTip="Show"
-                                                Cursor="Hand"
-                                                Style="{StaticResource GreenActionBtn}"> 
-                                            <materialDesign:PackIcon Kind="EyeOutline"
-                                                                     Width="16"
-                                                                     Height="16"
-                                                                     Foreground="#473762"/>
-                                        </Button>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button ToolTip="Show"
+                                                    Cursor="Hand"
+                                                    Style="{StaticResource GreenActionBtn}"
+                                                    Margin="0,0,5,0">
+                                                <materialDesign:PackIcon Kind="EyeOutline"
+                                                                         Width="16"
+                                                                         Height="16"
+                                                                         Foreground="#473762"/>
+                                            </Button>
+                                            <Button ToolTip="Upload Attachments"
+                                                    Cursor="Hand"
+                                                    Style="{StaticResource GreenActionBtn}"
+                                                    Command="{Binding DataContext.UploadAttachmentsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}">
+                                                <materialDesign:PackIcon Kind="CloudUploadOutline"
+                                                                         Width="16"
+                                                                         Height="16"
+                                                                         Foreground="#009999"/>
+                                            </Button>
+                                        </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>

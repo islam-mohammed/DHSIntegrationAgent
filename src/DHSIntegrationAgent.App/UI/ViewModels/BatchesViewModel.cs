@@ -76,6 +76,7 @@ public sealed class BatchesViewModel : ViewModelBase
     public RelayCommand ManualRetrySelectedPacketCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
+    public RelayCommand UploadAttachmentsCommand { get; }
 
     public BatchesViewModel(ISqliteUnitOfWorkFactory unitOfWorkFactory, IBatchClient batchClient, IBatchTracker batchTracker)
     {
@@ -87,6 +88,7 @@ public sealed class BatchesViewModel : ViewModelBase
         ManualRetrySelectedPacketCommand = new RelayCommand(() => { /* screen-only */ });
         RefreshCommand = new AsyncRelayCommand(LoadBatchesAsync);
         SearchCommand = new AsyncRelayCommand(LoadBatchesAsync);
+        UploadAttachmentsCommand = new RelayCommand(OnUploadAttachments);
 
         // Initialize with default "All" option synchronously to prevent type name display in ComboBox
         var allPayer = new PayerItem { PayerId = null, PayerName = "All" };
@@ -95,6 +97,40 @@ public sealed class BatchesViewModel : ViewModelBase
 
         // Load additional payers from SQLite asynchronously
         _ = LoadPayersAsync();
+    }
+
+    private void OnUploadAttachments()
+    {
+        // For multiple batches, we'd normally have a selection mechanism.
+        // For now, let's assume we use the SelectedBatch or a mock list if we want to demonstrate "multiple at the same time".
+        if (SelectedBatch != null)
+        {
+            // We need to map UI BatchRow to Persistence BatchRow (or just use minimal info)
+            // Actually, TrackAttachmentUpload takes BatchRow from Persistence.
+            // I'll need to fetch the full batch info.
+
+            _ = Task.Run(async () =>
+            {
+                await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+                var batch = await uow.Batches.GetByBcrIdAsync(SelectedBatch.BcrId.ToString(), default);
+                if (batch != null)
+                {
+                    _batchTracker.TrackAttachmentUpload(new[] { batch });
+                }
+                else
+                {
+                    // If not found in local DB, we might need to "ensure" it,
+                    // but usually it should be there if we're seeing it in the list
+                    // (unless it's only in the backend and not yet synced).
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        MessageBox.Show("Batch details not found in local database. Please process the batch first.", "Not Found", MessageBoxButton.OK, MessageBoxImage.Warning));
+                }
+            });
+        }
+        else
+        {
+            MessageBox.Show("Please select a batch to upload attachments for.", "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
     }
 
     private async Task LoadPayersAsync()

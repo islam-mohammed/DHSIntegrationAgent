@@ -14,14 +14,19 @@ namespace DHSIntegrationAgent.App.UI.Services;
 public sealed class BatchTracker : IBatchTracker
 {
     private readonly IFetchStageService _fetchStageService;
+    private readonly IAttachmentDispatchService _attachmentDispatchService;
     private readonly IWorkerEngine _workerEngine;
 
     public ObservableCollection<BatchProgressViewModel> ActiveBatches { get; } = new();
     object IBatchTracker.ActiveBatches => ActiveBatches;
 
-    public BatchTracker(IFetchStageService fetchStageService, IWorkerEngine workerEngine)
+    public BatchTracker(
+        IFetchStageService fetchStageService,
+        IAttachmentDispatchService attachmentDispatchService,
+        IWorkerEngine workerEngine)
     {
         _fetchStageService = fetchStageService ?? throw new ArgumentNullException(nameof(fetchStageService));
+        _attachmentDispatchService = attachmentDispatchService ?? throw new ArgumentNullException(nameof(attachmentDispatchService));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
 
         _workerEngine.ProgressChanged += OnWorkerProgressChanged;
@@ -49,6 +54,57 @@ public sealed class BatchTracker : IBatchTracker
                     }
                 });
             }
+        }
+    }
+
+    public void TrackAttachmentUpload(IEnumerable<BatchRow> batches)
+    {
+        foreach (var batch in batches)
+        {
+            var progressViewModel = new BatchProgressViewModel
+            {
+                InternalBatchId = batch.BatchId,
+                BatchNumber = batch.BcrId ?? $"Batch {batch.BatchId}",
+                StatusMessage = "Initializing Attachment Upload...",
+                TotalClaims = 0, // Will be updated during process
+            };
+
+            // Ensure we add to collection on UI thread
+            System.Windows.Application.Current?.Dispatcher.Invoke(() => ActiveBatches.Add(progressViewModel));
+
+            // Run the background task for attachments
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var progress = new Progress<WorkerProgressReport>(report =>
+                    {
+                        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                        {
+                            if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
+                            if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
+                            if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
+                            if (report.Message != null) progressViewModel.StatusMessage = report.Message;
+                        });
+                    });
+
+                    await _attachmentDispatchService.ProcessAttachmentsForBatchesAsync(new[] { batch.BatchId }, progress, default);
+
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        progressViewModel.StatusMessage = "Attachments uploaded successfully.";
+                        progressViewModel.IsCompleted = true;
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        progressViewModel.StatusMessage = $"Attachment Error: {ex.Message}";
+                        progressViewModel.IsError = true;
+                    });
+                }
+            });
         }
     }
 
