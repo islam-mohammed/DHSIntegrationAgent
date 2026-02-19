@@ -42,7 +42,7 @@ public static class BaselineDomainScanner
         new("Pharmacist Selection Reason", 77, "serviceDetails.pharmacistSelectionReason"),
         new("Pharmacist Substitute", 78, "serviceDetails.pharmacistSubstitute"),
         new("DiagnosisType", 7, "diagnosisDetails.diagnosisTypeID"),
-        new("ExtendedDiagnosisTypeIndicator", 11, "diagnosisDetails.diagnosisType"),
+        new("ExtendedDiagnosisTypeIndicator", 11, "diagnosisDetails.DiagnosisTypeID"),
         new("IllnessTypeIndicator", 14, "diagnosisDetails.illnessTypeIndicator"),
         new("ConditionOnset", 75, "diagnosisDetails.onsetConditionTypeID"),
         new("DoctorReligion", 24, "dhsDoctors.religion_Code"),

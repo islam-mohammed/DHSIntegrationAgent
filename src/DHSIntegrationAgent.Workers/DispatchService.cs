@@ -59,7 +59,8 @@ public sealed class DispatchService : IDispatchService
     private static readonly Dictionary<string, List<(string TargetField, string DomainName, string SourceField)>> _diagnosisFieldLookup =
         new[]
         {
-            ("fK_DiagnosisOnAdmission_ID", "ConditionOnset", "DiagnosisOnAdmission")
+            ("fK_DiagnosisOnAdmission_ID", "ConditionOnset", "DiagnosisOnAdmission"),
+            ("fK_DiagnosisType_ID", "DiagnosisType", "DiagnosisTypeID")
         }.GroupBy(f => f.Item3, StringComparer.OrdinalIgnoreCase)
          .ToDictionary(g => g.Key, g => g.Select(x => (x.Item1, x.Item2, x.Item3)).ToList(), StringComparer.OrdinalIgnoreCase);
 
