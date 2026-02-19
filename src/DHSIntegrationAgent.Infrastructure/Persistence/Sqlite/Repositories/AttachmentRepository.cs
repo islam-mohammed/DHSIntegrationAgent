@@ -144,6 +144,45 @@ internal sealed class AttachmentRepository : SqliteRepositoryBase, IAttachmentRe
         SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
         SqliteSqlBuilder.AddParam(cmd, "$cid", proIdClaim);
 
+        return await ReadAttachmentsAsync(cmd, ct);
+    }
+
+    public async Task<int> CountByBatchAsync(long batchId, CancellationToken ct)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT COUNT(*)
+            FROM Attachment a
+            INNER JOIN Claim c ON a.ProviderDhsCode = c.ProviderDhsCode AND a.ProIdClaim = c.ProIdClaim
+            WHERE c.BatchId = $bid;
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return Convert.ToInt32(result);
+    }
+
+    public async Task<IReadOnlyList<AttachmentRow>> GetByBatchAsync(long batchId, CancellationToken ct)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT a.AttachmentId, a.ProviderDhsCode, a.ProIdClaim, a.AttachmentSourceType,
+                   a.LocationPathEncrypted, a.LocationBytesEncrypted, a.AttachBitBase64Encrypted,
+                   a.FileName, a.ContentType, a.SizeBytes, a.Sha256,
+                   a.OnlineUrlEncrypted, a.UploadStatus, a.AttemptCount, a.NextRetryUtc, a.LastError, a.CreatedUtc, a.UpdatedUtc
+            FROM Attachment a
+            INNER JOIN Claim c ON a.ProviderDhsCode = c.ProviderDhsCode AND a.ProIdClaim = c.ProIdClaim
+            WHERE c.BatchId = $bid;
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+
+        return await ReadAttachmentsAsync(cmd, ct);
+    }
+
+    private async Task<IReadOnlyList<AttachmentRow>> ReadAttachmentsAsync(DbCommand cmd, CancellationToken ct)
+    {
         var result = new List<AttachmentRow>();
 
         await using var r = await cmd.ExecuteReaderAsync(ct);
