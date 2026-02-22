@@ -1,12 +1,10 @@
-﻿namespace DHSIntegrationAgent.Application.Configuration;
+namespace DHSIntegrationAgent.Application.Configuration;
 
 public sealed class AzureBlobOptions
 {
-    public string SasUrl { get; init; } = "";
-
     /// <summary>
     /// Optional path to a file containing the encrypted SAS URL.
-    /// If SasUrl is empty, the service will attempt to read and decrypt from this file.
+    /// The service will attempt to read and decrypt from this file.
     /// </summary>
     public string? SasUrlEncryptedFilePath { get; init; }
 

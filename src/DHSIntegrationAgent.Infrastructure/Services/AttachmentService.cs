@@ -82,12 +82,6 @@ public sealed class AttachmentService : IAttachmentService
     {
         if (_cachedSasUrl != null) return _cachedSasUrl;
 
-        if (!string.IsNullOrWhiteSpace(_options.SasUrl))
-        {
-            _cachedSasUrl = _options.SasUrl;
-            return _cachedSasUrl;
-        }
-
         if (!string.IsNullOrWhiteSpace(_options.SasUrlEncryptedFilePath) && File.Exists(_options.SasUrlEncryptedFilePath))
         {
             try

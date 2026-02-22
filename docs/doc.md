@@ -75,9 +75,6 @@ Secrets must NOT live in jsonenvlogs, including
 - Azure Blob SAS URLs
 - Tokens
 
-### Important repo currently enforces secret policy
-The current code contains checks that `AzureBlobSasUrl` must not be set via JSONenv.
-
 ### How to set API BaseUrl for dev
 Use env var nesting convention
 - `DHSAGENT_Api__BaseUrl=httpsbackend.example`
