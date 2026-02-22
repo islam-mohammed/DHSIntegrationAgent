@@ -113,8 +113,7 @@ public sealed class HttpPipeline_Wbs2_1_Tests
 
                     // WBS 0.3 validation / defaults
                     new KeyValuePair<string, string?>("App:EnvironmentName", "Development"),
-                    new KeyValuePair<string, string?>("App:DatabasePath", Path.Combine(Path.GetTempPath(), $"wbs21_{Guid.NewGuid():N}.db")),
-                    new KeyValuePair<string, string?>("AzureBlob:SasUrl", ""), // must be empty if you enforced 0.3 policy
+                    new KeyValuePair<string, string?>("App:DatabasePath", Path.Combine(Path.GetTempPath(), $"wbs21_{Guid.NewGuid():N}.db"))
                 })
                 .Build();
 

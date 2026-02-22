@@ -1,4 +1,4 @@
-﻿using DHSIntegrationAgent.Application.Configuration;
+using DHSIntegrationAgent.Application.Configuration;
 using DHSIntegrationAgent.Application.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,8 +33,6 @@ public static class ApplicationServiceCollectionExtensions
         services.AddOptions<AzureBlobOptions>()
             .Bind(configuration.GetSection("AzureBlob"))
             .ValidateDataAnnotations()
-            .Validate(o => string.IsNullOrWhiteSpace(o.SasUrl),
-                "AzureBlob:SasUrl must NOT be set in appsettings/env vars. Store SAS securely (DPAPI-protected in SQLite settings) and load it at runtime.")
             .ValidateOnStart();
 
         return services;

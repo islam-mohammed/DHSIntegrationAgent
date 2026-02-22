@@ -37,7 +37,6 @@ public sealed class SqliteCrashRecovery_Wbs1_4_Tests
         // ---------------------------
         // This satisfies options binding + any "fail-fast" validation you added in WBS 0.3:
         // - Api:BaseUrl must be valid (even though this test doesn't call the API)
-        // - AzureBlob:SasUrl must be empty (secrets must not be in appsettings)
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -45,9 +44,7 @@ public sealed class SqliteCrashRecovery_Wbs1_4_Tests
                 ["App:DatabasePath"] = dbPath,
 
                 ["Api:BaseUrl"] = "https://example.invalid/",
-                ["Api:TimeoutSeconds"] = "30",
-
-                ["AzureBlob:SasUrl"] = ""
+                ["Api:TimeoutSeconds"] = "30"
             })
             .Build();
 
@@ -460,10 +457,7 @@ public sealed class SqliteCrashRecovery_Wbs1_4_Tests
                 ["App:DatabasePath"] = dbPath,
 
                 ["Api:BaseUrl"] = "https://example.invalid/",
-                ["Api:TimeoutSeconds"] = "30",
-
-                // If you enforced WBS 0.3 secrets policy, this must remain blank.
-                ["AzureBlob:SasUrl"] = ""
+                ["Api:TimeoutSeconds"] = "30"
             })
             .Build();
 
