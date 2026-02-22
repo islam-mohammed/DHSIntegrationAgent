@@ -6,3 +6,5 @@
 *.userosscache
 *.sln.docstates
 .DS_Store
+**/appsettings.Development.json
+**/appsettings.json
