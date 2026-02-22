@@ -83,7 +83,7 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
 
                     if (rawBundle.Attachments != null && rawBundle.Attachments.Count > 0)
                     {
-                        var onlineUrls = new List<(string AttachmentId, string OnlineUrl)>();
+                        var attachmentInfos = new List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>();
                         var key = new ClaimKey(providerCode, rawBundle.ProIdClaim);
 
                         foreach (var attNode in rawBundle.Attachments)
@@ -107,7 +107,12 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                                     await uow.Attachments.UpdateStatusAsync(row.AttachmentId, UploadStatus.Uploaded, onlineUrl, null, _clock.UtcNow, null, ct);
                                     await uow.CommitAsync(ct);
                                 }
-                                onlineUrls.Add((row.AttachmentId, onlineUrl));
+
+                                string? remarks = null;
+                                if (attObj.TryGetPropertyValue("remarks", out var remNode) && remNode != null)
+                                    remarks = remNode.ToString().Trim('"');
+
+                                attachmentInfos.Add((row, remarks, onlineUrl));
                             }
                             catch (Exception ex)
                             {
@@ -120,10 +125,10 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                             }
                         }
 
-                        if (onlineUrls.Count > 0)
+                        if (attachmentInfos.Count > 0)
                         {
                             // 2. Update ClaimPayload JSON and Notify Backend
-                            await UpdateClaimAndNotifyBackendAsync(key, onlineUrls, ct);
+                            await UpdateClaimAndUploadAttachmentAsync(key, attachmentInfos, ct);
                         }
                     }
 
@@ -145,7 +150,7 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
         }
     }
 
-    private async Task UpdateClaimAndNotifyBackendAsync(ClaimKey key, List<(string AttachmentId, string OnlineUrl)> onlineUrls, CancellationToken ct)
+    private async Task UpdateClaimAndUploadAttachmentAsync(ClaimKey key, List<(AttachmentRow Row, string? Remarks, string OnlineUrl)> attachmentInfos, CancellationToken ct)
     {
         await using var uow = await _uowFactory.CreateAsync(ct);
         var payloadRow = await uow.ClaimPayloads.GetAsync(key, ct);
@@ -156,8 +161,13 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
 
         var attachmentsArray = bundleObj["attachments"] as JsonArray ?? new JsonArray();
 
-        foreach (var (attId, url) in onlineUrls)
+        var attachmentDtos = new List<AttachmentDto>();
+
+        foreach (var info in attachmentInfos)
         {
+            var attId = info.Row.AttachmentId;
+            var url = info.OnlineUrl;
+
             // Try to find existing attachment in JSON
             var existing = attachmentsArray.FirstOrDefault(x => x?["attachmentId"]?.ToString() == attId) as JsonObject;
             if (existing != null)
@@ -166,20 +176,23 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
             }
             else
             {
-                var attRows = await uow.Attachments.GetByClaimAsync(key.ProviderDhsCode, key.ProIdClaim, ct);
-                var row = attRows.FirstOrDefault(r => r.AttachmentId == attId);
-                if (row != null)
+                attachmentsArray.Add(new JsonObject
                 {
-                    attachmentsArray.Add(new JsonObject
-                    {
-                        ["attachmentId"] = row.AttachmentId,
-                        ["fileName"] = row.FileName,
-                        ["contentType"] = row.ContentType,
-                        ["sizeBytes"] = row.SizeBytes,
-                        ["onlineUrl"] = url
-                    });
-                }
+                    ["attachmentId"] = attId,
+                    ["fileName"] = info.Row.FileName,
+                    ["contentType"] = info.Row.ContentType,
+                    ["sizeBytes"] = info.Row.SizeBytes,
+                    ["onlineUrl"] = url
+                });
             }
+
+            attachmentDtos.Add(new AttachmentDto(
+                AttachmentType: info.Row.ContentType ?? "application/octet-stream",
+                FileSizeInByte: info.Row.SizeBytes ?? 0,
+                OnlineURL: url,
+                Remarks: info.Remarks,
+                Location: info.Row.LocationPathPlaintext
+            ));
         }
 
         bundleObj["attachments"] = attachmentsArray;
@@ -192,7 +205,8 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
         await uow.CommitAsync(ct);
 
         // 2. Notify Backend
-        var result = await _attachmentClient.UpdateAttachmentsAsync(key.ProviderDhsCode, key.ProIdClaim, attachmentsArray.ToJsonString(), ct);
+        var request = new UploadAttachmentRequest(key.ProIdClaim, attachmentDtos);
+        var result = await _attachmentClient.UploadAttachmentAsync(request, ct);
         if (!result.Succeeded)
         {
             _logger.LogWarning("Failed to notify backend about attachments for claim {ProIdClaim}: {Error}", key.ProIdClaim, result.ErrorMessage);
