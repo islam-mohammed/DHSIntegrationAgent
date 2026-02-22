@@ -8,6 +8,10 @@ public sealed class AzureBlobOptions
     /// </summary>
     public string? SasUrlEncryptedFilePath { get; init; }
 
-    public string ConnectionString { get; init; } = "";
-    public string ContainerName { get; init; } = "claimattachment";
+    public string AttachmentBlobStorageCon { get; init; } = "";
+    public string AttachmentBlobStorageContainer { get; init; } = "claimattachment";
+
+    // Compatibility properties
+    public string ConnectionString => AttachmentBlobStorageCon;
+    public string ContainerName => AttachmentBlobStorageContainer;
 }
