@@ -14,23 +14,16 @@ public sealed class AttachmentClient : IAttachmentClient
         _httpClientFactory = httpClientFactory;
     }
 
-    public async Task<UpdateAttachmentsResult> UpdateAttachmentsAsync(string providerDhsCode, int proIdClaim, string attachmentsJson, CancellationToken ct)
+    public async Task<UpdateAttachmentsResult> UploadAttachmentAsync(UploadAttachmentRequest request, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("BackendApi");
-        const string path = "api/Claims/UpdateAttachments";
+        const string path = "api/Batch/UploadAttachment";
 
-        var payload = new
-        {
-            providerDhsCode,
-            proIdClaim,
-            attachments = JsonDocument.Parse(attachmentsJson).RootElement
-        };
-
-        var json = JsonSerializer.Serialize(payload);
+        var json = JsonSerializer.Serialize(request);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = content };
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, path) { Content = content };
 
-        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, ct);
         var httpCode = (int)response.StatusCode;
 
         if (response.StatusCode == HttpStatusCode.OK)
