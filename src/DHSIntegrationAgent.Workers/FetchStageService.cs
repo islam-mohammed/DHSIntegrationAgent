@@ -181,7 +181,7 @@ public sealed class FetchStageService : IFetchStageService
 
                 if (processedCount % 10 == 0 || processedCount == totalClaims)
                 {
-                    double fetchPercentage = ((double)processedCount / totalClaims) * 30;
+                    double fetchPercentage = ((double)processedCount / totalClaims) * 40;
                     progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaims} from HIS system", Percentage: fetchPercentage, BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
                 }
             }
@@ -236,11 +236,12 @@ public sealed class FetchStageService : IFetchStageService
         }
 
         // 4. Missing mappings discovery (posting is separate)
-        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan", Percentage: 30, BatchId: batch.BatchId));
+        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan", Percentage: 40, BatchId: batch.BatchId));
 
         if (discoveredValues.Count > 0)
         {
             int discoveredInRun = 0;
+            int scannedCount = 0;
 
             // Batch upserts to keep transactions short.
             const int MappingTxBatchSize = 200;
@@ -251,6 +252,13 @@ public sealed class FetchStageService : IFetchStageService
                 if (ct.IsCancellationRequested) break;
 
                 buffer.Add(new ScannedDomainValue(item.DomainName, item.DomainTableId, item.Value));
+                scannedCount++;
+
+                if (scannedCount % 50 == 0)
+                {
+                    double scanPercentage = 40 + ((double)scannedCount / discoveredValues.Count) * 20;
+                    progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan", Percentage: scanPercentage, BatchId: batch.BatchId));
+                }
 
                 if (buffer.Count >= MappingTxBatchSize)
                 {
@@ -266,7 +274,7 @@ public sealed class FetchStageService : IFetchStageService
                 progress.Report(new WorkerProgressReport("StreamA", $"DETECTED_MISSING_DOMAINS:{discoveredInRun}"));
         }
 
-        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan Complete", Percentage: 40, BatchId: batch.BatchId));
+        progress.Report(new WorkerProgressReport("StreamA", "Domain Mapping Scan Complete", Percentage: 60, BatchId: batch.BatchId));
 
         // 5. Mark batch ready for sender
         await using (var uow = await _uowFactory.CreateAsync(ct))
@@ -363,16 +371,19 @@ public sealed class FetchStageService : IFetchStageService
 
         if (eligible.Count == 0)
         {
-            progress.Report(new WorkerProgressReport("StreamA", "No missing domain mappings to post.", Percentage: 55));
+            progress.Report(new WorkerProgressReport("StreamA", "No missing domain mappings to post.", Percentage: 70));
             return;
         }
 
-        progress.Report(new WorkerProgressReport("StreamA", $"Posting {eligible.Count} missing domain mappings for {providerDhsCode}...", Percentage: 40));
+        progress.Report(new WorkerProgressReport("StreamA", $"Posting {eligible.Count} missing domain mappings for {providerDhsCode}...", Percentage: 60));
 
         const int BatchSize = 500;
         for (int i = 0; i < eligible.Count; i += BatchSize)
         {
             if (ct.IsCancellationRequested) break;
+
+            double postPercentage = 60 + ((double)i / eligible.Count) * 10;
+            progress.Report(new WorkerProgressReport("StreamA", $"Posting domain mappings...", Percentage: postPercentage));
 
             var itemsToPost = eligible.Skip(i).Take(BatchSize).ToList();
             var items = itemsToPost
@@ -412,7 +423,7 @@ public sealed class FetchStageService : IFetchStageService
             }
         }
 
-        progress.Report(new WorkerProgressReport("StreamA", "Domain mapping posting complete", Percentage: 55));
+        progress.Report(new WorkerProgressReport("StreamA", "Domain mapping posting complete", Percentage: 70));
     }
 
     private static string ComputeSha256(byte[] data)

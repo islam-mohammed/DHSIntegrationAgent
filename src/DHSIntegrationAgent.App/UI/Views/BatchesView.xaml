@@ -298,13 +298,6 @@
                                                            FontSize="13"/>
                                             </Grid>
 
-                                            <!-- Financial Message -->
-                                            <TextBlock Text="{Binding FinancialMessage}"
-                                                       FontSize="11"
-                                                       Foreground="#32729B"
-                                                       TextWrapping="Wrap"
-                                                       Margin="0,0,0,4"/>
-
                                             <!-- Status Message -->
                                             <TextBlock Text="{Binding StatusMessage}"
                                                        FontSize="12"

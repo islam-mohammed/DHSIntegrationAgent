@@ -60,6 +60,12 @@ public sealed class BatchProgressViewModel : ViewModelBase
         get => _processedClaims;
         set
         {
+            // Auto-adjust TotalClaims if Processed exceeds Total (fixes "Fetching 4800 of 0")
+            if (value > TotalClaims)
+            {
+                TotalClaims = value;
+            }
+
             if (SetProperty(ref _processedClaims, value))
             {
                 OnPropertyChanged(nameof(RemainingClaims));
@@ -104,7 +110,7 @@ public sealed class BatchProgressViewModel : ViewModelBase
         }
     }
 
-    public string ProcessedLabel => IsSending ? "Sent" : "Processed";
+    public string ProcessedLabel => IsSending ? "Sent" : "Fetched";
 
     public int RemainingClaims => Math.Max(0, TotalClaims - ProcessedClaims);
 
@@ -114,9 +120,9 @@ public sealed class BatchProgressViewModel : ViewModelBase
         {
             if (PercentageOverride.HasValue) return PercentageOverride.Value;
 
-            return TotalClaims > 0
-                ? Math.Min(100.0, (double)ProcessedClaims / TotalClaims * 100.0)
-                : 0;
+            if (TotalClaims <= 0) return 0;
+
+            return Math.Min(100.0, (double)ProcessedClaims / TotalClaims * 100.0);
         }
     }
 }
