@@ -35,8 +35,37 @@ public class ClaimBundleBuilderTests
         var firstDoctor = result.Bundle.DhsDoctors[0] as JsonObject;
         Assert.NotNull(firstDoctor);
         Assert.Equal("Dr. Smith", firstDoctor["doctorName"]?.ToString());
-        Assert.False(firstDoctor.ContainsKey("proIdClaim"));
-        Assert.False(firstDoctor.ContainsKey("proidclaim"));
+        Assert.True(firstDoctor.ContainsKey("proidclaim"));
+        Assert.Equal(123, firstDoctor["proidclaim"]?.GetValue<long>());
+    }
+
+    [Fact]
+    public void Build_ShouldIncludeProIdClaimInAllDetails()
+    {
+        // Arrange
+        var builder = new ClaimBundleBuilder();
+        var header = new JsonObject { ["proIdClaim"] = 123, ["companyCode"] = "COMP1", ["invoiceDate"] = "2023-10-01" };
+        var parts = new CanonicalClaimParts(
+            header,
+            RadiologyDetails: new JsonArray { new JsonObject { ["code"] = "R1" } },
+            LabDetails: new JsonArray { new JsonObject { ["code"] = "L1" } },
+            OpticalVitalSigns: new JsonArray { new JsonObject { ["code"] = "O1" } }
+        );
+
+        // Act
+        var result = builder.Build(parts, "COMP1");
+
+        // Assert
+        Assert.True(result.Succeeded);
+
+        var rad = result.Bundle.RadiologyDetails[0] as JsonObject;
+        Assert.Equal(123, rad?["proidclaim"]?.GetValue<long>());
+
+        var lab = result.Bundle.LabDetails[0] as JsonObject;
+        Assert.Equal(123, lab?["proidclaim"]?.GetValue<long>());
+
+        var opt = result.Bundle.OpticalVitalSigns[0] as JsonObject;
+        Assert.Equal(123, opt?["proidclaim"]?.GetValue<long>());
     }
 
     [Fact]
@@ -114,8 +143,8 @@ public class ClaimBundleBuilderTests
 
         var firstDiagnosis = result.Bundle.DiagnosisDetails[0] as JsonObject;
         Assert.NotNull(firstDiagnosis);
-        Assert.False(firstDiagnosis.ContainsKey("proIdClaim"));
-        Assert.False(firstDiagnosis.ContainsKey("proidclaim"));
+        Assert.True(firstDiagnosis.ContainsKey("proidclaim"));
+        Assert.Equal(123, firstDiagnosis["proidclaim"]?.GetValue<long>());
     }
 
     [Fact]
