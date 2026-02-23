@@ -179,7 +179,7 @@ public sealed class FetchStageService : IFetchStageService
                 processedCount++;
                 lastSeen = rawBundle.ProIdClaim;
 
-                if (processedCount % 10 == 0 || processedCount == totalClaims)
+                if (processedCount % 100 == 0 || processedCount == totalClaims)
                 {
                     double fetchPercentage = ((double)processedCount / totalClaims) * 30;
                     progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaims} from HIS system", Percentage: fetchPercentage, BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
