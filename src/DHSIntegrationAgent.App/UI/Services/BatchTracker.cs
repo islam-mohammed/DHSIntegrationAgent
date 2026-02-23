@@ -116,18 +116,28 @@ public sealed class BatchTracker : IBatchTracker
             BatchNumber = batch.BcrId ?? "Pending...",
             StatusMessage = "Validating Financial Information",
             TotalClaims = financialSummary?.TotalClaims ?? 0,
-            FinancialMessage = financialSummary != null ?
-                $"Claims: {financialSummary.TotalClaims}, Net: {financialSummary.TotalNetAmount:N2} ({(financialSummary.IsValid ? "Valid ✅" : "Invalid ❌")})"
-                : "Financial validation complete."
         };
 
         // Ensure we add to collection on UI thread
         if (System.Windows.Application.Current?.Dispatcher != null)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() => ActiveBatches.Add(progressViewModel));
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                var existing = ActiveBatches.FirstOrDefault(x => x.InternalBatchId == batch.BatchId);
+                if (existing != null)
+                {
+                    ActiveBatches.Remove(existing);
+                }
+                ActiveBatches.Add(progressViewModel);
+            });
         }
         else
         {
+            var existing = ActiveBatches.FirstOrDefault(x => x.InternalBatchId == batch.BatchId);
+            if (existing != null)
+            {
+                ActiveBatches.Remove(existing);
+            }
             ActiveBatches.Add(progressViewModel);
         }
 

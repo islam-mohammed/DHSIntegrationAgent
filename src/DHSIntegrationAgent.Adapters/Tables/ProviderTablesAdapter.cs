@@ -74,8 +74,7 @@ SELECT COUNT(1)
 FROM {headerTable}
 WHERE CompanyCode = @CompanyCode
   AND {dateCol} >= @StartDate
-  AND {dateCol} <= @EndDate
-  AND (IsFetched IS NULL OR IsFetched = 0);";
+  AND {dateCol} <= @EndDate;";
 
         cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
         cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });

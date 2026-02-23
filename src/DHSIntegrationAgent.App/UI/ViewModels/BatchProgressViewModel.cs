@@ -10,7 +10,6 @@ public sealed class BatchProgressViewModel : ViewModelBase
     private long _internalBatchId;
     private string _batchNumber = "Pending...";
     private string _statusMessage = "Initializing...";
-    private string _financialMessage = "";
     private int _totalClaims;
     private int _processedClaims;
     private double? _percentageOverride;
@@ -34,12 +33,6 @@ public sealed class BatchProgressViewModel : ViewModelBase
     {
         get => _statusMessage;
         set => SetProperty(ref _statusMessage, value);
-    }
-
-    public string FinancialMessage
-    {
-        get => _financialMessage;
-        set => SetProperty(ref _financialMessage, value);
     }
 
     public int TotalClaims
@@ -104,7 +97,7 @@ public sealed class BatchProgressViewModel : ViewModelBase
         }
     }
 
-    public string ProcessedLabel => IsSending ? "Sent" : "Processed";
+    public string ProcessedLabel => IsSending ? "Sent" : "Fetched";
 
     public int RemainingClaims => Math.Max(0, TotalClaims - ProcessedClaims);
 
