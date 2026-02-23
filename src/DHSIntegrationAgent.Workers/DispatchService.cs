@@ -213,6 +213,13 @@ public sealed class DispatchService : IDispatchService
                             if (dhsDoctors != null)
                                 EnrichDoctorDetails(dhsDoctors, mappingLookup);
 
+                            // Inject proidclaim (int) into detail arrays for existing batches
+                            var proIdClaim = key.ProIdClaim;
+                            InjectProIdClaimInt(bundleObj["radiologyDetails"]?.AsArray(), proIdClaim);
+                            InjectProIdClaimInt(dhsDoctors, proIdClaim);
+                            InjectProIdClaimInt(bundleObj["labDetails"]?.AsArray(), proIdClaim);
+                            InjectProIdClaimInt(bundleObj["diagnosisDetails"]?.AsArray(), proIdClaim);
+                            InjectProIdClaimInt(bundleObj["opticalVitalSigns"]?.AsArray(), proIdClaim);
 
                             bundles.Add(bundleObj);
                         }
@@ -368,6 +375,15 @@ public sealed class DispatchService : IDispatchService
         foreach (var item in dhsDoctors.OfType<JsonObject>())
         {
             EnrichSection(item, _doctorFieldLookup, mappingLookup);
+        }
+    }
+
+    private static void InjectProIdClaimInt(JsonArray? array, long proIdClaim)
+    {
+        if (array == null) return;
+        foreach (var item in array.OfType<JsonObject>())
+        {
+            item["proidclaim"] = proIdClaim;
         }
     }
 

@@ -127,12 +127,12 @@ public sealed class ClaimBundleBuilder
         // serviceDetails uses all-lowercase 'proidclaim' as STRING per latest requirement (only here).
         EnsureProIdClaimWithoutIssues(bundle.ServiceDetails, proIdClaim.ToString(CultureInfo.InvariantCulture), "proidclaim");
 
-        // Other detail sets MUST NOT have proIdClaim per latest requirement (only in serviceDetails).
-        RemoveProIdClaim(bundle.DiagnosisDetails);
-        RemoveProIdClaim(bundle.LabDetails);
-        RemoveProIdClaim(bundle.RadiologyDetails);
-        RemoveProIdClaim(bundle.OpticalVitalSigns);
-        RemoveProIdClaim(bundle.DhsDoctors);
+        // Other detail sets MUST have proIdClaim as integer per latest requirement.
+        EnsureProIdClaimInt(bundle.DiagnosisDetails, proIdClaim);
+        EnsureProIdClaimInt(bundle.LabDetails, proIdClaim);
+        EnsureProIdClaimInt(bundle.RadiologyDetails, proIdClaim);
+        EnsureProIdClaimInt(bundle.OpticalVitalSigns, proIdClaim);
+        EnsureProIdClaimInt(bundle.DhsDoctors, proIdClaim);
 
         // 6) Normalize specific fields
         NormalizeDiagnosisDates(bundle.DiagnosisDetails);
@@ -165,7 +165,7 @@ public sealed class ClaimBundleBuilder
         }
     }
 
-    private static void RemoveProIdClaim(JsonArray details)
+    private static void EnsureProIdClaimInt(JsonArray details, long value, string targetFieldName = "proidclaim")
     {
         for (var i = 0; i < details.Count; i++)
         {
@@ -173,7 +173,9 @@ public sealed class ClaimBundleBuilder
                 continue;
 
             var keyMap = BuildKeyMap(obj);
+            // Remove existing variations to ensure no duplicates
             RemovePropertyIgnoreCase(obj, keyMap, "proIdClaim");
+            obj[targetFieldName] = value;
         }
     }
 
