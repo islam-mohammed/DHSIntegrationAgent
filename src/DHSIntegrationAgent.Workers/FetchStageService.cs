@@ -117,7 +117,7 @@ public sealed class FetchStageService : IFetchStageService
                       )
             );
 
-        var discoveredValues = new HashSet<(string DomainName, int DomainTableId, string Value)>();
+        var discoveredValues = new HashSet<(string DomainName, DomainTableId DomainTableId, string Value)>();
 
         while (true)
         {
@@ -285,7 +285,7 @@ public sealed class FetchStageService : IFetchStageService
     private void DiscoverDomainValues(
         ClaimBundle bundle,
         Dictionary<string, Dictionary<string, List<BaselineDomain>>> domainLookup,
-        HashSet<(string DomainName, int DomainTableId, string Value)> discovered)
+        HashSet<(string DomainName, DomainTableId DomainTableId, string Value)> discovered)
     {
         ProcessSection(bundle.ClaimHeader, "claimHeader", domainLookup, discovered);
 
@@ -303,7 +303,7 @@ public sealed class FetchStageService : IFetchStageService
         JsonObject obj,
         string sectionName,
         Dictionary<string, Dictionary<string, List<BaselineDomain>>> domainLookup,
-        HashSet<(string DomainName, int DomainTableId, string Value)> discovered)
+        HashSet<(string DomainName, DomainTableId DomainTableId, string Value)> discovered)
     {
         if (!domainLookup.TryGetValue(sectionName, out var sectionDomains))
             return;
@@ -334,13 +334,13 @@ public sealed class FetchStageService : IFetchStageService
 
         foreach (var mm in values)
         {
-            if (await uow.DomainMappings.ExistsAsync(providerDhsCode, mm.DomainTableId, mm.Value, ct))
+            if (await uow.DomainMappings.ExistsAsync(providerDhsCode, (int)mm.DomainTableId, mm.Value, ct))
                 continue;
 
             await uow.DomainMappings.UpsertDiscoveredAsync(
                 providerDhsCode,
                 mm.DomainName,
-                mm.DomainTableId,
+                (int)mm.DomainTableId,
                 mm.Value,
                 DiscoverySource.Scanned,
                 _clock.UtcNow,

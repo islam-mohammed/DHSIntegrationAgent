@@ -1,0 +1,37 @@
+namespace DHSIntegrationAgent.Domain.Claims;
+
+public enum DomainTableId
+{
+    Gender = 12,
+    ActIncidentCode = 28,
+    ClaimType = 37,
+    VisitType = 27,
+    SubscriberRelationship = 55,
+    MaritalStatus = 15,
+    Country = 5,
+    PatientIdType = 17,
+    EncounterStatus = 47,
+    CareType = 33,
+    EncounterType = 10,
+    Religion = 24,
+    AdmissionType = 30,
+    TriageCategory = 59,
+    Department = 62,
+    DischargeDisposition = 41,
+    EncounterClass = 45,
+    EmergencyArrivalCode = 73,
+    DispositionCode = 43,
+    InvestigationResult = 76,
+    PatientOccupation = 19,
+    SubmissionReasonCode = 25,
+    TreatmentTypeIndicator = 26,
+    ServiceType = 65,
+    ServiceEventType = 72,
+    PharmacistSelectionReason = 77,
+    PharmacistSubstitute = 78,
+    DiagnosisType = 7,
+    ExtendedDiagnosisTypeIndicator = 11,
+    IllnessTypeIndicator = 14,
+    ConditionOnset = 75,
+    DoctorType = 70
+}

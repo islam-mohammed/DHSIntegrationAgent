@@ -407,7 +407,7 @@ public sealed class DispatchService : IDispatchService
                 {
                     if (_domainLookupByName.TryGetValue(f.DomainName, out var domain))
                     {
-                        if (mappingLookup.TryGetValue((domain.DomainTableId, valLower), out var mapping))
+                        if (mappingLookup.TryGetValue(((int)domain.DomainTableId, valLower), out var mapping))
                         {
                             enrichments ??= new();
                             enrichments.Add((f.TargetField, new JsonObject
