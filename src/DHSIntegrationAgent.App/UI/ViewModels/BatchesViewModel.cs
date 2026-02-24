@@ -136,7 +136,19 @@ public sealed class BatchesViewModel : ViewModelBase
             if (batch != null)
             {
                 var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, default);
-                HasFailedClaims = counts.Failed > 0;
+
+                // Use Dispatcher to ensure UI updates happen on the main thread
+                if (System.Windows.Application.Current?.Dispatcher != null)
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        HasFailedClaims = counts.Failed > 0;
+                    });
+                }
+                else
+                {
+                    HasFailedClaims = counts.Failed > 0;
+                }
             }
         }
         catch (Exception ex)
