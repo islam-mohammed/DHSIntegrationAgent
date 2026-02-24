@@ -95,7 +95,7 @@ public sealed class BatchesViewModel : ViewModelBase
 
     public RelayCommand ApplyFilterCommand { get; }
     public RelayCommand ManualRetrySelectedPacketCommand { get; }
-    public ICommand RetryFailedClaimsCommand { get; }
+    public RelayCommand<BatchRow> RetryFailedClaimsCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
     public RelayCommand UploadAttachmentsCommand { get; }
