@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using DHSIntegrationAgent.Adapters.Claims;
 using DHSIntegrationAgent.Domain.Claims;
 using DHSIntegrationAgent.Adapters.Tables;
@@ -164,6 +165,8 @@ public sealed class FetchStageService : IFetchStageService
                     buildResult.Bundle.ClaimHeader["providerCode"] = batch.ProviderDhsCode;
                     if (long.TryParse(bcrId, out var bcrIdLong))
                         buildResult.Bundle.ClaimHeader["bCR_Id"] = bcrIdLong;
+
+                    SanitizeBundle(buildResult.Bundle);
 
                     var payloadJson = buildResult.Bundle.ToJsonString();
                     payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
@@ -438,4 +441,61 @@ public sealed class FetchStageService : IFetchStageService
         byte[]? PayloadBytes,
         string? Sha256
     );
+
+    private static readonly Regex UnUtf8Regex = new Regex(@"[^\u0000-\u007F\u0600-\u06FF\\]+", RegexOptions.Compiled);
+
+    private static string RemoveUnUTF8Characters(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+        try
+        {
+            var output = UnUtf8Regex.Replace(input, " ");
+            return output
+                .Replace("\u001f", "")
+                .Replace("\t", "")
+                .Replace("\n", "")
+                .Replace("\r", "");
+        }
+        catch
+        {
+            return input;
+        }
+    }
+
+    private void SanitizeBundle(ClaimBundle bundle)
+    {
+        SanitizeField(bundle.ClaimHeader, "SignificantSigns");
+        SanitizeField(bundle.ClaimHeader, "PhysicalExamination");
+        SanitizeField(bundle.ClaimHeader, "EmergencyDepositionTypeID");
+        SanitizeField(bundle.ClaimHeader, "OtherCondetions");
+        SanitizeField(bundle.ClaimHeader, "ChiefComplaint");
+
+        foreach (var node in bundle.DiagnosisDetails)
+        {
+            if (node is JsonObject obj)
+                SanitizeField(obj, "DiagnosisDesc");
+        }
+
+        foreach (var node in bundle.ServiceDetails)
+        {
+            if (node is JsonObject obj)
+            {
+                SanitizeField(obj, "ServiceCode");
+                SanitizeField(obj, "ServiceDescription");
+            }
+        }
+    }
+
+    private void SanitizeField(JsonObject obj, string fieldName)
+    {
+        var match = obj.FirstOrDefault(k => string.Equals(k.Key, fieldName, StringComparison.OrdinalIgnoreCase));
+        if (match.Key != null && match.Value is JsonValue jVal && jVal.TryGetValue<string>(out var s))
+        {
+            var sanitized = RemoveUnUTF8Characters(s);
+            if (sanitized != s)
+            {
+                obj[match.Key] = sanitized;
+            }
+        }
+    }
 }
