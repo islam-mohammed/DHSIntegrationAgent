@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using DHSIntegrationAgent.Adapters.Claims;
 using DHSIntegrationAgent.Domain.Claims;
 using DHSIntegrationAgent.Adapters.Tables;
@@ -164,6 +166,8 @@ public sealed class FetchStageService : IFetchStageService
                     buildResult.Bundle.ClaimHeader["providerCode"] = batch.ProviderDhsCode;
                     if (long.TryParse(bcrId, out var bcrIdLong))
                         buildResult.Bundle.ClaimHeader["bCR_Id"] = bcrIdLong;
+
+                    SanitizeBundle(buildResult.Bundle);
 
                     var payloadJson = buildResult.Bundle.ToJsonString();
                     payloadBytes = Encoding.UTF8.GetBytes(payloadJson);
@@ -438,4 +442,85 @@ public sealed class FetchStageService : IFetchStageService
         byte[]? PayloadBytes,
         string? Sha256
     );
+
+    private static readonly Regex UnUtf8Regex = new Regex(@"[^\u0000-\u007F\u0600-\u06FF\\]+", RegexOptions.Compiled);
+
+    private static string RemoveUnUTF8Characters(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+        try
+        {
+            var output = UnUtf8Regex.Replace(input, " ");
+            return output
+                .Replace("\u001f", "")
+                .Replace("\t", "")
+                .Replace("\n", "")
+                .Replace("\r", "");
+        }
+        catch
+        {
+            return input;
+        }
+    }
+
+    private void SanitizeBundle(ClaimBundle bundle)
+    {
+        SanitizeNode(bundle.ClaimHeader);
+        SanitizeNode(bundle.ServiceDetails);
+        SanitizeNode(bundle.DiagnosisDetails);
+        SanitizeNode(bundle.LabDetails);
+        SanitizeNode(bundle.RadiologyDetails);
+        SanitizeNode(bundle.OpticalVitalSigns);
+        SanitizeNode(bundle.DhsDoctors);
+    }
+
+    private void SanitizeNode(JsonNode? node)
+    {
+        if (node is null) return;
+
+        if (node is JsonObject obj)
+        {
+            // Iterate over a copy of the keys to allow modification
+            foreach (var kv in obj.ToList())
+            {
+                if (kv.Value is JsonValue jVal && jVal.GetValueKind() == JsonValueKind.String)
+                {
+                    if (jVal.TryGetValue<string>(out var s))
+                    {
+                        var sanitized = RemoveUnUTF8Characters(s);
+                        if (sanitized != s)
+                        {
+                            obj[kv.Key] = sanitized;
+                        }
+                    }
+                }
+                else
+                {
+                    SanitizeNode(kv.Value);
+                }
+            }
+        }
+        else if (node is JsonArray arr)
+        {
+            for (int i = 0; i < arr.Count; i++)
+            {
+                var item = arr[i];
+                if (item is JsonValue jVal && jVal.GetValueKind() == JsonValueKind.String)
+                {
+                    if (jVal.TryGetValue<string>(out var s))
+                    {
+                        var sanitized = RemoveUnUTF8Characters(s);
+                        if (sanitized != s)
+                        {
+                            arr[i] = sanitized;
+                        }
+                    }
+                }
+                else
+                {
+                    SanitizeNode(item);
+                }
+            }
+        }
+    }
 }
