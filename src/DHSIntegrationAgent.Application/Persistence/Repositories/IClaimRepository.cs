@@ -45,7 +45,7 @@ public interface IClaimRepository
 
     Task RecoverInFlightAsync(DateTimeOffset utcNow, CancellationToken cancellationToken);
 
-    Task<(int Total, int Enqueued)> GetBatchCountsAsync(long batchId, CancellationToken cancellationToken);
+    Task<(int Total, int Enqueued, int Failed)> GetBatchCountsAsync(long batchId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<ClaimKey>> ListByBatchAsync(long batchId, CancellationToken cancellationToken);
 }

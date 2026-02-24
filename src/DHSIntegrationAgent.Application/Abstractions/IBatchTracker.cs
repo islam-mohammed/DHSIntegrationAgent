@@ -20,6 +20,11 @@ public interface IBatchTracker
     void TrackAttachmentUpload(IEnumerable<BatchRow> batches);
 
     /// <summary>
+    /// Starts tracking a batch retry process.
+    /// </summary>
+    void TrackBatchRetry(BatchRow batch, Action<RetryBatchResult> onCompletion);
+
+    /// <summary>
     /// Gets the collection of active batch creation progress items.
     /// Note: In this project, we're returning the ViewModel collection directly for simplicity.
     /// </summary>
