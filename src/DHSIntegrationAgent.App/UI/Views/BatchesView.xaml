@@ -138,22 +138,6 @@
                                          Height="20"
                                          Margin="0,0,10,0"
                                          Visibility="{Binding IsRetrying, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-
-                            <!-- Retry Button -->
-                            <Button Style="{StaticResource IconTextBtn}"
-                                    Background="#FFEF4444"
-                                    BorderBrush="#FFEF4444"
-                                    Command="{Binding RetryFailedClaimsCommand}"
-                                    Visibility="{Binding HasFailedClaims, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                    IsEnabled="{Binding IsRetrying, Converter={StaticResource InverseBooleanConverter}}"
-                                    Cursor="Hand"
-                                    Padding="12,6"
-                                    Height="32">
-                                <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16" Margin="0,0,6,0"/>
-                                    <TextBlock Text="Retry Failed Claims" FontSize="12" FontWeight="SemiBold"/>
-                                </StackPanel>
-                            </Button>
                         </StackPanel>
                     </Grid>
 
@@ -264,7 +248,7 @@
                             </DataGridTemplateColumn>
 
                             <!-- Actions Column -->
-                            <DataGridTemplateColumn Header="Actions" Width="120">
+                            <DataGridTemplateColumn Header="Actions" Width="160">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
@@ -280,11 +264,23 @@
                                             <Button ToolTip="Upload Attachments"
                                                     Cursor="Hand"
                                                     Style="{StaticResource GreenActionBtn}"
-                                                    Command="{Binding DataContext.UploadAttachmentsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}">
+                                                    Command="{Binding DataContext.UploadAttachmentsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    Margin="0,0,5,0">
                                                 <materialDesign:PackIcon Kind="CloudUploadOutline"
                                                                          Width="16"
                                                                          Height="16"
                                                                          Foreground="#009999"/>
+                                            </Button>
+                                            <Button ToolTip="Retry Failed Claims"
+                                                    Cursor="Hand"
+                                                    Style="{StaticResource GreenActionBtn}"
+                                                    Command="{Binding DataContext.RetryFailedClaimsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}"
+                                                    Visibility="{Binding HasFailedClaims, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <materialDesign:PackIcon Kind="Refresh"
+                                                                         Width="16"
+                                                                         Height="16"
+                                                                         Foreground="#EF4444"/>
                                             </Button>
                                         </StackPanel>
                                     </DataTemplate>
