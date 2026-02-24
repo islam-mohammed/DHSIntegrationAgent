@@ -88,7 +88,7 @@ public sealed class BatchesViewModel : ViewModelBase
         {
             if (SetProperty(ref _isRetrying, value))
             {
-                RetryFailedClaimsCommand.NotifyCanExecuteChanged();
+                RetryFailedClaimsCommand.RaiseCanExecuteChanged();
             }
         }
     }
