@@ -16,6 +16,7 @@ public sealed class BatchTracker : IBatchTracker
     private readonly IFetchStageService _fetchStageService;
     private readonly IAttachmentDispatchService _attachmentDispatchService;
     private readonly IWorkerEngine _workerEngine;
+    private readonly IDispatchService _dispatchService;
 
     public ObservableCollection<BatchProgressViewModel> ActiveBatches { get; } = new();
     object IBatchTracker.ActiveBatches => ActiveBatches;
@@ -23,11 +24,13 @@ public sealed class BatchTracker : IBatchTracker
     public BatchTracker(
         IFetchStageService fetchStageService,
         IAttachmentDispatchService attachmentDispatchService,
-        IWorkerEngine workerEngine)
+        IWorkerEngine workerEngine,
+        IDispatchService dispatchService)
     {
         _fetchStageService = fetchStageService ?? throw new ArgumentNullException(nameof(fetchStageService));
         _attachmentDispatchService = attachmentDispatchService ?? throw new ArgumentNullException(nameof(attachmentDispatchService));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
+        _dispatchService = dispatchService ?? throw new ArgumentNullException(nameof(dispatchService));
 
         _workerEngine.ProgressChanged += OnWorkerProgressChanged;
     }
@@ -106,6 +109,64 @@ public sealed class BatchTracker : IBatchTracker
                 }
             });
         }
+    }
+
+    public void TrackBatchRetry(BatchRow batch, Action<RetryBatchResult> onCompletion)
+    {
+        var progressViewModel = new BatchProgressViewModel
+        {
+            InternalBatchId = batch.BatchId,
+            BatchNumber = batch.BcrId ?? $"Batch {batch.BatchId}",
+            StatusMessage = "Initializing Retry...",
+            TotalClaims = 0,
+            PercentageOverride = 60
+        };
+
+        // Ensure we add to collection on UI thread
+        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        {
+            var existing = ActiveBatches.FirstOrDefault(x => x.InternalBatchId == batch.BatchId);
+            if (existing != null) ActiveBatches.Remove(existing);
+            ActiveBatches.Add(progressViewModel);
+        });
+
+        _ = Task.Run(async () =>
+        {
+            RetryBatchResult result = new RetryBatchResult(0, 0, 0);
+            try
+            {
+                var progress = new Progress<WorkerProgressReport>(report =>
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
+                        if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
+                        if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
+                        if (report.Message != null) progressViewModel.StatusMessage = report.Message;
+                    });
+                });
+
+                result = await _dispatchService.RetryBatchAsync(batch, progress, default);
+
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    progressViewModel.StatusMessage = "Retry complete.";
+                    progressViewModel.IsCompleted = true;
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    progressViewModel.StatusMessage = $"Retry Error: {ex.Message}";
+                    progressViewModel.IsError = true;
+                });
+            }
+            finally
+            {
+                System.Windows.Application.Current?.Dispatcher.Invoke(() => onCompletion(result));
+            }
+        });
     }
 
     public void TrackBatchCreation(BatchRow batch, FinancialSummary? financialSummary)

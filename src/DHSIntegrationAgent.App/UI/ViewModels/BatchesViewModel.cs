@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Net.Http;
 using System.Windows;
 using DHSIntegrationAgent.App.UI.Mvvm;
@@ -28,6 +28,7 @@ public sealed class BatchesViewModel : ViewModelBase
             {
                 // Screen-only: populate placeholder detail
                 DispatchHistory.Clear();
+                _ = CheckFailedClaimsAsync();
             }
         }
     }
@@ -72,8 +73,29 @@ public sealed class BatchesViewModel : ViewModelBase
         set => SetProperty(ref _isLoading, value);
     }
 
+    private bool _hasFailedClaims;
+    public bool HasFailedClaims
+    {
+        get => _hasFailedClaims;
+        set => SetProperty(ref _hasFailedClaims, value);
+    }
+
+    private bool _isRetrying;
+    public bool IsRetrying
+    {
+        get => _isRetrying;
+        set
+        {
+            if (SetProperty(ref _isRetrying, value))
+            {
+                RetryFailedClaimsCommand.NotifyCanExecuteChanged();
+            }
+        }
+    }
+
     public RelayCommand ApplyFilterCommand { get; }
     public RelayCommand ManualRetrySelectedPacketCommand { get; }
+    public RelayCommand RetryFailedClaimsCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
     public RelayCommand UploadAttachmentsCommand { get; }
@@ -86,6 +108,7 @@ public sealed class BatchesViewModel : ViewModelBase
 
         ApplyFilterCommand = new RelayCommand(() => { /* screen-only */ });
         ManualRetrySelectedPacketCommand = new RelayCommand(() => { /* screen-only */ });
+        RetryFailedClaimsCommand = new RelayCommand(OnRetryFailedClaims, CanRetryFailedClaims);
         RefreshCommand = new AsyncRelayCommand(LoadBatchesAsync);
         SearchCommand = new AsyncRelayCommand(LoadBatchesAsync);
         UploadAttachmentsCommand = new RelayCommand(OnUploadAttachments);
@@ -97,6 +120,84 @@ public sealed class BatchesViewModel : ViewModelBase
 
         // Load additional payers from SQLite asynchronously
         _ = LoadPayersAsync();
+    }
+
+    private bool CanRetryFailedClaims() => !IsRetrying;
+
+    private async Task CheckFailedClaimsAsync()
+    {
+        HasFailedClaims = false;
+        if (SelectedBatch == null) return;
+
+        try
+        {
+            await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+            var batch = await uow.Batches.GetByBcrIdAsync(SelectedBatch.BcrId.ToString(), default);
+            if (batch != null)
+            {
+                var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, default);
+                HasFailedClaims = counts.Failed > 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error checking failed claims: {ex.Message}");
+        }
+    }
+
+    private void OnRetryFailedClaims()
+    {
+        if (SelectedBatch == null) return;
+
+        IsRetrying = true;
+
+        // Fetch persistence batch again to pass to tracker
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+                var batch = await uow.Batches.GetByBcrIdAsync(SelectedBatch.BcrId.ToString(), default);
+
+                if (batch != null)
+                {
+                    _batchTracker.TrackBatchRetry(batch, result =>
+                    {
+                        // Back on UI thread
+                        IsRetrying = false;
+                        _ = LoadBatchesAsync(); // Refresh list
+
+                        // Re-check failure status after refresh
+                        _ = CheckFailedClaimsAsync();
+
+                        MessageBox.Show(
+                            $"Retry Complete.\n\n" +
+                            $"Total Retried: {result.TotalRetried}\n" +
+                            $"Success: {result.SuccessCount}\n" +
+                            $"Failed: {result.FailedCount}",
+                            "Retry Summary",
+                            MessageBoxButton.OK,
+                            result.FailedCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+                    });
+                }
+                else
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        IsRetrying = false;
+                        MessageBox.Show("Batch not found locally.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    IsRetrying = false;
+                    MessageBox.Show($"Error starting retry: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
+            }
+        });
     }
 
     private void OnUploadAttachments()

@@ -6,6 +6,8 @@
              xmlns:controls="clr-namespace:DHSIntegrationAgent.App.UI.Controls">
 
     <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
         <!-- Sample Data for Left Grid -->
         <x:Array x:Key="SampleBatchData" Type="{x:Type sys:Object}">
             <sys:String>Blue Cross Blue Shield|125|2024-01-15|2024-01-15|BCH-2024-001|2024-01-15 08:30|Completed|john.doe@company.com</sys:String>
@@ -116,11 +118,44 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" 
-                               Text="Batch List" 
-                               FontSize="16" 
-                               FontWeight="SemiBold" 
-                               Margin="0,0,0,12"/>
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="Batch List"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Loading Indicator -->
+                            <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                                         Value="0"
+                                         IsIndeterminate="True"
+                                         Width="20"
+                                         Height="20"
+                                         Margin="0,0,10,0"
+                                         Visibility="{Binding IsRetrying, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                            <!-- Retry Button -->
+                            <Button Style="{StaticResource IconTextBtn}"
+                                    Background="#FFEF4444"
+                                    BorderBrush="#FFEF4444"
+                                    Command="{Binding RetryFailedClaimsCommand}"
+                                    Visibility="{Binding HasFailedClaims, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                    IsEnabled="{Binding IsRetrying, Converter={StaticResource InverseBooleanConverter}}"
+                                    Cursor="Hand"
+                                    Padding="12,6"
+                                    Height="32">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Refresh" Width="16" Height="16" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Retry Failed Claims" FontSize="12" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
 
                     <DataGrid ColumnHeaderStyle="{StaticResource TableHeaderStyle}"
                               RowStyle="{StaticResource TableRowStyle}"
