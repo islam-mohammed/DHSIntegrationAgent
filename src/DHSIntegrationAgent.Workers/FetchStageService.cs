@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using DHSIntegrationAgent.Adapters.Claims;
@@ -464,37 +465,61 @@ public sealed class FetchStageService : IFetchStageService
 
     private void SanitizeBundle(ClaimBundle bundle)
     {
-        SanitizeField(bundle.ClaimHeader, "SignificantSigns");
-        SanitizeField(bundle.ClaimHeader, "PhysicalExamination");
-        SanitizeField(bundle.ClaimHeader, "EmergencyDepositionTypeID");
-        SanitizeField(bundle.ClaimHeader, "OtherCondetions");
-        SanitizeField(bundle.ClaimHeader, "ChiefComplaint");
-
-        foreach (var node in bundle.DiagnosisDetails)
-        {
-            if (node is JsonObject obj)
-                SanitizeField(obj, "DiagnosisDesc");
-        }
-
-        foreach (var node in bundle.ServiceDetails)
-        {
-            if (node is JsonObject obj)
-            {
-                SanitizeField(obj, "ServiceCode");
-                SanitizeField(obj, "ServiceDescription");
-            }
-        }
+        SanitizeNode(bundle.ClaimHeader);
+        SanitizeNode(bundle.ServiceDetails);
+        SanitizeNode(bundle.DiagnosisDetails);
+        SanitizeNode(bundle.LabDetails);
+        SanitizeNode(bundle.RadiologyDetails);
+        SanitizeNode(bundle.OpticalVitalSigns);
+        SanitizeNode(bundle.DhsDoctors);
     }
 
-    private void SanitizeField(JsonObject obj, string fieldName)
+    private void SanitizeNode(JsonNode? node)
     {
-        var match = obj.FirstOrDefault(k => string.Equals(k.Key, fieldName, StringComparison.OrdinalIgnoreCase));
-        if (match.Key != null && match.Value is JsonValue jVal && jVal.TryGetValue<string>(out var s))
+        if (node is null) return;
+
+        if (node is JsonObject obj)
         {
-            var sanitized = RemoveUnUTF8Characters(s);
-            if (sanitized != s)
+            // Iterate over a copy of the keys to allow modification
+            foreach (var kv in obj.ToList())
             {
-                obj[match.Key] = sanitized;
+                if (kv.Value is JsonValue jVal && jVal.GetValueKind() == JsonValueKind.String)
+                {
+                    if (jVal.TryGetValue<string>(out var s))
+                    {
+                        var sanitized = RemoveUnUTF8Characters(s);
+                        if (sanitized != s)
+                        {
+                            obj[kv.Key] = sanitized;
+                        }
+                    }
+                }
+                else
+                {
+                    SanitizeNode(kv.Value);
+                }
+            }
+        }
+        else if (node is JsonArray arr)
+        {
+            for (int i = 0; i < arr.Count; i++)
+            {
+                var item = arr[i];
+                if (item is JsonValue jVal && jVal.GetValueKind() == JsonValueKind.String)
+                {
+                    if (jVal.TryGetValue<string>(out var s))
+                    {
+                        var sanitized = RemoveUnUTF8Characters(s);
+                        if (sanitized != s)
+                        {
+                            arr[i] = sanitized;
+                        }
+                    }
+                }
+                else
+                {
+                    SanitizeNode(item);
+                }
             }
         }
     }
