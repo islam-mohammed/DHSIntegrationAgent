@@ -95,7 +95,7 @@ public sealed class BatchesViewModel : ViewModelBase
 
     public RelayCommand ApplyFilterCommand { get; }
     public RelayCommand ManualRetrySelectedPacketCommand { get; }
-    public RelayCommand RetryFailedClaimsCommand { get; }
+    public ICommand RetryFailedClaimsCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
     public RelayCommand UploadAttachmentsCommand { get; }
@@ -108,7 +108,7 @@ public sealed class BatchesViewModel : ViewModelBase
 
         ApplyFilterCommand = new RelayCommand(() => { /* screen-only */ });
         ManualRetrySelectedPacketCommand = new RelayCommand(() => { /* screen-only */ });
-        RetryFailedClaimsCommand = new RelayCommand(OnRetryFailedClaims, CanRetryFailedClaims);
+        RetryFailedClaimsCommand = new RelayCommand<BatchRow>(OnRetryFailedClaims, CanRetryFailedClaims);
         RefreshCommand = new AsyncRelayCommand(LoadBatchesAsync);
         SearchCommand = new AsyncRelayCommand(LoadBatchesAsync);
         UploadAttachmentsCommand = new RelayCommand(OnUploadAttachments);
@@ -122,7 +122,7 @@ public sealed class BatchesViewModel : ViewModelBase
         _ = LoadPayersAsync();
     }
 
-    private bool CanRetryFailedClaims() => !IsRetrying;
+    private bool CanRetryFailedClaims(BatchRow batch) => !IsRetrying;
 
     private async Task CheckFailedClaimsAsync()
     {
@@ -157,9 +157,9 @@ public sealed class BatchesViewModel : ViewModelBase
         }
     }
 
-    private void OnRetryFailedClaims()
+    private void OnRetryFailedClaims(BatchRow targetBatch)
     {
-        if (SelectedBatch == null) return;
+        if (targetBatch == null) return;
 
         IsRetrying = true;
 
@@ -169,7 +169,7 @@ public sealed class BatchesViewModel : ViewModelBase
             try
             {
                 await using var uow = await _unitOfWorkFactory.CreateAsync(default);
-                var batch = await uow.Batches.GetByBcrIdAsync(SelectedBatch.BcrId.ToString(), default);
+                var batch = await uow.Batches.GetByBcrIdAsync(targetBatch.BcrId.ToString(), default);
 
                 if (batch != null)
                 {
@@ -395,6 +395,22 @@ public sealed class BatchesViewModel : ViewModelBase
             {
                 foreach (var item in result.Data)
                 {
+                    bool hasFailed = false;
+                    try
+                    {
+                        await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+                        var batch = await uow.Batches.GetByBcrIdAsync(item.BcrId.ToString(), default);
+                        if (batch != null)
+                        {
+                            var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, default);
+                            hasFailed = counts.Failed > 0;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error checking local batch status: {ex.Message}");
+                    }
+
                     Batches.Add(new BatchRow
                     {
                         BcrId = item.BcrId,
@@ -406,7 +422,8 @@ public sealed class BatchesViewModel : ViewModelBase
                         PayerNameAr = item.PayerNameAr,
                         CompanyCode = item.CompanyCode ?? "",
                         MidTableTotalClaim = item.MidTableTotalClaim,
-                        BatchStatus = item.BatchStatus ?? ""
+                        BatchStatus = item.BatchStatus ?? "",
+                        HasFailedClaims = hasFailed
                     });
                 }
             }
@@ -452,6 +469,7 @@ public sealed class BatchesViewModel : ViewModelBase
         // Legacy properties for existing UI bindings
         public string Status => BatchStatus;
         public bool HasResume { get; set; }
+        public bool HasFailedClaims { get; set; }
     }
 
     public sealed class DispatchRow
