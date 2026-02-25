@@ -139,6 +139,33 @@ public sealed class FetchStageService : IFetchStageService
 
         var discoveredValues = new HashSet<(string DomainName, DomainTableId DomainTableId, string Value)>();
 
+        // Rescanning logic for resuming batches
+        if (processedCount > 0)
+        {
+            _logger.LogInformation("Rescanning staged claims for domain discovery...");
+            progress.Report(new WorkerProgressReport("StreamA", "Rescanning staged claims...", BatchId: batch.BatchId));
+
+            await using var uow = await _uowFactory.CreateAsync(ct);
+            await foreach (var payloadBytes in uow.ClaimPayloads.GetPayloadsByBatchAsync(batch.BatchId, ct))
+            {
+                if (payloadBytes.Length == 0) continue;
+
+                try
+                {
+                    var json = Encoding.UTF8.GetString(payloadBytes);
+                    var bundle = JsonSerializer.Deserialize<ClaimBundle>(json, ClaimBundle.JsonDefaults.Canonical);
+                    if (bundle != null)
+                    {
+                        DiscoverDomainValues(bundle, domainLookup, discoveredValues);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deserialize staged payload during rescan.");
+                }
+            }
+        }
+
         while (true)
         {
             var keys = await _tablesAdapter.ListClaimKeysAsync(

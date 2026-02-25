@@ -1,5 +1,6 @@
 using DHSIntegrationAgent.Contracts.Persistence;
 ﻿using System.Data.Common;
+using System.Runtime.CompilerServices;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
 using DHSIntegrationAgent.Application.Security;
 
@@ -70,5 +71,25 @@ internal sealed class ClaimPayloadRepository : SqliteRepositoryBase, IClaimPaylo
             PayloadVersion: r.GetInt32(2),
             CreatedUtc: SqliteUtc.FromIso(r.GetString(3)),
             UpdatedUtc: SqliteUtc.FromIso(r.GetString(4)));
+    }
+
+    public async IAsyncEnumerable<byte[]> GetPayloadsByBatchAsync(long batchId, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT cp.PayloadJson
+            FROM ClaimPayload cp
+            JOIN Claim c ON cp.ProviderDhsCode = c.ProviderDhsCode AND cp.ProIdClaim = c.ProIdClaim
+            WHERE c.BatchId = $bid;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken))
+        {
+            var encrypted = (byte[])r["PayloadJson"];
+            var plaintext = await _encryptor.DecryptAsync(encrypted, cancellationToken);
+            yield return plaintext;
+        }
     }
 }
