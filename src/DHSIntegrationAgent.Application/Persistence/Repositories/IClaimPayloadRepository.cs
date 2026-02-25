@@ -9,4 +9,6 @@ public interface IClaimPayloadRepository
         CancellationToken cancellationToken);
 
     Task<ClaimPayloadRow?> GetAsync(ClaimKey key, CancellationToken cancellationToken);
+
+    IAsyncEnumerable<byte[]> GetPayloadsByBatchAsync(long batchId, CancellationToken cancellationToken);
 }

@@ -98,9 +98,23 @@ public sealed class FetchStageService : IFetchStageService
         var batchEndDate = batch.EndDateUtc ?? batchStartDate.AddMonths(1).AddTicks(-1);
         var totalClaims = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, ct);
 
-        progress.Report(new WorkerProgressReport("StreamA", $"Fetching 0 of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: 0, TotalCount: totalClaims, BcrId: bcrId));
-
+        int processedCount = 0;
         int? lastSeen = null;
+
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, ct);
+            processedCount = counts.Total;
+            lastSeen = await uow.Claims.GetMaxProIdClaimAsync(batch.BatchId, ct);
+        }
+
+        if (processedCount > 0)
+        {
+            _logger.LogInformation("Resuming fetch for batch {BatchId} from claim {LastSeen}, processed {ProcessedCount}/{TotalClaims}", batch.BatchId, lastSeen, processedCount, totalClaims);
+        }
+
+        progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims, BcrId: bcrId));
+
         const int PageSize = 300;
 
         // SQLite "database is locked" mitigation:
@@ -109,7 +123,6 @@ public sealed class FetchStageService : IFetchStageService
         const int MaxClaimsPerTx = 25;
 
         var builder = new ClaimBundleBuilder();
-        int processedCount = 0;
         var domains = BaselineDomainScanner.GetBaselineDomains();
 
         // Optimization: Pre-group domains by section and lowercase field name for O(N) discovery.
@@ -125,6 +138,33 @@ public sealed class FetchStageService : IFetchStageService
             );
 
         var discoveredValues = new HashSet<(string DomainName, DomainTableId DomainTableId, string Value)>();
+
+        // Rescanning logic for resuming batches
+        if (processedCount > 0)
+        {
+            _logger.LogInformation("Rescanning staged claims for domain discovery...");
+            progress.Report(new WorkerProgressReport("StreamA", "Rescanning staged claims...", BatchId: batch.BatchId));
+
+            await using var uow = await _uowFactory.CreateAsync(ct);
+            await foreach (var payloadBytes in uow.ClaimPayloads.GetPayloadsByBatchAsync(batch.BatchId, ct))
+            {
+                if (payloadBytes.Length == 0) continue;
+
+                try
+                {
+                    var json = Encoding.UTF8.GetString(payloadBytes);
+                    var bundle = JsonSerializer.Deserialize<ClaimBundle>(json, ClaimBundle.JsonDefaults.Canonical);
+                    if (bundle != null)
+                    {
+                        DiscoverDomainValues(bundle, domainLookup, discoveredValues);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to deserialize staged payload during rescan.");
+                }
+            }
+        }
 
         while (true)
         {

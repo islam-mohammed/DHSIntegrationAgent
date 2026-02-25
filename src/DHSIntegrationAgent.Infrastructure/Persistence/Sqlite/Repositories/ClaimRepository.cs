@@ -334,4 +334,19 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         }
         return result;
     }
+
+    public async Task<int?> GetMaxProIdClaimAsync(long batchId, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT MAX(ProIdClaim)
+            FROM Claim
+            WHERE BatchId = $bid;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        if (result is null || result == DBNull.Value) return null;
+        return Convert.ToInt32(result);
+    }
 }
