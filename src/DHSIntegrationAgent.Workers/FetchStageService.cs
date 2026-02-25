@@ -94,7 +94,7 @@ public sealed class FetchStageService : IFetchStageService
         progress.Report(new WorkerProgressReport("StreamA", $"Fetching 0 of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: 0, TotalCount: totalClaims, BcrId: bcrId));
 
         int? lastSeen = null;
-        const int PageSize = 100;
+        const int PageSize = 300;
 
         // SQLite "database is locked" mitigation:
         // - Never hold a SQLite transaction open across awaited I/O (provider DB reads, CPU build, etc.)

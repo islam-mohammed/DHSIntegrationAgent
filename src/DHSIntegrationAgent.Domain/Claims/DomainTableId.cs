@@ -16,7 +16,7 @@ public enum DomainTableId
     Religion = 24,
     AdmissionType = 30,
     TriageCategory = 59,
-    Department = 62,
+    Department = 6,
     DischargeDisposition = 41,
     EncounterClass = 45,
     EmergencyArrivalCode = 73,
