@@ -59,21 +59,22 @@ public sealed class DomainMappingsViewModel : ViewModelBase
             DomainMappings.Clear();
 
             // Get ProviderDhsCode from ProviderProfile
-            await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);
-
-            // Get the first active provider profile (adjust logic as needed)
-            var appSettings = await uow.AppSettings.GetAsync(CancellationToken.None);
-            if (string.IsNullOrWhiteSpace(appSettings.ProviderDhsCode))
+            string providerDhsCode;
+            await using (var uow = await _uowFactory.CreateAsync(CancellationToken.None))
             {
-                MessageBox.Show(
-                    "ProviderDhsCode is not configured in AppSettings.\n\nPlease configure it in the Settings page first.",
-                    "Configuration Error",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                return;
+                // Get the first active provider profile (adjust logic as needed)
+                var appSettings = await uow.AppSettings.GetAsync(CancellationToken.None);
+                if (string.IsNullOrWhiteSpace(appSettings.ProviderDhsCode))
+                {
+                    MessageBox.Show(
+                        "ProviderDhsCode is not configured in AppSettings.\n\nPlease configure it in the Settings page first.",
+                        "Configuration Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    return;
+                }
+                providerDhsCode = appSettings.ProviderDhsCode;
             }
-
-            var providerDhsCode = appSettings.ProviderDhsCode;
 
             // Call API
             var result = await _domainMappingClient.GetMissingDomainMappingsAsync(providerDhsCode, CancellationToken.None);

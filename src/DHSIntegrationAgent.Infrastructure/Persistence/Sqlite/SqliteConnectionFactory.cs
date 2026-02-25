@@ -31,7 +31,6 @@ internal sealed class SqliteConnectionFactory : ISqliteConnectionFactory
         {
             DataSource = DatabasePath,
             Mode = SqliteOpenMode.ReadWriteCreate,
-            Cache = SqliteCacheMode.Shared,
             Pooling = true,
             DefaultTimeout = 30
         };
