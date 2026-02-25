@@ -9,6 +9,8 @@ public interface IAppSettingsRepository
     Task UpdateSetupAsync(
         string groupId,
         string providerDhsCode,
+        string? networkUsername,
+        byte[]? networkPasswordEncrypted,
         DateTimeOffset utcNow,
         CancellationToken cancellationToken);
 

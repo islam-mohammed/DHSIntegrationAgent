@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-             xmlns:controls="clr-namespace:DHSIntegrationAgent.App.UI.Controls">
+             xmlns:controls="clr-namespace:DHSIntegrationAgent.App.UI.Controls"
+             xmlns:mvvm="clr-namespace:DHSIntegrationAgent.App.UI.Mvvm">
     <Grid>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel Margin="18">
@@ -72,6 +73,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
@@ -122,8 +124,34 @@ materialDesign:HintAssist.Hint="Enter Provider Code"  Text="{Binding ProviderDhs
                             </StackPanel>
                         </Border>
 
-                        <!-- ===== Provider Configuration (Read Only) ===== -->
+                        <!-- ===== Network Access ===== -->
                         <Border Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                            Style="{StaticResource DashboardCardStyle}"
+                            Margin="10,0,10,12">
+
+                            <StackPanel>
+                                <TextBlock Text="Network Access (Optional)"
+                               FontWeight="SemiBold"
+                               FontSize="16"
+                               Margin="0,0,0,16"/>
+                                <StackPanel Margin="8">
+                                    <TextBlock Text="Network Username" Style="{StaticResource FormLabel}"/>
+                                    <TextBox Margin="0,0,0,16"
+                                             materialDesign:HintAssist.Hint="DOMAIN\User"
+                                             Text="{Binding NetworkUsername}"/>
+
+                                    <TextBlock Text="Network Password" Style="{StaticResource FormLabel}"/>
+                                    <PasswordBox
+                                         mvvm:PasswordBoxAssistant.BindPassword="True"
+                                         mvvm:PasswordBoxAssistant.BoundPassword="{Binding NetworkPassword, Mode=TwoWay}"
+                                         />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ===== Provider Configuration (Read Only) ===== -->
+                        <Border Grid.Row="2"
                     Grid.ColumnSpan="2"
                             Style="{StaticResource DashboardCardStyle}">
 
