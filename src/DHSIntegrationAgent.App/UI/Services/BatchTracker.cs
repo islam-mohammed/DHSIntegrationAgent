@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.Windows;
 using DHSIntegrationAgent.Application.Abstractions;
@@ -21,6 +22,10 @@ public sealed class BatchTracker : IBatchTracker
     private readonly IDispatchService _dispatchService;
     private readonly IBatchRegistry _batchRegistry;
     private readonly ISqliteUnitOfWorkFactory _unitOfWorkFactory;
+
+    // Throttling for persistence to avoid "database is locked" during high-frequency updates
+    private readonly ConcurrentDictionary<long, DateTimeOffset> _lastPersistTime = new();
+    private static readonly TimeSpan PersistInterval = TimeSpan.FromSeconds(2);
 
     public ObservableCollection<BatchProgressViewModel> ActiveBatches { get; } = new();
     object IBatchTracker.ActiveBatches => ActiveBatches;
@@ -79,28 +84,49 @@ public sealed class BatchTracker : IBatchTracker
                 });
 
                 // Persistence Update (Fire and forget to not block UI or Worker)
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await using var uow = await _unitOfWorkFactory.CreateAsync(default);
-                        await uow.Batches.UpdateProgressAsync(
-                            batchId,
-                            processed,
-                            total,
-                            percentage,
-                            message,
-                            DateTimeOffset.UtcNow,
-                            default
-                        );
+                // Throttle updates to avoid SQLite write storms
+                bool shouldPersist = false;
+                var now = DateTimeOffset.UtcNow;
 
-                        await uow.CommitAsync(default);
-                    }
-                    catch (Exception ex)
+                if (report.IsError || (report.Percentage >= 100) || (report.Message != null && report.Message.StartsWith("Error")))
+                {
+                    shouldPersist = true;
+                }
+                else
+                {
+                    var lastTime = _lastPersistTime.GetOrAdd(batchId, DateTimeOffset.MinValue);
+                    if ((now - lastTime) > PersistInterval)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Failed to persist batch progress: {ex.Message}");
+                        shouldPersist = true;
                     }
-                });
+                }
+
+                if (shouldPersist)
+                {
+                    _lastPersistTime[batchId] = now;
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+                            await uow.Batches.UpdateProgressAsync(
+                                batchId,
+                                processed,
+                                total,
+                                percentage,
+                                message,
+                                DateTimeOffset.UtcNow,
+                                default
+                            );
+
+                            await uow.CommitAsync(default);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Failed to persist batch progress: {ex.Message}");
+                        }
+                    });
+                }
             }
         }
     }

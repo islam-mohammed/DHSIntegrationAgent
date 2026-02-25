@@ -253,14 +253,22 @@ public sealed class BatchesViewModel : ViewModelBase
     {
         try
         {
-            // Get ProviderDhsCode from AppSettings
+            // 1. Fetch data from DB (Single UOW, short-lived transaction)
             string? providerDhsCode;
+            IReadOnlyList<DHSIntegrationAgent.Contracts.Persistence.PayerItem> payersFromDb = Array.Empty<DHSIntegrationAgent.Contracts.Persistence.PayerItem>();
+
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
             {
                 var settings = await uow.AppSettings.GetAsync(default);
                 providerDhsCode = settings?.ProviderDhsCode;
-            }
 
+                if (!string.IsNullOrWhiteSpace(providerDhsCode))
+                {
+                    payersFromDb = await uow.Payers.GetAllPayersAsync(providerDhsCode, default);
+                }
+            } // UOW Disposed immediately, releasing SHARED lock before UI updates
+
+            // 2. Validate configuration
             if (string.IsNullOrWhiteSpace(providerDhsCode))
             {
                 // No provider configured, keep only "All" option
@@ -273,41 +281,34 @@ public sealed class BatchesViewModel : ViewModelBase
                 return;
             }
 
-            // Load payers from SQLite
-            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+            // 3. Update UI (outside transaction)
+            // Keep the "All" option at index 0, add payers from database
+            while (Payers.Count > 1)
             {
-                var payersFromDb = await uow.Payers.GetAllPayersAsync(providerDhsCode, default);
+                Payers.RemoveAt(1);
+            }
 
-                // Keep the "All" option at index 0, add payers from database
-                // Remove any previously loaded payers (but keep "All")
-                while (Payers.Count > 1)
+            foreach (var payer in payersFromDb)
+            {
+                Payers.Add(new PayerItem
                 {
-                    Payers.RemoveAt(1);
-                }
+                    PayerId = (short)payer.PayerId,
+                    PayerName = payer.PayerName ?? $"Payer {payer.PayerId}"
+                });
+            }
 
-                // Add payers from database
-                foreach (var payer in payersFromDb)
-                {
-                    Payers.Add(new PayerItem 
-                    { 
-                        PayerId = (short)payer.PayerId, 
-                        PayerName = payer.PayerName ?? $"Payer {payer.PayerId}" 
-                    });
-                }
-
-                // Debug info
-                if (payersFromDb.Count == 0)
-                {
-                    MessageBox.Show(
-                        $"No active payers found for ProviderDhsCode: '{providerDhsCode}'.\n\n" +
-                        $"Please verify:\n" +
-                        $"1. PayerProfile table has records with ProviderDhsCode = '{providerDhsCode}'\n" +
-                        $"2. IsActive = 1 for those records\n\n" +
-                        $"Current database records show ProviderDhsCode: 'D111' and 'D112'.",
-                        "No Payers Found",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                }
+            // Debug info
+            if (payersFromDb.Count == 0)
+            {
+                MessageBox.Show(
+                    $"No active payers found for ProviderDhsCode: '{providerDhsCode}'.\n\n" +
+                    $"Please verify:\n" +
+                    $"1. PayerProfile table has records with ProviderDhsCode = '{providerDhsCode}'\n" +
+                    $"2. IsActive = 1 for those records\n\n" +
+                    $"Current database records show ProviderDhsCode: 'D111' and 'D112'.",
+                    "No Payers Found",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
         }
         catch (Exception ex)
