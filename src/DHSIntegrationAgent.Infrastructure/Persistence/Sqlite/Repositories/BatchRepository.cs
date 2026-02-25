@@ -36,7 +36,8 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
     {
         await using var cmd = CreateCommand(
             """
-            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError
+            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
             FROM Batch
             WHERE BatchId = $id;
             """);
@@ -55,7 +56,8 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
     {
         await using var cmd = CreateCommand(
             """
-            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError
+            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
             FROM Batch
             WHERE BcrId = $bcr;
             """);
@@ -85,7 +87,11 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             HasResume: reader.GetInt32(9) != 0,
             CreatedUtc: SqliteUtc.FromIso(reader.GetString(10)),
             UpdatedUtc: SqliteUtc.FromIso(reader.GetString(11)),
-            LastError: reader.IsDBNull(12) ? null : reader.GetString(12)
+            LastError: reader.IsDBNull(12) ? null : reader.GetString(12),
+            ProcessedClaims: reader.GetInt32(13),
+            TotalClaims: reader.GetInt32(14),
+            CurrentStageMessage: reader.IsDBNull(15) ? null : reader.GetString(15),
+            Percentage: reader.GetInt32(16)
         );
     }
 
@@ -94,8 +100,8 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         await using (var insert = CreateCommand(
             """
             INSERT OR IGNORE INTO Batch
-            (ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc, BatchStatus, HasResume, CreatedUtc, UpdatedUtc)
-            VALUES ($p, $c, $m, $s, $e, $status, 0, $now, $now);
+            (ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, ProcessedClaims, TotalClaims, Percentage)
+            VALUES ($p, $c, $m, $s, $e, $status, 0, $now, $now, 0, 0, 0);
             """))
         {
             SqliteSqlBuilder.AddParam(insert, "$p", key.ProviderDhsCode);
@@ -161,7 +167,8 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
     {
         await using var cmd = CreateCommand(
             """
-            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError
+            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
             FROM Batch
             WHERE BatchStatus = $status;
             """);
@@ -172,23 +179,39 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
 
         while (await reader.ReadAsync(cancellationToken))
         {
-            results.Add(new BatchRow(
-                BatchId: reader.GetInt64(0),
-                ProviderDhsCode: reader.GetString(1),
-                CompanyCode: reader.GetString(2),
-                PayerCode: reader.IsDBNull(3) ? null : reader.GetString(3),
-                MonthKey: reader.GetString(4),
-                StartDateUtc: reader.IsDBNull(5) ? null : SqliteUtc.FromIso(reader.GetString(5)),
-                EndDateUtc: reader.IsDBNull(6) ? null : SqliteUtc.FromIso(reader.GetString(6)),
-                BcrId: reader.IsDBNull(7) ? null : reader.GetString(7),
-                BatchStatus: (BatchStatus)reader.GetInt32(8),
-                HasResume: reader.GetInt32(9) != 0,
-                CreatedUtc: SqliteUtc.FromIso(reader.GetString(10)),
-                UpdatedUtc: SqliteUtc.FromIso(reader.GetString(11)),
-                LastError: reader.IsDBNull(12) ? null : reader.GetString(12)
-            ));
+            results.Add(ReadBatch(reader));
         }
 
         return results;
+    }
+
+    public async Task UpdateProgressAsync(
+        long batchId,
+        int processed,
+        int total,
+        int percentage,
+        string? message,
+        DateTimeOffset utcNow,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            UPDATE Batch
+            SET ProcessedClaims = $processed,
+                TotalClaims = $total,
+                Percentage = $pct,
+                CurrentStageMessage = $msg,
+                UpdatedUtc = $now
+            WHERE BatchId = $id;
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$processed", processed);
+        SqliteSqlBuilder.AddParam(cmd, "$total", total);
+        SqliteSqlBuilder.AddParam(cmd, "$pct", percentage);
+        SqliteSqlBuilder.AddParam(cmd, "$msg", message);
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+        SqliteSqlBuilder.AddParam(cmd, "$id", batchId);
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 }

@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Contracts.Persistence;
 using DHSIntegrationAgent.Contracts.Providers;
 using DHSIntegrationAgent.Contracts.Workers;
+using DHSIntegrationAgent.Domain.WorkStates;
 using DHSIntegrationAgent.App.UI.ViewModels;
 
 namespace DHSIntegrationAgent.App.UI.Services;
@@ -18,6 +20,7 @@ public sealed class BatchTracker : IBatchTracker
     private readonly IWorkerEngine _workerEngine;
     private readonly IDispatchService _dispatchService;
     private readonly IBatchRegistry _batchRegistry;
+    private readonly ISqliteUnitOfWorkFactory _unitOfWorkFactory;
 
     public ObservableCollection<BatchProgressViewModel> ActiveBatches { get; } = new();
     object IBatchTracker.ActiveBatches => ActiveBatches;
@@ -27,13 +30,15 @@ public sealed class BatchTracker : IBatchTracker
         IAttachmentDispatchService attachmentDispatchService,
         IWorkerEngine workerEngine,
         IDispatchService dispatchService,
-        IBatchRegistry batchRegistry)
+        IBatchRegistry batchRegistry,
+        ISqliteUnitOfWorkFactory unitOfWorkFactory)
     {
         _fetchStageService = fetchStageService ?? throw new ArgumentNullException(nameof(fetchStageService));
         _attachmentDispatchService = attachmentDispatchService ?? throw new ArgumentNullException(nameof(attachmentDispatchService));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
         _dispatchService = dispatchService ?? throw new ArgumentNullException(nameof(dispatchService));
         _batchRegistry = batchRegistry ?? throw new ArgumentNullException(nameof(batchRegistry));
+        _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
 
         _workerEngine.ProgressChanged += OnWorkerProgressChanged;
     }
@@ -42,9 +47,16 @@ public sealed class BatchTracker : IBatchTracker
     {
         if (report.BatchId.HasValue)
         {
-            var progressViewModel = ActiveBatches.FirstOrDefault(x => x.InternalBatchId == report.BatchId.Value);
+            var batchId = report.BatchId.Value;
+            var progressViewModel = ActiveBatches.FirstOrDefault(x => x.InternalBatchId == batchId);
             if (progressViewModel != null)
             {
+                int processed = 0;
+                int total = 0;
+                int percentage = 0;
+                string message = "";
+
+                // UI Update
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
                     if (report.WorkerId == "StreamB") progressViewModel.IsSending = true;
@@ -58,8 +70,79 @@ public sealed class BatchTracker : IBatchTracker
                     {
                         progressViewModel.IsCompleted = true;
                     }
+
+                    // Capture state safely on UI thread
+                    processed = progressViewModel.ProcessedClaims;
+                    total = progressViewModel.TotalClaims;
+                    percentage = (int)(progressViewModel.PercentageOverride ?? 0);
+                    message = progressViewModel.StatusMessage ?? "";
+                });
+
+                // Persistence Update (Fire and forget to not block UI or Worker)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+                        await uow.Batches.UpdateProgressAsync(
+                            batchId,
+                            processed,
+                            total,
+                            percentage,
+                            message,
+                            DateTimeOffset.UtcNow,
+                            default
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to persist batch progress: {ex.Message}");
+                    }
                 });
             }
+        }
+    }
+
+    public async Task RestoreActiveBatchesAsync()
+    {
+        try
+        {
+            await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+
+            // Fetch batches in active states
+            var fetchingBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Fetching, default);
+            var sendingBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Sending, default);
+
+            // Combine active batches
+            var activeBatches = fetchingBatches.Concat(sendingBatches);
+
+            // Update UI on Dispatcher
+            System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+            {
+                foreach (var batch in activeBatches)
+                {
+                    // Skip if already tracked
+                    if (ActiveBatches.Any(x => x.InternalBatchId == batch.BatchId))
+                        continue;
+
+                    var progressViewModel = new BatchProgressViewModel
+                    {
+                        InternalBatchId = batch.BatchId,
+                        BatchNumber = batch.BcrId ?? $"Batch {batch.BatchId}",
+                        StatusMessage = batch.CurrentStageMessage ?? "Resumed...",
+                        TotalClaims = batch.TotalClaims,
+                        ProcessedClaims = batch.ProcessedClaims,
+                        PercentageOverride = batch.Percentage,
+                        IsSending = batch.BatchStatus == BatchStatus.Sending
+                    };
+
+                    ActiveBatches.Add(progressViewModel);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error restoring active batches: {ex.Message}");
         }
     }
 

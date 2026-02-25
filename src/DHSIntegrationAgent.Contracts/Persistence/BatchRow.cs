@@ -15,5 +15,9 @@ public sealed record BatchRow(
     bool HasResume,
     DateTimeOffset CreatedUtc,
     DateTimeOffset UpdatedUtc,
-    string? LastError
+    string? LastError,
+    int ProcessedClaims,
+    int TotalClaims,
+    string? CurrentStageMessage,
+    int Percentage
 );
