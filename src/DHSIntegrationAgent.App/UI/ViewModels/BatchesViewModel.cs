@@ -117,12 +117,25 @@ public sealed class BatchesViewModel : ViewModelBase
         var allPayer = new PayerItem { PayerId = null, PayerName = "All" };
         Payers.Add(allPayer);
         SelectedPayer = allPayer;
+    }
 
-        // Load additional payers from SQLite asynchronously
-        _ = LoadPayersAsync();
+    public async Task InitializeAsync()
+    {
+        if (IsLoading) return;
 
-        // Restore any active batches (progress bars) from persistence
-        _ = _batchTracker.RestoreActiveBatchesAsync();
+        IsLoading = true;
+        try
+        {
+            // Execute sequentially to avoid SQLite locking issues during startup
+            // when background workers might also be accessing the database.
+            await LoadPayersAsync();
+            await _batchTracker.RestoreActiveBatchesAsync();
+            await LoadBatchesAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private bool CanRetryFailedClaims(BatchRow batch) => !IsRetrying;
