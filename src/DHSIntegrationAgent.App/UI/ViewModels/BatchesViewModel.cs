@@ -396,12 +396,14 @@ public sealed class BatchesViewModel : ViewModelBase
             Batches.Clear();
             if (result.Data != null)
             {
+                // Optimization: Use a single UnitOfWork for the entire loop to prevent connection thrashing
+                await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+
                 foreach (var item in result.Data)
                 {
                     bool hasFailed = false;
                     try
                     {
-                        await using var uow = await _unitOfWorkFactory.CreateAsync(default);
                         var batch = await uow.Batches.GetByBcrIdAsync(item.BcrId.ToString(), default);
                         if (batch != null)
                         {
