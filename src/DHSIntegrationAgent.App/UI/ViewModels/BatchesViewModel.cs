@@ -396,24 +396,47 @@ public sealed class BatchesViewModel : ViewModelBase
             Batches.Clear();
             if (result.Data != null)
             {
-                // Optimization: Use a single UnitOfWork for the entire loop to prevent connection thrashing
-                await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+                var failedClaimsMap = new Dictionary<string, bool>();
+
+                try
+                {
+                    // Optimization: Bulk load local data in two queries instead of N+1 loop
+                    var bcrIds = result.Data.Select(x => x.BcrId.ToString()).Distinct().ToList();
+
+                    if (bcrIds.Count > 0)
+                    {
+                        await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+
+                        var localBatches = await uow.Batches.GetByBcrIdsAsync(bcrIds, default);
+                        if (localBatches.Count > 0)
+                        {
+                            var batchIds = localBatches.Select(b => b.BatchId).ToList();
+                            var countsMap = await uow.Claims.GetBatchCountsForBatchesAsync(batchIds, default);
+
+                            foreach (var lb in localBatches)
+                            {
+                                if (lb.BcrId != null && countsMap.TryGetValue(lb.BatchId, out var counts))
+                                {
+                                    if (counts.Failed > 0)
+                                    {
+                                        failedClaimsMap[lb.BcrId] = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error bulk loading batch status: {ex.Message}");
+                }
 
                 foreach (var item in result.Data)
                 {
                     bool hasFailed = false;
-                    try
+                    if (failedClaimsMap.TryGetValue(item.BcrId.ToString(), out var failed))
                     {
-                        var batch = await uow.Batches.GetByBcrIdAsync(item.BcrId.ToString(), default);
-                        if (batch != null)
-                        {
-                            var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, default);
-                            hasFailed = counts.Failed > 0;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Error checking local batch status: {ex.Message}");
+                        hasFailed = failed;
                     }
 
                     Batches.Add(new BatchRow
