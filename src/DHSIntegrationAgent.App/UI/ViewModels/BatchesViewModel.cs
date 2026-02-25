@@ -332,9 +332,6 @@ public sealed class BatchesViewModel : ViewModelBase
         IsLoading = true;
         try
         {
-            // Add 2000ms delay to show loading animation
-            await Task.Delay(2000);
-
             // Get ProviderDhsCode from AppSettings
             string? providerDhsCode;
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
