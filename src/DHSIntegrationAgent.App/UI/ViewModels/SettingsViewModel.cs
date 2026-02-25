@@ -165,6 +165,14 @@ public sealed class SettingsViewModel : ViewModelBase
                     }
                 }
 
+                // If netPassEnc is null, it means we are clearing the password/credentials in the DB.
+                // We must therefore clear the stale fallback so it doesn't get reused later if the user
+                // sets a username again but leaves the password empty.
+                if (netPassEnc == null)
+                {
+                    _fallbackNetworkPasswordEncrypted = null;
+                }
+
                 await uow.AppSettings.UpdateSetupAsync(
                     GroupId,
                     ProviderDhsCode,
