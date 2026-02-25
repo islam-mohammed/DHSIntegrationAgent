@@ -230,27 +230,33 @@ public sealed class BatchesViewModel : ViewModelBase
 
     private void OnUploadAttachments()
     {
-        // For multiple batches, we'd normally have a selection mechanism.
-        // For now, let's assume we use the SelectedBatch or a mock list if we want to demonstrate "multiple at the same time".
         if (SelectedBatch != null)
         {
-            // We need to map UI BatchRow to Persistence BatchRow (or just use minimal info)
-            // Actually, TrackAttachmentUpload takes BatchRow from Persistence.
-            // I'll need to fetch the full batch info.
-
             _ = Task.Run(async () =>
             {
                 await using var uow = await _unitOfWorkFactory.CreateAsync(default);
                 var batch = await uow.Batches.GetByBcrIdAsync(SelectedBatch.BcrId.ToString(), default);
                 if (batch != null)
                 {
-                    _batchTracker.TrackAttachmentUpload(new[] { batch });
+                    var count = await uow.Attachments.CountByBatchAsync(batch.BatchId, default);
+
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        var result = MessageBox.Show(
+                            $"This batch contains {count} attachments.\n\n" +
+                            "Do you want to start uploading them now?",
+                            "Confirm Upload",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question);
+
+                        if (result == MessageBoxResult.Yes)
+                        {
+                            _batchTracker.TrackAttachmentUpload(new[] { batch });
+                        }
+                    });
                 }
                 else
                 {
-                    // If not found in local DB, we might need to "ensure" it,
-                    // but usually it should be there if we're seeing it in the list
-                    // (unless it's only in the backend and not yet synced).
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         MessageBox.Show("Batch details not found in local database. Please process the batch first.", "Not Found", MessageBoxButton.OK, MessageBoxImage.Warning));
                 }
