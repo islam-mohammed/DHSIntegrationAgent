@@ -31,11 +31,16 @@ public sealed class MappingDomainViewModel : ViewModelBase
         try
         {
             IsLoading = true;
-            await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);
-            var settings = await uow.AppSettings.GetAsync(CancellationToken.None);
-            if (!string.IsNullOrWhiteSpace(settings.ProviderDhsCode))
+            string? providerDhsCode = null;
+            await using (var uow = await _uowFactory.CreateAsync(CancellationToken.None))
             {
-                await _configService.RefreshDomainMappingsAsync(settings.ProviderDhsCode, CancellationToken.None);
+                var settings = await uow.AppSettings.GetAsync(CancellationToken.None);
+                providerDhsCode = settings.ProviderDhsCode;
+            }
+
+            if (!string.IsNullOrWhiteSpace(providerDhsCode))
+            {
+                await _configService.RefreshDomainMappingsAsync(providerDhsCode, CancellationToken.None);
             }
         }
         catch { /* ignore refresh errors for now, load what we have */ }
