@@ -143,6 +143,7 @@ materialDesign:HintAssist.Hint="Enter Provider Code"  Text="{Binding ProviderDhs
 
                                     <TextBlock Text="Network Password" Style="{StaticResource FormLabel}"/>
                                     <PasswordBox
+                                         Tag="Password"
                                          mvvm:PasswordBoxAssistant.BindPassword="True"
                                          mvvm:PasswordBoxAssistant.BoundPassword="{Binding NetworkPassword, Mode=TwoWay}"
                                          />

@@ -4,7 +4,8 @@
              xmlns:vm="clr-namespace:DHSIntegrationAgent.App.UI.ViewModels" 
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:views="clr-namespace:DHSIntegrationAgent.App.UI.Views"
-             xmlns:converters="clr-namespace:DHSIntegrationAgent.App.UI.Converters">
+             xmlns:converters="clr-namespace:DHSIntegrationAgent.App.UI.Converters"
+             xmlns:mvvm="clr-namespace:DHSIntegrationAgent.App.UI.Mvvm">
 
     <Application.Resources>
         <ResourceDictionary>
@@ -134,6 +135,57 @@
 
                             <ControlTemplate.Triggers>
                                 <Trigger Property="Text" Value="">
+                                    <Setter TargetName="Watermark" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource BrushPrimary}"/>
+                                </Trigger>
+
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.65"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- PasswordBox style -->
+            <Style TargetType="{x:Type PasswordBox}">
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="Padding" Value="12,10"/>
+                <Setter Property="MinHeight" Value="42"/>
+                <Setter Property="BorderBrush" Value="{StaticResource BrushBorder}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                <Setter Property="mvvm:PasswordBoxAssistant.BindPassword" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type PasswordBox}">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{StaticResource Radius10}">
+                                <Grid>
+                                    <TextBlock x:Name="Watermark"
+                                               Text="{TemplateBinding Tag}"
+                                               Foreground="{StaticResource BrushMuted}"
+                                               Margin="12,0,12,0"
+                                               VerticalAlignment="Center"
+                                               IsHitTestVisible="False"
+                                               Visibility="Collapsed"/>
+                                    <ScrollViewer x:Name="PART_ContentHost"/>
+                                </Grid>
+                            </Border>
+
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="mvvm:PasswordBoxAssistant.BoundPassword" Value="">
+                                    <Setter TargetName="Watermark" Property="Visibility" Value="Visible"/>
+                                </Trigger>
+                                <Trigger Property="mvvm:PasswordBoxAssistant.BoundPassword" Value="{x:Null}">
                                     <Setter TargetName="Watermark" Property="Visibility" Value="Visible"/>
                                 </Trigger>
 
