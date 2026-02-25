@@ -104,7 +104,7 @@ public sealed class DispatchService : IDispatchService
         }
 
         // Report initial progress
-        double initialPercentage = totalClaimsInBatch > 0 ? 55 + (((double)enqueuedCount / totalClaimsInBatch) * 45) : 100;
+        double initialPercentage = totalClaimsInBatch > 0 ? 70 + (((double)enqueuedCount / totalClaimsInBatch) * 30) : 100;
         progress.Report(new WorkerProgressReport(
             "StreamB",
             $"Sending claims {enqueuedCount} of {totalClaimsInBatch} claims",
@@ -263,7 +263,7 @@ public sealed class DispatchService : IDispatchService
             int currentChunkStart = enqueuedCount + 1;
             int currentChunkEnd = enqueuedCount + leased.Count;
             double currentPercentage = totalClaimsInBatch > 0
-                ? 55 + (((double)enqueuedCount / totalClaimsInBatch) * 45)
+                ? 70 + (((double)enqueuedCount / totalClaimsInBatch) * 30)
                 : 100;
 
             progress.Report(new WorkerProgressReport(
@@ -325,7 +325,7 @@ public sealed class DispatchService : IDispatchService
 
                 // After send, update with final enqueued count for this batch
                 double sendPercentage = totalClaimsInBatch > 0
-                    ? 55 + (((double)enqueuedCount / totalClaimsInBatch) * 45)
+                    ? 70 + (((double)enqueuedCount / totalClaimsInBatch) * 30)
                     : 100;
 
                 progress.Report(new WorkerProgressReport(
