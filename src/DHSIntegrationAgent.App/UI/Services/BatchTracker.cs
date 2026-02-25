@@ -93,6 +93,8 @@ public sealed class BatchTracker : IBatchTracker
                             DateTimeOffset.UtcNow,
                             default
                         );
+
+                        await uow.CommitAsync(default);
                     }
                     catch (Exception ex)
                     {
