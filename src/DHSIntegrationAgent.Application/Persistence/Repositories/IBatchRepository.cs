@@ -40,4 +40,6 @@ public interface IBatchRepository
         string? message,
         DateTimeOffset utcNow,
         CancellationToken cancellationToken);
+
+    Task DeleteAsync(long batchId, CancellationToken cancellationToken);
 }

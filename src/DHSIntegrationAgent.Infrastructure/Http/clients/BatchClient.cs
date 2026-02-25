@@ -110,6 +110,59 @@ public sealed class BatchClient : IBatchClient
             $"CreateBatch failed: unexpected response body (HTTP {(int)response.StatusCode} {response.StatusCode}).");
     }
 
+    public async Task<DeleteBatchResult> DeleteBatchAsync(int batchId, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("BackendApi");
+        const string path = "api/Batch/DeleteBatch";
+
+        var requestBody = new { batchId };
+        var json = JsonSerializer.Serialize(requestBody, RequestJsonOptions);
+        using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = content };
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+
+            var body = await response.Content.ReadAsStringAsync(ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return new DeleteBatchResult(
+                    Succeeded: false,
+                    StatusCode: (int)response.StatusCode,
+                    Message: $"DeleteBatch failed with status {(int)response.StatusCode}",
+                    Errors: new[] { $"HTTP {(int)response.StatusCode}" },
+                    Data: false
+                );
+            }
+
+            var parsed = TryParseDeleteResponse(body);
+            if (parsed is not null)
+            {
+                return parsed;
+            }
+
+            return new DeleteBatchResult(
+                Succeeded: false,
+                StatusCode: (int)response.StatusCode,
+                Message: "Failed to parse response",
+                Errors: new[] { "Invalid JSON" },
+                Data: false
+            );
+        }
+        catch (Exception ex)
+        {
+            return new DeleteBatchResult(
+                Succeeded: false,
+                StatusCode: 0,
+                Message: $"Exception: {ex.Message}",
+                Errors: new[] { ex.Message },
+                Data: false
+            );
+        }
+    }
+
     public async Task<GetBatchRequestResult> GetBatchRequestAsync(
         string providerDhsCode,
         int? month = null,
@@ -232,6 +285,21 @@ public sealed class BatchClient : IBatchClient
         try
         {
             return JsonSerializer.Deserialize<GetBatchResponse>(body, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static DeleteBatchResult? TryParseDeleteResponse(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<DeleteBatchResult>(body, JsonOptions);
         }
         catch (JsonException)
         {

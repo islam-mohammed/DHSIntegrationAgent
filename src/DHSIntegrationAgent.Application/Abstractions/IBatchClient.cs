@@ -32,6 +32,11 @@ public interface IBatchClient
         int pageNumber = 1,
         int pageSize = 10,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Calls POST /api/Batch/DeleteBatch with body: { "batchId": batchId }
+    /// </summary>
+    Task<DeleteBatchResult> DeleteBatchAsync(int batchId, CancellationToken ct);
 }
 
 /// <summary>
@@ -89,4 +94,15 @@ public sealed record BatchRequestItem(
     string? CompanyCode,
     int MidTableTotalClaim,
     string? BatchStatus
+);
+
+/// <summary>
+/// Response for DeleteBatch API.
+/// </summary>
+public sealed record DeleteBatchResult(
+    bool Succeeded,
+    int StatusCode,
+    string? Message,
+    IReadOnlyList<string>? Errors,
+    bool Data
 );

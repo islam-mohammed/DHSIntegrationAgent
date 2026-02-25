@@ -240,4 +240,45 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
+
+    public async Task DeleteAsync(long batchId, CancellationToken cancellationToken)
+    {
+        // 1. Delete ClaimPayloads
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM ClaimPayload
+            WHERE EXISTS (
+                SELECT 1 FROM Claim c
+                WHERE c.ProviderDhsCode = ClaimPayload.ProviderDhsCode
+                  AND c.ProIdClaim = ClaimPayload.ProIdClaim
+                  AND c.BatchId = $bid
+            );
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // 2. Delete Claims
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM Claim
+            WHERE BatchId = $bid;
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // 3. Delete Batch
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM Batch
+            WHERE BatchId = $bid;
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
 }

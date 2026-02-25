@@ -26,6 +26,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
     private readonly IWorkerEngine _workerEngine;
     private readonly IFetchStageService _fetchStageService;
     private readonly IBatchTracker _batchTracker;
+    private readonly IBatchClient _batchClient;
 
     public event Action? RequestClose;
 
@@ -69,7 +70,8 @@ public sealed class CreateBatchViewModel : ViewModelBase
         ISystemClock clock,
         IWorkerEngine workerEngine,
         IFetchStageService fetchStageService,
-        IBatchTracker batchTracker)
+        IBatchTracker batchTracker,
+        IBatchClient batchClient)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _tablesAdapter = tablesAdapter ?? throw new ArgumentNullException(nameof(tablesAdapter));
@@ -78,6 +80,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
         _fetchStageService = fetchStageService ?? throw new ArgumentNullException(nameof(fetchStageService));
         _batchTracker = batchTracker ?? throw new ArgumentNullException(nameof(batchTracker));
+        _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
 
         CreateBatchCommand = new AsyncRelayCommand(ExecuteCreateBatchAsync);
 
@@ -121,6 +124,58 @@ public sealed class CreateBatchViewModel : ViewModelBase
 
             var startDateOffset = new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
             var endDateOffset = startDateOffset.AddMonths(1).AddTicks(-1);
+
+            // Check for existing batch
+            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+            {
+                var monthKey = $"{year}{month:D2}";
+                var key = new BatchKey(providerDhsCode, SelectedPayer.CompanyCode, monthKey, startDateOffset, endDateOffset);
+                var existingId = await uow.Batches.TryGetBatchIdAsync(key, default);
+
+                if (existingId.HasValue)
+                {
+                    var existingBatch = await uow.Batches.GetByIdAsync(existingId.Value, default);
+                    if (existingBatch != null)
+                    {
+                        var status = existingBatch.BatchStatus;
+                        if (status == BatchStatus.Completed || status == BatchStatus.Failed)
+                        {
+                            var replace = MessageBox.Show(
+                                "A completed or failed batch already exists for this Payer and Period. Do you want to delete and replace it?",
+                                "Batch Exists",
+                                MessageBoxButton.YesNo,
+                                MessageBoxImage.Question);
+
+                            if (replace == MessageBoxResult.Yes)
+                            {
+                                // Delete from API
+                                if (!string.IsNullOrEmpty(existingBatch.BcrId) && int.TryParse(existingBatch.BcrId, out int bcrIdInt))
+                                {
+                                    var delResult = await _batchClient.DeleteBatchAsync(bcrIdInt, default);
+                                    if (!delResult.Succeeded)
+                                    {
+                                        MessageBox.Show($"Failed to delete batch from server: {delResult.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                                        return;
+                                    }
+                                }
+
+                                // Delete locally
+                                await uow.Batches.DeleteAsync(existingId.Value, default);
+                                await uow.CommitAsync(default);
+                            }
+                            else
+                            {
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            MessageBox.Show("An in-progress batch already exists for this Payer and Period.", "Cannot Create Batch", MessageBoxButton.OK, MessageBoxImage.Error);
+                            return;
+                        }
+                    }
+                }
+            }
 
             // 3. Check Integration Type and Validate Financials
             var integrationType = "Tables"; // Default
