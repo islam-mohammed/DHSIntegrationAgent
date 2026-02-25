@@ -30,7 +30,7 @@ namespace DHSIntegrationAgent.App.UI.Views
         {
             if (DataContext is BatchesViewModel viewModel)
             {
-                await viewModel.LoadBatchesAsync();
+                await viewModel.InitializeAsync();
             }
         }
 
