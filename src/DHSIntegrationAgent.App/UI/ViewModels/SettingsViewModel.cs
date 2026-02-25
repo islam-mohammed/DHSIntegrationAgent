@@ -18,6 +18,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private string _providerDhsCode = "";
     private string _networkUsername = "";
     private string _networkPassword = "";
+    private byte[]? _fallbackNetworkPasswordEncrypted;
 
     private int _fetchIntervalMinutes = 5;
     private int _configCacheTtlMinutes = 1440;
@@ -33,7 +34,20 @@ public sealed class SettingsViewModel : ViewModelBase
     public string GroupId { get => _groupId; set => SetProperty(ref _groupId, value); }
     public string ProviderDhsCode { get => _providerDhsCode; set => SetProperty(ref _providerDhsCode, value); }
     public string NetworkUsername { get => _networkUsername; set => SetProperty(ref _networkUsername, value); }
-    public string NetworkPassword { get => _networkPassword; set => SetProperty(ref _networkPassword, value); }
+
+    public string NetworkPassword
+    {
+        get => _networkPassword;
+        set
+        {
+            if (SetProperty(ref _networkPassword, value))
+            {
+                // If the user manually changes the password, clear any fallback we held.
+                _fallbackNetworkPasswordEncrypted = null;
+            }
+        }
+    }
+
     public bool IsLoading { get => _isLoading; set => SetProperty(ref _isLoading, value); }
 
     public int FetchIntervalMinutes { get => _fetchIntervalMinutes; set => SetProperty(ref _fetchIntervalMinutes, value); }
@@ -87,16 +101,24 @@ public sealed class SettingsViewModel : ViewModelBase
 
             NetworkUsername = settings.NetworkUsername ?? "";
             NetworkPassword = "";
+
+            // If decryption fails later, we want to preserve the original blob so a subsequent Save() doesn't wipe it.
+            // Note: Setting NetworkPassword="" above triggers the property setter which clears _fallbackNetworkPasswordEncrypted,
+            // so we must set it *after* that.
+            _fallbackNetworkPasswordEncrypted = settings.NetworkPasswordEncrypted;
+
             if (settings.NetworkPasswordEncrypted != null && settings.NetworkPasswordEncrypted.Length > 0)
             {
                 try
                 {
                     var decrypted = _protector.Unprotect(settings.NetworkPasswordEncrypted);
                     NetworkPassword = Encoding.UTF8.GetString(decrypted);
+                    // If successful, NetworkPassword setter runs and clears _fallbackNetworkPasswordEncrypted, which is correct.
                 }
                 catch
                 {
-                    // Ignore decryption errors (e.g. key change/corruption)
+                    // Ignore decryption errors (e.g. key change/corruption).
+                    // NetworkPassword remains empty, but _fallbackNetworkPasswordEncrypted is preserved.
                 }
             }
 
@@ -135,6 +157,11 @@ public sealed class SettingsViewModel : ViewModelBase
                     {
                         var bytes = Encoding.UTF8.GetBytes(NetworkPassword);
                         netPassEnc = _protector.Protect(bytes);
+                    }
+                    else if (_fallbackNetworkPasswordEncrypted != null)
+                    {
+                        // User hasn't changed the password (it's empty), but we have a fallback from load failure.
+                        netPassEnc = _fallbackNetworkPasswordEncrypted;
                     }
                 }
 
