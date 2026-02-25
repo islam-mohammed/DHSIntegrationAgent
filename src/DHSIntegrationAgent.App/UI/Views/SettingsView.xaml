@@ -24,6 +24,20 @@
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <TextBlock Text="{Binding SaveMessage}"
+                                       Foreground="#2E7D32"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0"
+                                       FontWeight="SemiBold"/>
+
+                            <TextBlock Text="{Binding SaveError}"
+                                       Foreground="{StaticResource BrushDanger}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0"
+                                       TextWrapping="NoWrap"
+                                       MaxWidth="300"
+                                       ToolTip="{Binding SaveError}"/>
+
                             <TextBlock Text="Loading..." 
                         Foreground="{StaticResource BrushMuted}" 
                         VerticalAlignment="Center" 
