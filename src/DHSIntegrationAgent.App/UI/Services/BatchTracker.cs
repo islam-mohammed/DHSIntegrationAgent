@@ -294,6 +294,25 @@ public sealed class BatchTracker : IBatchTracker
 
     public void TrackBatchCreation(BatchRow batch, FinancialSummary? financialSummary)
     {
+        // Ensure any existing tracking for this batch ID is removed so we start fresh
+        Action removeAction = () =>
+        {
+            var existing = ActiveBatches.FirstOrDefault(x => x.InternalBatchId == batch.BatchId);
+            if (existing != null)
+            {
+                ActiveBatches.Remove(existing);
+            }
+        };
+
+        if (System.Windows.Application.Current?.Dispatcher != null)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(removeAction);
+        }
+        else
+        {
+            removeAction();
+        }
+
         var progressViewModel = new BatchProgressViewModel
         {
             InternalBatchId = batch.BatchId,
