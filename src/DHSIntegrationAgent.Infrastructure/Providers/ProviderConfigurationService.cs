@@ -137,7 +137,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             // ✅ THIS IS THE REAL CLIENT IN YOUR SOLUTION
             var http = await _client.GetAsync(providerDhsCode, anyCache?.ETag, ct);
 
-            await using var uow = await _uowFactory.CreateAsync(ct);
+            await using var uowWrite = await _uowFactory.CreateAsync(ct);
 
             // 304 Not Modified: extend TTL, and re-derive tables from cached config json
             if (http.Success && http.IsNotModified && anyCache is not null)
@@ -150,12 +150,12 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                     LastError = null
                 };
 
-                await uow.ProviderConfigCache.UpsertAsync(refreshed, ct);
+                await uowWrite.ProviderConfigCache.UpsertAsync(refreshed, ct);
 
-                await TryUpsertPayerProfilesFromCachedJsonAsync(uow, providerDhsCode, refreshed.ConfigJson, now, ct);
-                await TryUpsertDomainMappingsFromCachedJsonAsync(uow, providerDhsCode, refreshed.ConfigJson, now, ct);
+                await TryUpsertPayerProfilesFromCachedJsonAsync(uowWrite, providerDhsCode, refreshed.ConfigJson, now, ct);
+                await TryUpsertDomainMappingsFromCachedJsonAsync(uowWrite, providerDhsCode, refreshed.ConfigJson, now, ct);
 
-                await uow.CommitAsync(ct);
+                await uowWrite.CommitAsync(ct);
                 return BuildSnapshot(refreshed, fromCache: true, isStale: false);
             }
 
@@ -165,15 +165,15 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 var payload = TryExtractPayloadObject(http.Json!);
                 if (payload is null)
                 {
-                    return await FallbackAsync(uow, providerDhsCode, anyCache, now,
+                    return await FallbackAsync(uowWrite, providerDhsCode, anyCache, now,
                         "Provider config JSON missing expected 'data' payload.", ct);
                 }
 
-                await TryUpsertProviderProfileFromConfigAsync(uow, providerDhsCode, payload, now, ct);
+                await TryUpsertProviderProfileFromConfigAsync(uowWrite, providerDhsCode, payload, now, ct);
 
                 // Persist APPROVED + MISSING domain mappings into SQLite DomainMapping table
-                await TryUpsertApprovedDomainMappingsFromConfigAsync(uow, providerDhsCode, payload, now, ct);
-                await TryUpsertMissingDomainMappingsFromConfigAsync(uow, providerDhsCode, payload, now, ct);
+                await TryUpsertApprovedDomainMappingsFromConfigAsync(uowWrite, providerDhsCode, payload, now, ct);
+                await TryUpsertMissingDomainMappingsFromConfigAsync(uowWrite, providerDhsCode, payload, now, ct);
 
                 var ttlMinutes = lastKnownTtlMinutes;
 
@@ -181,7 +181,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 {
                     ttlMinutes = gc.ConfigCacheTtlMinutes > 0 ? gc.ConfigCacheTtlMinutes : ttlMinutes;
 
-                    await uow.AppSettings.UpdateGeneralConfigurationAsync(
+                    await uowWrite.AppSettings.UpdateGeneralConfigurationAsync(
                         leaseDurationSeconds: gc.LeaseDurationSeconds,
                         streamAIntervalSeconds: gc.StreamAIntervalSeconds,
                         resumePollIntervalSeconds: gc.ResumePollIntervalSeconds,
@@ -210,18 +210,18 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                     ETag: http.ETag,
                     LastError: null);
 
-                await uow.ProviderConfigCache.UpsertAsync(fresh, ct);
+                await uowWrite.ProviderConfigCache.UpsertAsync(fresh, ct);
 
                 // Persist Provider Payers into SQLite PayerProfile using the same refresh/TTL policy as ProviderConfigCache.
-                await TryUpsertPayerProfilesFromConfigAsync(uow, providerDhsCode, payload, now, ct);
+                await TryUpsertPayerProfilesFromConfigAsync(uowWrite, providerDhsCode, payload, now, ct);
 
-                await uow.CommitAsync(ct);
+                await uowWrite.CommitAsync(ct);
 
                 return BuildSnapshot(fresh, fromCache: false, isStale: false);
             }
 
             var error = http.Error ?? $"Provider configuration refresh failed (HTTP/transport).";
-            return await FallbackAsync(uow, providerDhsCode, anyCache, now, error, ct);
+            return await FallbackAsync(uowWrite, providerDhsCode, anyCache, now, error, ct);
         }
         finally
         {
