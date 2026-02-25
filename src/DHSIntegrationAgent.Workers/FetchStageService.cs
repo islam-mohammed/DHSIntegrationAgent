@@ -47,6 +47,13 @@ public sealed class FetchStageService : IFetchStageService
     {
         _logger.LogInformation("Processing batch {BatchId} for {CompanyCode} {MonthKey}", batch.BatchId, batch.CompanyCode, batch.MonthKey);
 
+        // 0. Update status to Fetching (to signal processing started)
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Fetching, null, null, _clock.UtcNow, ct);
+            await uow.CommitAsync(ct);
+        }
+
         string? bcrId = batch.BcrId;
         string? payerCode = batch.PayerCode;
 

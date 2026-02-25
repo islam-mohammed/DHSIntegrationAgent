@@ -179,7 +179,8 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 var monthKey = $"{year}{month:D2}";
                 var key = new BatchKey(providerDhsCode, SelectedPayer.CompanyCode, monthKey, startDateOffset, endDateOffset);
 
-                batchId = await uow.Batches.EnsureBatchAsync(key, BatchStatus.Ready, _clock.UtcNow, default);
+                // Start as Draft to allow Fetch & Stage to pick it up properly (isolated)
+                batchId = await uow.Batches.EnsureBatchAsync(key, BatchStatus.Draft, _clock.UtcNow, default);
                 await uow.CommitAsync(default);
             }
 

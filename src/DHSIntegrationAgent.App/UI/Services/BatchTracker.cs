@@ -17,6 +17,7 @@ public sealed class BatchTracker : IBatchTracker
     private readonly IAttachmentDispatchService _attachmentDispatchService;
     private readonly IWorkerEngine _workerEngine;
     private readonly IDispatchService _dispatchService;
+    private readonly IBatchRegistry _batchRegistry;
 
     public ObservableCollection<BatchProgressViewModel> ActiveBatches { get; } = new();
     object IBatchTracker.ActiveBatches => ActiveBatches;
@@ -25,12 +26,14 @@ public sealed class BatchTracker : IBatchTracker
         IFetchStageService fetchStageService,
         IAttachmentDispatchService attachmentDispatchService,
         IWorkerEngine workerEngine,
-        IDispatchService dispatchService)
+        IDispatchService dispatchService,
+        IBatchRegistry batchRegistry)
     {
         _fetchStageService = fetchStageService ?? throw new ArgumentNullException(nameof(fetchStageService));
         _attachmentDispatchService = attachmentDispatchService ?? throw new ArgumentNullException(nameof(attachmentDispatchService));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
         _dispatchService = dispatchService ?? throw new ArgumentNullException(nameof(dispatchService));
+        _batchRegistry = batchRegistry ?? throw new ArgumentNullException(nameof(batchRegistry));
 
         _workerEngine.ProgressChanged += OnWorkerProgressChanged;
     }
@@ -80,6 +83,8 @@ public sealed class BatchTracker : IBatchTracker
             {
                 try
                 {
+                    _batchRegistry.Register(batch.BatchId);
+
                     var progress = new Progress<WorkerProgressReport>(report =>
                     {
                         System.Windows.Application.Current?.Dispatcher.Invoke(() =>
@@ -106,6 +111,10 @@ public sealed class BatchTracker : IBatchTracker
                         progressViewModel.StatusMessage = $"Attachment Error: {ex.Message}";
                         progressViewModel.IsError = true;
                     });
+                }
+                finally
+                {
+                    _batchRegistry.Unregister(batch.BatchId);
                 }
             });
         }
@@ -135,6 +144,8 @@ public sealed class BatchTracker : IBatchTracker
             RetryBatchResult result = new RetryBatchResult(0, 0, 0);
             try
             {
+                _batchRegistry.Register(batch.BatchId);
+
                 var progress = new Progress<WorkerProgressReport>(report =>
                 {
                     System.Windows.Application.Current?.Dispatcher.Invoke(() =>
@@ -164,6 +175,7 @@ public sealed class BatchTracker : IBatchTracker
             }
             finally
             {
+                _batchRegistry.Unregister(batch.BatchId);
                 System.Windows.Application.Current?.Dispatcher.Invoke(() => onCompletion(result));
             }
         });
@@ -207,6 +219,8 @@ public sealed class BatchTracker : IBatchTracker
         {
             try
             {
+                _batchRegistry.Register(batch.BatchId);
+
                 var progress = new Progress<WorkerProgressReport>(report =>
                 {
                     // Update progressViewModel on UI thread
@@ -221,6 +235,7 @@ public sealed class BatchTracker : IBatchTracker
                 });
 
                 // 1. Process Batch (Obtain BCR ID, Fetch Claims, Stage)
+                // Note: FetchStageService updates status to Fetching internally
                 await _fetchStageService.ProcessBatchAsync(batch, progress, default);
 
                 // 2. Post any discovered missing mappings
@@ -244,6 +259,10 @@ public sealed class BatchTracker : IBatchTracker
                     progressViewModel.StatusMessage = $"Error: {ex.Message}";
                     progressViewModel.IsError = true;
                 });
+            }
+            finally
+            {
+                _batchRegistry.Unregister(batch.BatchId);
             }
         });
     }

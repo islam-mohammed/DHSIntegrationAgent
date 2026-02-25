@@ -13,6 +13,7 @@ public sealed class StreamAWorker : IWorker
     private readonly IFetchStageService _fetchStageService;
     private readonly ISystemClock _clock;
     private readonly ILogger<StreamAWorker> _logger;
+    private readonly IBatchRegistry _batchRegistry;
 
     public string Id => "StreamA";
     public string DisplayName => "Stream A: Fetch & Stage";
@@ -21,12 +22,14 @@ public sealed class StreamAWorker : IWorker
         ISqliteUnitOfWorkFactory uowFactory,
         IFetchStageService fetchStageService,
         ISystemClock clock,
-        ILogger<StreamAWorker> logger)
+        ILogger<StreamAWorker> logger,
+        IBatchRegistry batchRegistry)
     {
         _uowFactory = uowFactory;
         _fetchStageService = fetchStageService;
         _clock = clock;
         _logger = logger;
+        _batchRegistry = batchRegistry;
     }
 
     public async Task ExecuteAsync(IProgress<WorkerProgressReport> progress, CancellationToken ct)
@@ -62,19 +65,27 @@ public sealed class StreamAWorker : IWorker
 
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
-            // Stream A processes Draft batches (newly created) and Ready batches (manually triggered or BCR ensure needed).
+            // Stream A processes Draft (new) and Fetching (resumed) batches.
+            // It MUST NOT process Ready batches (those are for Stream B).
             var draftBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Draft, ct);
-            var readyBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Ready, ct);
+            var fetchingBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Fetching, ct);
 
-            var all = new List<BatchRow>(draftBatches.Count + readyBatches.Count);
+            var all = new List<BatchRow>(draftBatches.Count + fetchingBatches.Count);
             all.AddRange(draftBatches);
-            all.AddRange(readyBatches);
+            all.AddRange(fetchingBatches);
             batchesToProcess = all;
         }
 
         foreach (var batch in batchesToProcess)
         {
             if (ct.IsCancellationRequested) break;
+
+            // Check if this batch is currently being processed manually by BatchTracker (or another mechanism)
+            if (_batchRegistry.IsRegistered(batch.BatchId))
+            {
+                _logger.LogInformation("Skipping batch {BatchId} as it is currently being processed by another task.", batch.BatchId);
+                continue;
+            }
 
             providerCodes.Add(batch.ProviderDhsCode);
 
@@ -93,7 +104,6 @@ public sealed class StreamAWorker : IWorker
 
    
         // For stability, we post sequentially per provider after staging completes.
-        // (A dedicated poster worker can be introduced later under WBS 4.6.)
         foreach (var providerCode in providerCodes)
         {
             if (ct.IsCancellationRequested) break;
