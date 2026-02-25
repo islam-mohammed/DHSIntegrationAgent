@@ -120,6 +120,9 @@ public sealed class BatchesViewModel : ViewModelBase
 
         // Load additional payers from SQLite asynchronously
         _ = LoadPayersAsync();
+
+        // Restore any active batches (progress bars) from persistence
+        _ = _batchTracker.RestoreActiveBatchesAsync();
     }
 
     private bool CanRetryFailedClaims(BatchRow batch) => !IsRetrying;

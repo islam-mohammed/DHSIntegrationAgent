@@ -9,12 +9,21 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 2;
+    public static readonly int CurrentSchemaVersion = 3;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
         new Migration(1, "001_InitialSchema_v1", BuildV1()),
-        new Migration(2, "002_AddNetworkCredentials", BuildV2())
+        new Migration(2, "002_AddNetworkCredentials", BuildV2()),
+        new Migration(3, "003_AddBatchProgress", BuildV3())
+    };
+
+    private static IReadOnlyList<string> BuildV3() => new List<string>
+    {
+        "ALTER TABLE Batch ADD COLUMN ProcessedClaims INTEGER NOT NULL DEFAULT 0;",
+        "ALTER TABLE Batch ADD COLUMN TotalClaims INTEGER NOT NULL DEFAULT 0;",
+        "ALTER TABLE Batch ADD COLUMN CurrentStageMessage TEXT NULL;",
+        "ALTER TABLE Batch ADD COLUMN Percentage INTEGER NOT NULL DEFAULT 0;"
     };
 
     private static IReadOnlyList<string> BuildV2() => new List<string>

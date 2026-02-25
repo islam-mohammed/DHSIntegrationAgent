@@ -29,4 +29,13 @@ public interface IBatchRepository
         string? payerCode = null);
 
     Task<IReadOnlyList<BatchRow>> ListByStatusAsync(BatchStatus status, CancellationToken cancellationToken);
+
+    Task UpdateProgressAsync(
+        long batchId,
+        int processed,
+        int total,
+        int percentage,
+        string? message,
+        DateTimeOffset utcNow,
+        CancellationToken cancellationToken);
 }

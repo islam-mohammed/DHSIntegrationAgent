@@ -29,4 +29,9 @@ public interface IBatchTracker
     /// Note: In this project, we're returning the ViewModel collection directly for simplicity.
     /// </summary>
     object ActiveBatches { get; }
+
+    /// <summary>
+    /// Restores any active batches from the persistent store into the tracking collection.
+    /// </summary>
+    Task RestoreActiveBatchesAsync();
 }
