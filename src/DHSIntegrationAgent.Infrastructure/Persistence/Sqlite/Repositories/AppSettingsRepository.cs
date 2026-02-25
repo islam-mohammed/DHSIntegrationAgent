@@ -24,6 +24,8 @@ internal sealed class AppSettingsRepository : IAppSettingsRepository
             SELECT
                 GroupID,
                 ProviderDhsCode,
+                NetworkUsername,
+                NetworkPasswordEncrypted,
                 ConfigCacheTtlMinutes,
                 FetchIntervalMinutes,
                 ManualRetryCooldownMinutes,
@@ -42,16 +44,24 @@ internal sealed class AppSettingsRepository : IAppSettingsRepository
         return new AppSettingsRow(
             GroupId: r.IsDBNull(0) ? null : r.GetString(0),
             ProviderDhsCode: r.IsDBNull(1) ? null : r.GetString(1),
-            ConfigCacheTtlMinutes: r.GetInt32(2),
-            FetchIntervalMinutes: r.GetInt32(3),
-            ManualRetryCooldownMinutes: r.GetInt32(4),
-            LeaseDurationSeconds: r.GetInt32(5),
-            StreamAIntervalSeconds: r.GetInt32(6),
-            ResumePollIntervalSeconds: r.GetInt32(7),
-            ApiTimeoutSeconds: r.GetInt32(8));
+            NetworkUsername: r.IsDBNull(2) ? null : r.GetString(2),
+            NetworkPasswordEncrypted: r.IsDBNull(3) ? null : (byte[])r[3],
+            ConfigCacheTtlMinutes: r.GetInt32(4),
+            FetchIntervalMinutes: r.GetInt32(5),
+            ManualRetryCooldownMinutes: r.GetInt32(6),
+            LeaseDurationSeconds: r.GetInt32(7),
+            StreamAIntervalSeconds: r.GetInt32(8),
+            ResumePollIntervalSeconds: r.GetInt32(9),
+            ApiTimeoutSeconds: r.GetInt32(10));
     }
 
-    public async Task UpdateSetupAsync(string groupId, string providerDhsCode, DateTimeOffset utcNow, CancellationToken cancellationToken)
+    public async Task UpdateSetupAsync(
+        string groupId,
+        string providerDhsCode,
+        string? networkUsername,
+        byte[]? networkPasswordEncrypted,
+        DateTimeOffset utcNow,
+        CancellationToken cancellationToken)
     {
         await using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
@@ -60,12 +70,16 @@ internal sealed class AppSettingsRepository : IAppSettingsRepository
             UPDATE AppSettings
             SET GroupID = $groupId,
                 ProviderDhsCode = $providerDhsCode,
+                NetworkUsername = $netUser,
+                NetworkPasswordEncrypted = $netPass,
                 UpdatedUtc = $now
             WHERE Id = 1;
             """;
 
         SqliteSqlBuilder.AddParam(cmd, "$groupId", groupId);
         SqliteSqlBuilder.AddParam(cmd, "$providerDhsCode", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$netUser", networkUsername);
+        SqliteSqlBuilder.AddParam(cmd, "$netPass", networkPasswordEncrypted);
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
 
         var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);

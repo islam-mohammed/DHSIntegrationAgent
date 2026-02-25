@@ -1,7 +1,9 @@
+using System.Text;
 ﻿using DHSIntegrationAgent.App.UI.Mvvm;
 using DHSIntegrationAgent.Application.Configuration;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
+using DHSIntegrationAgent.Infrastructure.Security;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
 
@@ -9,10 +11,13 @@ public sealed class SettingsViewModel : ViewModelBase
 {
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly ISystemClock _clock;
+    private readonly IKeyProtector _protector;
 
     // Screen-only fields (real load/save will be wired to SQLite + provider config rules in later WBS)
     private string _groupId = "";
     private string _providerDhsCode = "";
+    private string _networkUsername = "";
+    private string _networkPassword = "";
 
     private int _fetchIntervalMinutes = 5;
     private int _configCacheTtlMinutes = 1440;
@@ -27,6 +32,8 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public string GroupId { get => _groupId; set => SetProperty(ref _groupId, value); }
     public string ProviderDhsCode { get => _providerDhsCode; set => SetProperty(ref _providerDhsCode, value); }
+    public string NetworkUsername { get => _networkUsername; set => SetProperty(ref _networkUsername, value); }
+    public string NetworkPassword { get => _networkPassword; set => SetProperty(ref _networkPassword, value); }
     public bool IsLoading { get => _isLoading; set => SetProperty(ref _isLoading, value); }
 
     public int FetchIntervalMinutes { get => _fetchIntervalMinutes; set => SetProperty(ref _fetchIntervalMinutes, value); }
@@ -43,10 +50,14 @@ public sealed class SettingsViewModel : ViewModelBase
     public AsyncRelayCommand ReloadProviderConfigCommand { get; }
     public AsyncRelayCommand LoadCommand { get; }
 
-    public SettingsViewModel(ISqliteUnitOfWorkFactory uowFactory, ISystemClock clock)
+    public SettingsViewModel(
+        ISqliteUnitOfWorkFactory uowFactory,
+        ISystemClock clock,
+        IKeyProtector protector)
     {
         _uowFactory = uowFactory;
         _clock = clock;
+        _protector = protector;
 
         LoadCommand = new AsyncRelayCommand(LoadAsync);
 
@@ -73,6 +84,22 @@ public sealed class SettingsViewModel : ViewModelBase
 
             GroupId = settings.GroupId ?? "";
             ProviderDhsCode = settings.ProviderDhsCode ?? "";
+
+            NetworkUsername = settings.NetworkUsername ?? "";
+            NetworkPassword = "";
+            if (settings.NetworkPasswordEncrypted != null && settings.NetworkPasswordEncrypted.Length > 0)
+            {
+                try
+                {
+                    var decrypted = _protector.Unprotect(settings.NetworkPasswordEncrypted);
+                    NetworkPassword = Encoding.UTF8.GetString(decrypted);
+                }
+                catch
+                {
+                    // Ignore decryption errors (e.g. key change/corruption)
+                }
+            }
+
             FetchIntervalMinutes = settings.FetchIntervalMinutes;
             ConfigCacheTtlMinutes = settings.ConfigCacheTtlMinutes;
             LeaseDurationSeconds = settings.LeaseDurationSeconds;
@@ -98,9 +125,24 @@ public sealed class SettingsViewModel : ViewModelBase
             // Update setup (GroupId and ProviderDhsCode)
             if (!string.IsNullOrWhiteSpace(GroupId) && !string.IsNullOrWhiteSpace(ProviderDhsCode))
             {
+                string? netUser = null;
+                byte[]? netPassEnc = null;
+
+                if (!string.IsNullOrWhiteSpace(NetworkUsername))
+                {
+                    netUser = NetworkUsername.Trim();
+                    if (!string.IsNullOrEmpty(NetworkPassword))
+                    {
+                        var bytes = Encoding.UTF8.GetBytes(NetworkPassword);
+                        netPassEnc = _protector.Protect(bytes);
+                    }
+                }
+
                 await uow.AppSettings.UpdateSetupAsync(
                     GroupId,
                     ProviderDhsCode,
+                    netUser,
+                    netPassEnc,
                     _clock.UtcNow,
                     CancellationToken.None);
             }

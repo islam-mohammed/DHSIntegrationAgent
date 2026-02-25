@@ -3,6 +3,7 @@ using System.Text;
 using Azure.Storage.Blobs;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Configuration;
+using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Security;
 using DHSIntegrationAgent.Infrastructure.Security;
 using DHSIntegrationAgent.Contracts.Persistence;
@@ -16,16 +17,19 @@ public sealed class AttachmentService : IAttachmentService
     private readonly AzureBlobOptions _options;
     private readonly IKeyProtector _protector;
     private readonly ILogger<AttachmentService> _logger;
+    private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private string? _cachedSasUrl;
 
     public AttachmentService(
         IOptions<AzureBlobOptions> options,
         IKeyProtector protector,
-        ILogger<AttachmentService> logger)
+        ILogger<AttachmentService> logger,
+        ISqliteUnitOfWorkFactory uowFactory)
     {
         _options = options.Value;
         _protector = protector;
         _logger = logger;
+        _uowFactory = uowFactory;
     }
 
     public async Task<string> UploadAsync(AttachmentRow attachment, CancellationToken ct)
@@ -51,28 +55,68 @@ public sealed class AttachmentService : IAttachmentService
         var blobClient = containerClient.GetBlobClient(blobPath);
 
         Stream? uploadStream = null;
+        IDisposable? networkConnection = null;
 
-        if (attachment.LocationBytesPlaintext != null)
+        try
         {
-            uploadStream = new MemoryStream(attachment.LocationBytesPlaintext);
-        }
-        else if (attachment.AttachBitBase64Plaintext != null)
-        {
-            uploadStream = new MemoryStream(attachment.AttachBitBase64Plaintext);
-        }
-        else if (!string.IsNullOrWhiteSpace(attachment.LocationPathPlaintext) && File.Exists(attachment.LocationPathPlaintext))
-        {
-            uploadStream = File.OpenRead(attachment.LocationPathPlaintext);
-        }
+            if (attachment.LocationBytesPlaintext != null)
+            {
+                uploadStream = new MemoryStream(attachment.LocationBytesPlaintext);
+            }
+            else if (attachment.AttachBitBase64Plaintext != null)
+            {
+                uploadStream = new MemoryStream(attachment.AttachBitBase64Plaintext);
+            }
+            else if (!string.IsNullOrWhiteSpace(attachment.LocationPathPlaintext))
+            {
+                // Try to authenticate if it's a network path
+                try
+                {
+                    await using var uow = await _uowFactory.CreateAsync(ct);
+                    var settings = await uow.AppSettings.GetAsync(ct);
 
-        if (uploadStream == null)
-        {
-            throw new InvalidOperationException($"No source content found for attachment {attachment.AttachmentId}");
-        }
+                    if (!string.IsNullOrWhiteSpace(settings.NetworkUsername))
+                    {
+                        var root = Path.GetPathRoot(attachment.LocationPathPlaintext);
+                        if (!string.IsNullOrEmpty(root) && root.StartsWith(@"\\"))
+                        {
+                            string password = "";
+                            if (settings.NetworkPasswordEncrypted != null && settings.NetworkPasswordEncrypted.Length > 0)
+                            {
+                                var decrypted = _protector.Unprotect(settings.NetworkPasswordEncrypted);
+                                password = Encoding.UTF8.GetString(decrypted);
+                            }
 
-        using (uploadStream)
+                            // Remove trailing slash for share root if present, though GetPathRoot typically returns \\server\share
+                            var resource = root.TrimEnd('\\');
+                            networkConnection = NetworkShareAccessor.Connect(resource, settings.NetworkUsername, password);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to establish network connection for {Path}", attachment.LocationPathPlaintext);
+                }
+
+                if (File.Exists(attachment.LocationPathPlaintext))
+                {
+                    uploadStream = File.OpenRead(attachment.LocationPathPlaintext);
+                }
+            }
+
+            if (uploadStream == null)
+            {
+                throw new InvalidOperationException($"No source content found for attachment {attachment.AttachmentId}");
+            }
+
+            using (uploadStream)
+            {
+                await blobClient.UploadAsync(uploadStream, overwrite: true, ct);
+            }
+        }
+        finally
         {
-            await blobClient.UploadAsync(uploadStream, overwrite: true, ct);
+            networkConnection?.Dispose();
         }
 
         return blobClient.Uri.ToString();

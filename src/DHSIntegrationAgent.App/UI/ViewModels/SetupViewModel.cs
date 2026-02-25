@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.App.UI.Mvvm;
 using DHSIntegrationAgent.App.UI.Navigation;
+using DHSIntegrationAgent.Infrastructure.Security;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
 
@@ -15,19 +17,26 @@ public sealed class SetupViewModel : ViewModelBase
 {
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly INavigationService _navigation;
+    private readonly IKeyProtector _protector;
 
     private string _groupId = "";
     private string _providerDhsCode = "";
+    private string _networkUsername = "";
+    private string _networkPassword = "";
 
     private string? _groupIdError;
     private string? _providerDhsCodeError;
     private string? _saveError;
     private bool _isSaving;
 
-    public SetupViewModel(ISqliteUnitOfWorkFactory uowFactory, INavigationService navigation)
+    public SetupViewModel(
+        ISqliteUnitOfWorkFactory uowFactory,
+        INavigationService navigation,
+        IKeyProtector protector)
     {
         _uowFactory = uowFactory;
         _navigation = navigation;
+        _protector = protector;
 
         // Save starts enabled; AsyncRelayCommand disables only while executing.
         SaveCommand = new AsyncRelayCommand(SaveAsync);
@@ -57,6 +66,18 @@ public sealed class SetupViewModel : ViewModelBase
                 SaveError = null;
             }
         }
+    }
+
+    public string NetworkUsername
+    {
+        get => _networkUsername;
+        set => SetProperty(ref _networkUsername, value);
+    }
+
+    public string NetworkPassword
+    {
+        get => _networkPassword;
+        set => SetProperty(ref _networkPassword, value);
     }
 
     public string? GroupIdError
@@ -128,11 +149,26 @@ public sealed class SetupViewModel : ViewModelBase
             var groupId = GroupId.Trim();
             var providerDhsCode = ProviderDhsCode.Trim();
 
+            string? netUser = null;
+            byte[]? netPassEnc = null;
+
+            if (!string.IsNullOrWhiteSpace(NetworkUsername))
+            {
+                netUser = NetworkUsername.Trim();
+                if (!string.IsNullOrEmpty(NetworkPassword))
+                {
+                    var bytes = Encoding.UTF8.GetBytes(NetworkPassword);
+                    netPassEnc = _protector.Protect(bytes);
+                }
+            }
+
             await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);
 
             await uow.AppSettings.UpdateSetupAsync(
                 groupId: groupId,
                 providerDhsCode: providerDhsCode,
+                networkUsername: netUser,
+                networkPasswordEncrypted: netPassEnc,
                 utcNow: DateTimeOffset.UtcNow,
                 cancellationToken: CancellationToken.None);
 
