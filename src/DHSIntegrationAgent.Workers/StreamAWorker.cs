@@ -36,6 +36,9 @@ public sealed class StreamAWorker : IWorker
     {
         _logger.LogInformation("Stream A worker started.");
 
+        // Perform one-time migration of legacy Ready batches to ensure they are verified/completed.
+        await MigrateLegacyBatchesAsync(ct);
+
         while (!ct.IsCancellationRequested)
         {
             try
@@ -58,6 +61,50 @@ public sealed class StreamAWorker : IWorker
         _logger.LogInformation("Stream A worker stopped.");
     }
 
+    private async Task MigrateLegacyBatchesAsync(CancellationToken ct)
+    {
+        try
+        {
+            IReadOnlyList<BatchRow> legacyReadyBatches;
+            await using (var uow = await _uowFactory.CreateAsync(ct))
+            {
+                legacyReadyBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Ready, ct);
+            }
+
+            if (legacyReadyBatches.Count > 0)
+            {
+                _logger.LogInformation("Found {Count} legacy Ready batches. Migrating to ensure staging completion...", legacyReadyBatches.Count);
+                int migrated = 0;
+
+                foreach (var batch in legacyReadyBatches)
+                {
+                    if (ct.IsCancellationRequested) break;
+
+                    // If BcrId is missing, it's a Draft (created but not synced).
+                    // If BcrId is present, it might be interrupted. Move to Fetching to re-verify.
+                    var newStatus = string.IsNullOrEmpty(batch.BcrId) ? BatchStatus.Draft : BatchStatus.Fetching;
+
+                    try
+                    {
+                        await using var uow = await _uowFactory.CreateAsync(ct);
+                        await uow.Batches.UpdateStatusAsync(batch.BatchId, newStatus, null, null, _clock.UtcNow, ct);
+                        await uow.CommitAsync(ct);
+                        migrated++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to migrate legacy batch {BatchId}", batch.BatchId);
+                    }
+                }
+                _logger.LogInformation("Migrated {Count} batches.", migrated);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during legacy batch migration.");
+        }
+    }
+
     private async Task ProcessReadyBatchesAsync(IProgress<WorkerProgressReport> progress, CancellationToken ct)
     {
         IReadOnlyList<BatchRow> batchesToProcess;
@@ -65,8 +112,8 @@ public sealed class StreamAWorker : IWorker
 
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
-            // Stream A processes Draft (new) and Fetching (resumed) batches.
-            // It MUST NOT process Ready batches (those are for Stream B).
+            // Stream A processes Draft (new) and Fetching (resumed/migrated) batches.
+            // It EXCLUDES Ready batches to avoid race conditions with Stream B.
             var draftBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Draft, ct);
             var fetchingBatches = await uow.Batches.ListByStatusAsync(BatchStatus.Fetching, ct);
 

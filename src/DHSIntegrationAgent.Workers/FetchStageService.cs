@@ -65,8 +65,8 @@ public sealed class FetchStageService : IFetchStageService
             if (payerProfile != null)
             {
                 payerCode = payerProfile.PayerCode;
-                // Update batch with resolved PayerCode
-                await uow.Batches.UpdateStatusAsync(batch.BatchId, batch.BatchStatus, null, null, _clock.UtcNow, ct, payerCode);
+                // Update batch with resolved PayerCode, ensuring status remains Fetching
+                await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Fetching, null, null, _clock.UtcNow, ct, payerCode);
                 await uow.CommitAsync(ct);
             }
         }
