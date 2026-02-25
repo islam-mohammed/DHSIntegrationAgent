@@ -3,6 +3,7 @@ using System.Text;
 using DHSIntegrationAgent.Application.Configuration;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
+using DHSIntegrationAgent.Application.Providers;
 using DHSIntegrationAgent.Infrastructure.Security;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
@@ -12,6 +13,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly ISystemClock _clock;
     private readonly IKeyProtector _protector;
+    private readonly IProviderConfigurationService _providerConfigurationService;
 
     // Screen-only fields (real load/save will be wired to SQLite + provider config rules in later WBS)
     private string _groupId = "";
@@ -30,6 +32,8 @@ public sealed class SettingsViewModel : ViewModelBase
     private int _manualRetryCooldownMinutes = 10;
 
     private bool _isLoading;
+    private string? _saveError;
+    private string? _saveMessage;
 
     public string GroupId { get => _groupId; set => SetProperty(ref _groupId, value); }
     public string ProviderDhsCode { get => _providerDhsCode; set => SetProperty(ref _providerDhsCode, value); }
@@ -50,6 +54,9 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public bool IsLoading { get => _isLoading; set => SetProperty(ref _isLoading, value); }
 
+    public string? SaveError { get => _saveError; private set => SetProperty(ref _saveError, value); }
+    public string? SaveMessage { get => _saveMessage; private set => SetProperty(ref _saveMessage, value); }
+
     public int FetchIntervalMinutes { get => _fetchIntervalMinutes; set => SetProperty(ref _fetchIntervalMinutes, value); }
     public int ConfigCacheTtlMinutes { get => _configCacheTtlMinutes; set => SetProperty(ref _configCacheTtlMinutes, value); }
 
@@ -67,11 +74,13 @@ public sealed class SettingsViewModel : ViewModelBase
     public SettingsViewModel(
         ISqliteUnitOfWorkFactory uowFactory,
         ISystemClock clock,
-        IKeyProtector protector)
+        IKeyProtector protector,
+        IProviderConfigurationService providerConfigurationService)
     {
         _uowFactory = uowFactory;
         _clock = clock;
         _protector = protector;
+        _providerConfigurationService = providerConfigurationService;
 
         LoadCommand = new AsyncRelayCommand(LoadAsync);
 
@@ -80,11 +89,7 @@ public sealed class SettingsViewModel : ViewModelBase
             await SaveAsync();
         });
 
-        ReloadProviderConfigCommand = new AsyncRelayCommand(async () =>
-        {
-            // screen-only: later will call ProviderConfigurationService.LoadAsync()
-            await Task.CompletedTask;
-        });
+        ReloadProviderConfigCommand = new AsyncRelayCommand(ReloadProviderConfigAsync);
     }
 
     public async Task LoadAsync()
@@ -138,9 +143,13 @@ public sealed class SettingsViewModel : ViewModelBase
 
     private async Task SaveAsync()
     {
+        if (IsLoading) return;
+
         try
         {
             IsLoading = true;
+            SaveError = null;
+            SaveMessage = null;
 
             await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);
 
@@ -195,6 +204,57 @@ public sealed class SettingsViewModel : ViewModelBase
                 CancellationToken.None);
 
             await uow.CommitAsync(CancellationToken.None);
+
+            // Fetch latest configuration from API if we have a provider code
+            if (!string.IsNullOrWhiteSpace(ProviderDhsCode))
+            {
+                await _providerConfigurationService.LoadAsync(CancellationToken.None);
+            }
+
+            // Refresh UI from SQLite
+            // We await LoadAsync directly. It sets IsLoading=true then false.
+            // Since we are already IsLoading=true, the inner SetProperty is ignored for true,
+            // but finally { IsLoading=false } in LoadAsync will set it to false.
+            // That's fine as we are done here anyway.
+            await LoadAsync();
+
+            SaveMessage = "Configuration saved and reloaded.";
+        }
+        catch (Exception ex)
+        {
+            SaveError = $"Error saving settings: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task ReloadProviderConfigAsync()
+    {
+        if (IsLoading) return;
+
+        try
+        {
+            IsLoading = true;
+            SaveError = null;
+            SaveMessage = null;
+
+            if (string.IsNullOrWhiteSpace(ProviderDhsCode))
+            {
+                SaveError = "Cannot reload config: Provider DHS Code is missing.";
+                return;
+            }
+
+            await _providerConfigurationService.LoadAsync(CancellationToken.None);
+
+            await LoadAsync();
+
+            SaveMessage = "Configuration reloaded from API.";
+        }
+        catch (Exception ex)
+        {
+            SaveError = $"Error reloading config: {ex.Message}";
         }
         finally
         {
