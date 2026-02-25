@@ -48,4 +48,6 @@ public interface IClaimRepository
     Task<(int Total, int Enqueued, int Failed)> GetBatchCountsAsync(long batchId, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<ClaimKey>> ListByBatchAsync(long batchId, CancellationToken cancellationToken);
+
+    Task<int?> GetMaxProIdClaimAsync(long batchId, CancellationToken cancellationToken);
 }

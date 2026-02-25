@@ -98,9 +98,23 @@ public sealed class FetchStageService : IFetchStageService
         var batchEndDate = batch.EndDateUtc ?? batchStartDate.AddMonths(1).AddTicks(-1);
         var totalClaims = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, ct);
 
-        progress.Report(new WorkerProgressReport("StreamA", $"Fetching 0 of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: 0, TotalCount: totalClaims, BcrId: bcrId));
-
+        int processedCount = 0;
         int? lastSeen = null;
+
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, ct);
+            processedCount = counts.Total;
+            lastSeen = await uow.Claims.GetMaxProIdClaimAsync(batch.BatchId, ct);
+        }
+
+        if (processedCount > 0)
+        {
+            _logger.LogInformation("Resuming fetch for batch {BatchId} from claim {LastSeen}, processed {ProcessedCount}/{TotalClaims}", batch.BatchId, lastSeen, processedCount, totalClaims);
+        }
+
+        progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims, BcrId: bcrId));
+
         const int PageSize = 300;
 
         // SQLite "database is locked" mitigation:
@@ -109,7 +123,6 @@ public sealed class FetchStageService : IFetchStageService
         const int MaxClaimsPerTx = 25;
 
         var builder = new ClaimBundleBuilder();
-        int processedCount = 0;
         var domains = BaselineDomainScanner.GetBaselineDomains();
 
         // Optimization: Pre-group domains by section and lowercase field name for O(N) discovery.
