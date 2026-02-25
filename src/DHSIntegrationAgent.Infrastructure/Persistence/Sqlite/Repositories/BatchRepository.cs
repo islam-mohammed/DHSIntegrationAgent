@@ -72,6 +72,32 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         return null;
     }
 
+    public async Task<IReadOnlyList<BatchRow>> GetByBcrIdsAsync(IEnumerable<string> bcrIds, CancellationToken cancellationToken)
+    {
+        var idList = bcrIds.ToList();
+        if (idList.Count == 0) return Array.Empty<BatchRow>();
+
+        await using var cmd = CreateCommand("");
+        var inClause = SqliteSqlBuilder.AddStringInClause(cmd, "bcr", idList);
+
+        cmd.CommandText = $"""
+            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
+            FROM Batch
+            WHERE BcrId IN {inClause};
+            """;
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var results = new List<BatchRow>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            results.Add(ReadBatch(reader));
+        }
+
+        return results;
+    }
+
     private static BatchRow ReadBatch(DbDataReader reader)
     {
         return new BatchRow(

@@ -1,4 +1,4 @@
-﻿using System.Data.Common;
+using System.Data.Common;
 
 namespace DHSIntegrationAgent.Infrastructure.Persistence.Sqlite;
 
@@ -14,6 +14,36 @@ internal static class SqliteSqlBuilder
     }
 
     public static string AddIntInClause(DbCommand cmd, string prefix, IReadOnlyList<int> values)
+    {
+        if (values.Count == 0) throw new ArgumentException("IN clause requires at least one value.", nameof(values));
+
+        var names = new List<string>(values.Count);
+        for (var i = 0; i < values.Count; i++)
+        {
+            var name = $"${prefix}{i}";
+            names.Add(name);
+            AddParam(cmd, name, values[i]);
+        }
+
+        return $"({string.Join(",", names)})";
+    }
+
+    public static string AddStringInClause(DbCommand cmd, string prefix, IReadOnlyList<string> values)
+    {
+        if (values.Count == 0) throw new ArgumentException("IN clause requires at least one value.", nameof(values));
+
+        var names = new List<string>(values.Count);
+        for (var i = 0; i < values.Count; i++)
+        {
+            var name = $"${prefix}{i}";
+            names.Add(name);
+            AddParam(cmd, name, values[i]);
+        }
+
+        return $"({string.Join(",", names)})";
+    }
+
+    public static string AddLongInClause(DbCommand cmd, string prefix, IReadOnlyList<long> values)
     {
         if (values.Count == 0) throw new ArgumentException("IN clause requires at least one value.", nameof(values));
 

@@ -316,6 +316,47 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         return (0, 0, 0);
     }
 
+    public async Task<IDictionary<long, (int Total, int Enqueued, int Failed)>> GetBatchCountsForBatchesAsync(IEnumerable<long> batchIds, CancellationToken cancellationToken)
+    {
+        var ids = batchIds.Distinct().ToList();
+        if (ids.Count == 0) return new Dictionary<long, (int, int, int)>();
+
+        await using var cmd = CreateCommand("");
+        var inClause = SqliteSqlBuilder.AddLongInClause(cmd, "bid", ids);
+
+        cmd.CommandText = $"""
+            SELECT
+                BatchId,
+                COUNT(*),
+                SUM(CASE WHEN EnqueueStatus = $enqueued THEN 1 ELSE 0 END),
+                SUM(CASE WHEN EnqueueStatus = $failed THEN 1 ELSE 0 END)
+            FROM Claim
+            WHERE BatchId IN {inClause}
+            GROUP BY BatchId;
+            """;
+
+        SqliteSqlBuilder.AddParam(cmd, "$enqueued", (int)EnqueueStatus.Enqueued);
+        SqliteSqlBuilder.AddParam(cmd, "$failed", (int)EnqueueStatus.Failed);
+
+        var result = new Dictionary<long, (int, int, int)>();
+        foreach (var id in ids)
+        {
+            // Initialize with zeroes in case some batches have no claims
+            result[id] = (0, 0, 0);
+        }
+
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken))
+        {
+            var batchId = r.GetInt64(0);
+            var total = r.GetInt32(1);
+            var enqueued = r.IsDBNull(2) ? 0 : r.GetInt32(2);
+            var failed = r.IsDBNull(3) ? 0 : r.GetInt32(3);
+            result[batchId] = (total, enqueued, failed);
+        }
+        return result;
+    }
+
     public async Task<IReadOnlyList<ClaimKey>> ListByBatchAsync(long batchId, CancellationToken cancellationToken)
     {
         await using var cmd = CreateCommand(

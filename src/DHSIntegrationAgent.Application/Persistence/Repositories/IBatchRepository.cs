@@ -1,5 +1,5 @@
 using DHSIntegrationAgent.Contracts.Persistence;
-﻿using DHSIntegrationAgent.Domain.WorkStates;
+using DHSIntegrationAgent.Domain.WorkStates;
 
 namespace DHSIntegrationAgent.Application.Persistence.Repositories;
 
@@ -10,6 +10,8 @@ public interface IBatchRepository
     Task<BatchRow?> GetByIdAsync(long batchId, CancellationToken cancellationToken);
 
     Task<BatchRow?> GetByBcrIdAsync(string bcrId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<BatchRow>> GetByBcrIdsAsync(IEnumerable<string> bcrIds, CancellationToken cancellationToken);
 
     Task<long> EnsureBatchAsync(
         BatchKey key,
