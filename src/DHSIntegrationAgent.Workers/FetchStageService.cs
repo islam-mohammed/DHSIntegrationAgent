@@ -47,6 +47,13 @@ public sealed class FetchStageService : IFetchStageService
     {
         _logger.LogInformation("Processing batch {BatchId} for {CompanyCode} {MonthKey}", batch.BatchId, batch.CompanyCode, batch.MonthKey);
 
+        // 0. Update status to Fetching (to signal processing started)
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Fetching, null, null, _clock.UtcNow, ct);
+            await uow.CommitAsync(ct);
+        }
+
         string? bcrId = batch.BcrId;
         string? payerCode = batch.PayerCode;
 
@@ -58,8 +65,8 @@ public sealed class FetchStageService : IFetchStageService
             if (payerProfile != null)
             {
                 payerCode = payerProfile.PayerCode;
-                // Update batch with resolved PayerCode
-                await uow.Batches.UpdateStatusAsync(batch.BatchId, batch.BatchStatus, null, null, _clock.UtcNow, ct, payerCode);
+                // Update batch with resolved PayerCode, ensuring status remains Fetching
+                await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Fetching, null, null, _clock.UtcNow, ct, payerCode);
                 await uow.CommitAsync(ct);
             }
         }

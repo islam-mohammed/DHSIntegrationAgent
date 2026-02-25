@@ -1,5 +1,6 @@
 using DHSIntegrationAgent.Application.Configuration;
 using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Application.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +12,9 @@ public static class ApplicationServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // Batch Registry for isolation
+        services.AddSingleton<IBatchRegistry, BatchRegistry>();
+
         // App (non-secret)
         services.AddOptions<AppOptions>()
             .Bind(configuration.GetSection("App"))
