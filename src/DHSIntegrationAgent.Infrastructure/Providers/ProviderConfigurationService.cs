@@ -102,31 +102,42 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         {
             var now = DateTimeOffset.UtcNow;
 
-            await using var uow = await _uowFactory.CreateAsync(ct);
+            string providerDhsCode;
+            int lastKnownTtlMinutes;
+            ProviderConfigCacheRow? anyCache;
 
-            var settings = await uow.AppSettings.GetAsync(ct);
-
-            var providerDhsCode = settings.ProviderDhsCode ?? "";
-            if (string.IsNullOrWhiteSpace(providerDhsCode))
-                throw new InvalidOperationException("AppSettings.ProviderDhsCode is required to load provider configuration.");
-
-            var lastKnownTtlMinutes = settings.ConfigCacheTtlMinutes <= 0 ? DefaultTtlMinutes : settings.ConfigCacheTtlMinutes;
-
-            // If cached & valid: return cached, but also ensure derived tables are populated from cached JSON (safe, deterministic).
-            var valid = await uow.ProviderConfigCache.GetValidAsync(providerDhsCode, now, ct);
-            if (valid is not null)
+            // Keep SQLite transactions short:
+            // - Read settings/cache in one quick unit-of-work
+            // - Perform HTTP call outside of SQLite transaction
+            // - Persist results in a fresh write unit-of-work
+            await using (var uow = await _uowFactory.CreateAsync(ct))
             {
-                await TryUpsertPayerProfilesFromCachedJsonAsync(uow, providerDhsCode, valid.ConfigJson, now, ct);
-                await TryUpsertDomainMappingsFromCachedJsonAsync(uow, providerDhsCode, valid.ConfigJson, now, ct);
+                var settings = await uow.AppSettings.GetAsync(ct);
 
-                await uow.CommitAsync(ct);
-                return BuildSnapshot(valid, fromCache: true, isStale: false);
+                providerDhsCode = settings.ProviderDhsCode ?? "";
+                if (string.IsNullOrWhiteSpace(providerDhsCode))
+                    throw new InvalidOperationException("AppSettings.ProviderDhsCode is required to load provider configuration.");
+
+                lastKnownTtlMinutes = settings.ConfigCacheTtlMinutes <= 0 ? DefaultTtlMinutes : settings.ConfigCacheTtlMinutes;
+
+                // If cached & valid: return cached, but also ensure derived tables are populated from cached JSON (safe, deterministic).
+                var valid = await uow.ProviderConfigCache.GetValidAsync(providerDhsCode, now, ct);
+                if (valid is not null)
+                {
+                    await TryUpsertPayerProfilesFromCachedJsonAsync(uow, providerDhsCode, valid.ConfigJson, now, ct);
+                    await TryUpsertDomainMappingsFromCachedJsonAsync(uow, providerDhsCode, valid.ConfigJson, now, ct);
+
+                    await uow.CommitAsync(ct);
+                    return BuildSnapshot(valid, fromCache: true, isStale: false);
+                }
+
+                anyCache = await uow.ProviderConfigCache.GetAnyAsync(providerDhsCode, ct);
             }
-
-            var anyCache = await uow.ProviderConfigCache.GetAnyAsync(providerDhsCode, ct);
 
             // ✅ THIS IS THE REAL CLIENT IN YOUR SOLUTION
             var http = await _client.GetAsync(providerDhsCode, anyCache?.ETag, ct);
+
+            await using var uow = await _uowFactory.CreateAsync(ct);
 
             // 304 Not Modified: extend TTL, and re-derive tables from cached config json
             if (http.Success && http.IsNotModified && anyCache is not null)
