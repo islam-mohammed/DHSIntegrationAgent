@@ -125,6 +125,9 @@ public sealed class CreateBatchViewModel : ViewModelBase
             var startDateOffset = new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
             var endDateOffset = startDateOffset.AddMonths(1).AddTicks(-1);
 
+            BatchRow? batchToDelete = null;
+            bool shouldReplace = false;
+
             // Check for existing batch
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
             {
@@ -148,20 +151,8 @@ public sealed class CreateBatchViewModel : ViewModelBase
 
                             if (replace == MessageBoxResult.Yes)
                             {
-                                // Delete from API
-                                if (!string.IsNullOrEmpty(existingBatch.BcrId) && int.TryParse(existingBatch.BcrId, out int bcrIdInt))
-                                {
-                                    var delResult = await _batchClient.DeleteBatchAsync(bcrIdInt, default);
-                                    if (!delResult.Succeeded)
-                                    {
-                                        MessageBox.Show($"Failed to delete batch from server: {delResult.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                                        return;
-                                    }
-                                }
-
-                                // Delete locally
-                                await uow.Batches.DeleteAsync(existingId.Value, default);
-                                await uow.CommitAsync(default);
+                                batchToDelete = existingBatch;
+                                shouldReplace = true;
                             }
                             else
                             {
@@ -227,7 +218,29 @@ public sealed class CreateBatchViewModel : ViewModelBase
 
             RequestClose?.Invoke();
 
-            // 4. Create Batch locally
+            // 4. Delete existing batch if replacement confirmed
+            if (shouldReplace && batchToDelete != null)
+            {
+                // Delete from API
+                if (!string.IsNullOrEmpty(batchToDelete.BcrId) && int.TryParse(batchToDelete.BcrId, out int bcrIdInt))
+                {
+                    var delResult = await _batchClient.DeleteBatchAsync(bcrIdInt, default);
+                    if (!delResult.Succeeded)
+                    {
+                        MessageBox.Show($"Failed to delete batch from server: {delResult.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                }
+
+                // Delete locally
+                await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+                {
+                    await uow.Batches.DeleteAsync(batchToDelete.BatchId, default);
+                    await uow.CommitAsync(default);
+                }
+            }
+
+            // 5. Create Batch locally
             long batchId;
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
             {

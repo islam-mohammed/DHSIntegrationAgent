@@ -137,6 +137,17 @@ public sealed class BatchClient : IBatchClient
                 );
             }
 
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return new DeleteBatchResult(
+                    Succeeded: true,
+                    StatusCode: (int)response.StatusCode,
+                    Message: "Deleted successfully",
+                    Errors: null,
+                    Data: true
+                );
+            }
+
             var parsed = TryParseDeleteResponse(body);
             if (parsed is not null)
             {
