@@ -64,6 +64,11 @@ namespace DHSIntegrationAgent.App
                     config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
                     config.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
 
+                    if (context.HostingEnvironment.IsDevelopment())
+                    {
+                        config.AddUserSecrets<App>();
+                    }
+
                     config.AddEnvironmentVariables(prefix: "DHSAGENT_");
                 })
                 .ConfigureServices((context, services) =>
