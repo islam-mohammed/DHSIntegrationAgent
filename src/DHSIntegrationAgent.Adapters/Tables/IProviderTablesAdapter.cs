@@ -13,6 +13,13 @@ public interface IProviderTablesAdapter
         DateTimeOffset batchEndDateUtc,
         CancellationToken ct);
 
+    Task<int> CountAttachmentsAsync(
+        string providerDhsCode,
+        string companyCode,
+        DateTimeOffset batchStartDateUtc,
+        DateTimeOffset batchEndDateUtc,
+        CancellationToken ct);
+
     Task<FinancialSummary> GetFinancialSummaryAsync(
         string providerDhsCode,
         string companyCode,
