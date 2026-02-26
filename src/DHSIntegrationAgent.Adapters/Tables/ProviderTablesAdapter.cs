@@ -85,6 +85,37 @@ WHERE CompanyCode = @CompanyCode
         return Convert.ToInt32(result);
     }
 
+    public async Task<int> CountAttachmentsAsync(
+        string providerDhsCode,
+        string companyCode,
+        DateTimeOffset batchStartDateUtc,
+        DateTimeOffset batchEndDateUtc,
+        CancellationToken ct)
+    {
+        var (headerTable, claimKeyCol, dateCol) = await ResolveConfigAsync(providerDhsCode, ct);
+
+        await using var handle = await _providerDbFactory.OpenAsync(providerDhsCode, ct);
+
+        using var cmd = handle.Connection.CreateCommand();
+        cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
+
+        cmd.CommandText = $@"
+SELECT COUNT(1)
+FROM {DefaultAttachmentTable} a
+INNER JOIN {headerTable} h ON a.{DefaultClaimKeyColumn} = h.{claimKeyCol}
+WHERE h.CompanyCode = @CompanyCode
+  AND h.{dateCol} >= @StartDate
+  AND h.{dateCol} <= @EndDate;";
+
+        cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
+        cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
+        cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
+        cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+
+        var result = await cmd.ExecuteScalarAsync(ct);
+        return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
+    }
+
     public async Task<FinancialSummary> GetFinancialSummaryAsync(
         string providerDhsCode,
         string companyCode,

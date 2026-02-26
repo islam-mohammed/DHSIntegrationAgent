@@ -13,6 +13,7 @@ public sealed class BatchesViewModel : ViewModelBase
     private readonly ISqliteUnitOfWorkFactory _unitOfWorkFactory;
     private readonly IBatchClient _batchClient;
     private readonly IBatchTracker _batchTracker;
+    private readonly IAttachmentDispatchService _attachmentDispatchService;
 
     public ObservableCollection<BatchRow> Batches { get; } = new();
     public object ActiveBatches => _batchTracker.ActiveBatches;
@@ -98,20 +99,25 @@ public sealed class BatchesViewModel : ViewModelBase
     public RelayCommand<BatchRow> RetryFailedClaimsCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
-    public RelayCommand UploadAttachmentsCommand { get; }
+    public AsyncRelayCommand UploadAttachmentsCommand { get; }
 
-    public BatchesViewModel(ISqliteUnitOfWorkFactory unitOfWorkFactory, IBatchClient batchClient, IBatchTracker batchTracker)
+    public BatchesViewModel(
+        ISqliteUnitOfWorkFactory unitOfWorkFactory,
+        IBatchClient batchClient,
+        IBatchTracker batchTracker,
+        IAttachmentDispatchService attachmentDispatchService)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
         _batchTracker = batchTracker ?? throw new ArgumentNullException(nameof(batchTracker));
+        _attachmentDispatchService = attachmentDispatchService ?? throw new ArgumentNullException(nameof(attachmentDispatchService));
 
         ApplyFilterCommand = new RelayCommand(() => { /* screen-only */ });
         ManualRetrySelectedPacketCommand = new RelayCommand(() => { /* screen-only */ });
         RetryFailedClaimsCommand = new RelayCommand<BatchRow>(OnRetryFailedClaims, CanRetryFailedClaims);
         RefreshCommand = new AsyncRelayCommand(LoadBatchesAsync);
         SearchCommand = new AsyncRelayCommand(LoadBatchesAsync);
-        UploadAttachmentsCommand = new RelayCommand(OnUploadAttachments);
+        UploadAttachmentsCommand = new AsyncRelayCommand(OnUploadAttachmentsAsync);
 
         // Initialize with default "All" option synchronously to prevent type name display in ComboBox
         var allPayer = new PayerItem { PayerId = null, PayerName = "All" };
@@ -228,37 +234,51 @@ public sealed class BatchesViewModel : ViewModelBase
         });
     }
 
-    private void OnUploadAttachments()
+    private async Task OnUploadAttachmentsAsync()
     {
-        // For multiple batches, we'd normally have a selection mechanism.
-        // For now, let's assume we use the SelectedBatch or a mock list if we want to demonstrate "multiple at the same time".
-        if (SelectedBatch != null)
-        {
-            // We need to map UI BatchRow to Persistence BatchRow (or just use minimal info)
-            // Actually, TrackAttachmentUpload takes BatchRow from Persistence.
-            // I'll need to fetch the full batch info.
-
-            _ = Task.Run(async () =>
-            {
-                await using var uow = await _unitOfWorkFactory.CreateAsync(default);
-                var batch = await uow.Batches.GetByBcrIdAsync(SelectedBatch.BcrId.ToString(), default);
-                if (batch != null)
-                {
-                    _batchTracker.TrackAttachmentUpload(new[] { batch });
-                }
-                else
-                {
-                    // If not found in local DB, we might need to "ensure" it,
-                    // but usually it should be there if we're seeing it in the list
-                    // (unless it's only in the backend and not yet synced).
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                        MessageBox.Show("Batch details not found in local database. Please process the batch first.", "Not Found", MessageBoxButton.OK, MessageBoxImage.Warning));
-                }
-            });
-        }
-        else
+        if (SelectedBatch == null)
         {
             MessageBox.Show("Please select a batch to upload attachments for.", "No Selection", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            IsLoading = true;
+
+            DHSIntegrationAgent.Contracts.Persistence.BatchRow? batch = null;
+            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+            {
+                batch = await uow.Batches.GetByBcrIdAsync(SelectedBatch.BcrId.ToString(), default);
+            }
+
+            if (batch == null)
+            {
+                MessageBox.Show("Batch details not found in local database. Please process the batch first.", "Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // Count attachments (CPU/IO bound, keep async)
+            int count = await _attachmentDispatchService.CountAttachmentsAsync(batch, default);
+
+            var result = MessageBox.Show(
+                $"Found {count} attachments related to this batch.\n\nDo you want to proceed with upload?",
+                "Confirm Upload",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _batchTracker.TrackAttachmentUpload(new[] { batch });
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error preparing upload: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 

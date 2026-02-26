@@ -220,4 +220,27 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
+    public async Task<int> CountAttachmentsAsync(BatchRow batch, CancellationToken ct)
+    {
+        var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
+        var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
+
+        return await _tablesAdapter.CountAttachmentsAsync(
+            batch.ProviderDhsCode,
+            batch.CompanyCode,
+            startDate,
+            endDate,
+            ct);
+    }
+
+    private DateTimeOffset ParseMonthKey(string monthKey)
+    {
+        if (string.IsNullOrWhiteSpace(monthKey) || monthKey.Length != 6
+            || !int.TryParse(monthKey.Substring(0, 4), out var year)
+            || !int.TryParse(monthKey.Substring(4, 2), out var month))
+        {
+            throw new ArgumentException($"Invalid MonthKey format: '{monthKey}'. Expected YYYYMM.", nameof(monthKey));
+        }
+        return new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
+    }
 }
