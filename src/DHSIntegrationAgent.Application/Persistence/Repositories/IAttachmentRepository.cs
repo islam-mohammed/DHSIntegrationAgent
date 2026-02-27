@@ -14,7 +14,8 @@ public interface IAttachmentRepository
         string? lastError,
         DateTimeOffset utcNow,
         TimeSpan? nextRetryDelay,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        long? sizeBytes = null);
 
     Task<IReadOnlyList<AttachmentRow>> GetByClaimAsync(string providerDhsCode, int proIdClaim, CancellationToken ct);
 }

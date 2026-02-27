@@ -32,7 +32,7 @@ public sealed class AttachmentService : IAttachmentService
         _uowFactory = uowFactory;
     }
 
-    public async Task<string> UploadAsync(AttachmentRow attachment, CancellationToken ct)
+    public async Task<(string Url, long SizeBytes)> UploadAsync(AttachmentRow attachment, CancellationToken ct)
     {
         BlobContainerClient containerClient;
 
@@ -112,14 +112,13 @@ public sealed class AttachmentService : IAttachmentService
             using (uploadStream)
             {
                 await blobClient.UploadAsync(uploadStream, overwrite: true, ct);
+                return (blobClient.Uri.ToString(), uploadStream.Length);
             }
         }
         finally
         {
             networkConnection?.Dispose();
         }
-
-        return blobClient.Uri.ToString();
     }
 
     private async Task<string> GetSasUrlAsync(CancellationToken ct)

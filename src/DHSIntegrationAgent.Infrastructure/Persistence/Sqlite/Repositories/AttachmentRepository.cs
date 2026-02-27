@@ -98,7 +98,7 @@ internal sealed class AttachmentRepository : SqliteRepositoryBase, IAttachmentRe
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task UpdateStatusAsync(string attachmentId, UploadStatus status, string? onlineUrl, string? lastError, DateTimeOffset utcNow, TimeSpan? nextRetryDelay, CancellationToken cancellationToken)
+    public async Task UpdateStatusAsync(string attachmentId, UploadStatus status, string? onlineUrl, string? lastError, DateTimeOffset utcNow, TimeSpan? nextRetryDelay, CancellationToken cancellationToken, long? sizeBytes = null)
     {
         var nextRetryIso = nextRetryDelay is null ? null : SqliteUtc.ToIso(utcNow.Add(nextRetryDelay.Value));
 
@@ -115,7 +115,8 @@ internal sealed class AttachmentRepository : SqliteRepositoryBase, IAttachmentRe
                 LastError = $err,
                 AttemptCount = AttemptCount + 1,
                 NextRetryUtc = $nru,
-                UpdatedUtc = $now
+                UpdatedUtc = $now,
+                SizeBytes = COALESCE($sz, SizeBytes)
             WHERE AttachmentId = $id;
             """);
 
@@ -124,6 +125,7 @@ internal sealed class AttachmentRepository : SqliteRepositoryBase, IAttachmentRe
         SqliteSqlBuilder.AddParam(cmd, "$err", lastError);
         SqliteSqlBuilder.AddParam(cmd, "$nru", nextRetryIso);
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+        SqliteSqlBuilder.AddParam(cmd, "$sz", sizeBytes);
         SqliteSqlBuilder.AddParam(cmd, "$id", attachmentId);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);

@@ -4,5 +4,5 @@ namespace DHSIntegrationAgent.Application.Abstractions;
 
 public interface IAttachmentService
 {
-    Task<string> UploadAsync(AttachmentRow attachment, CancellationToken ct);
+    Task<(string Url, long SizeBytes)> UploadAsync(AttachmentRow attachment, CancellationToken ct);
 }
