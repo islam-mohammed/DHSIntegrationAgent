@@ -96,8 +96,10 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                 var proIdClaim = group.Key;
                 var attachmentInfos = new List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>();
 
-                foreach (var (att, row) in group)
+                foreach (var (att, initialRow) in group)
                 {
+                    var row = initialRow;
+
                     // Upsert Staged
                     await using (var uow = await _uowFactory.CreateAsync(ct))
                     {
@@ -108,12 +110,15 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                     try
                     {
                         // Upload
-                        var onlineUrl = await _attachmentService.UploadAsync(row!, ct);
+                        (var onlineUrl, var sizeBytes) = await _attachmentService.UploadAsync(row!, ct);
+
+                        // Update local row with new size
+                        row = row! with { SizeBytes = sizeBytes };
 
                         // Update Uploaded
                         await using (var uow = await _uowFactory.CreateAsync(ct))
                         {
-                            await uow.Attachments.UpdateStatusAsync(row!.AttachmentId, UploadStatus.Uploaded, onlineUrl, null, _clock.UtcNow, null, ct);
+                            await uow.Attachments.UpdateStatusAsync(row!.AttachmentId, UploadStatus.Uploaded, onlineUrl, null, _clock.UtcNow, null, ct, sizeBytes);
                             await uow.CommitAsync(ct);
                         }
 
