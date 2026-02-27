@@ -53,4 +53,11 @@ public interface IProviderTablesAdapter
         DateTimeOffset batchEndDateUtc,
         IReadOnlyList<BaselineDomain> domains,
         CancellationToken ct);
+
+    Task<IReadOnlyList<JsonObject>> GetAttachmentsForBatchAsync(
+        string providerDhsCode,
+        string companyCode,
+        DateTimeOffset batchStartDateUtc,
+        DateTimeOffset batchEndDateUtc,
+        CancellationToken ct);
 }

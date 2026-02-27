@@ -47,98 +47,153 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
         try
         {
             BatchRow? batch;
-            IReadOnlyList<ClaimKey> claimKeys;
             await using (var uow = await _uowFactory.CreateAsync(ct))
             {
                 batch = await uow.Batches.GetByIdAsync(batchId, ct);
-                if (batch == null) return;
-                claimKeys = await uow.Claims.ListByBatchAsync(batchId, ct);
             }
+            if (batch == null) return;
 
-            if (claimKeys.Count == 0)
+            var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
+            var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
+
+            _logger.LogInformation("Fetching attachments for batch {BatchId}...", batchId);
+
+            // Preparation: Fetch all raw attachments directly
+            var rawAttachments = await _tablesAdapter.GetAttachmentsForBatchAsync(
+                batch.ProviderDhsCode,
+                batch.CompanyCode,
+                startDate,
+                endDate,
+                ct);
+
+            if (rawAttachments.Count == 0)
             {
-                progress.Report(new WorkerProgressReport("StreamC", "No claims found in batch", BatchId: batchId, Percentage: 100));
+                progress.Report(new WorkerProgressReport("StreamC", "No attachments found for batch", BatchId: batchId, Percentage: 100));
                 return;
             }
 
-            _logger.LogInformation("Processing attachments for batch {BatchId} ({ClaimCount} claims)", batchId, claimKeys.Count);
+            // Map and Group by ProIdClaim
+            var claimGroups = rawAttachments
+                .Select(att => (Att: att, Row: AttachmentMapper.MapToAttachmentRow(batch.ProviderDhsCode, GetProIdClaim(att), att, _clock.UtcNow)))
+                .Where(x => x.Row != null)
+                .GroupBy(x => x.Row!.ProIdClaim)
+                .ToList();
 
-            int processedClaims = 0;
-            const int HISBatchSize = 50;
+            int totalAttachments = claimGroups.Sum(g => g.Count());
+            int uploadedCount = 0;
+            int totalClaimsWithAttachments = claimGroups.Count;
+            int notifiedClaimsCount = 0;
 
-            for (int i = 0; i < claimKeys.Count; i += HISBatchSize)
+            _logger.LogInformation("Processing {AttachmentCount} attachments for {ClaimCount} claims in batch {BatchId}", totalAttachments, totalClaimsWithAttachments, batchId);
+
+            // Stage 1: Upload & Update Payload (0% -> 70%)
+            var claimAttachmentDetails = new Dictionary<int, List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>>();
+
+            foreach (var group in claimGroups)
             {
                 if (ct.IsCancellationRequested) break;
 
-                var currentBatchKeys = claimKeys.Skip(i).Take(HISBatchSize).ToList();
-                var providerCode = currentBatchKeys[0].ProviderDhsCode;
-                var proIdClaims = currentBatchKeys.Select(k => k.ProIdClaim).ToList();
+                var proIdClaim = group.Key;
+                var attachmentInfos = new List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>();
 
-                // 1. Fetch full bundles in batch from HIS
-                var rawBundles = await _tablesAdapter.GetClaimBundlesRawBatchAsync(providerCode, proIdClaims, ct);
-
-                foreach (var rawBundle in rawBundles)
+                foreach (var (att, row) in group)
                 {
-                    if (ct.IsCancellationRequested) break;
-
-                    if (rawBundle.Attachments != null && rawBundle.Attachments.Count > 0)
+                    // Upsert Staged
+                    await using (var uow = await _uowFactory.CreateAsync(ct))
                     {
-                        var attachmentInfos = new List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>();
-                        var key = new ClaimKey(providerCode, rawBundle.ProIdClaim);
-
-                        foreach (var attNode in rawBundle.Attachments)
-                        {
-                            if (attNode is not JsonObject attObj) continue;
-
-                            var row = AttachmentMapper.MapToAttachmentRow(providerCode, rawBundle.ProIdClaim, attObj, _clock.UtcNow);
-                            if (row == null) continue;
-
-                            await using (var uow = await _uowFactory.CreateAsync(ct))
-                            {
-                                await uow.Attachments.UpsertAsync(row, ct);
-                                await uow.CommitAsync(ct);
-                            }
-
-                            try
-                            {
-                                var onlineUrl = await _attachmentService.UploadAsync(row, ct);
-                                await using (var uow = await _uowFactory.CreateAsync(ct))
-                                {
-                                    await uow.Attachments.UpdateStatusAsync(row.AttachmentId, UploadStatus.Uploaded, onlineUrl, null, _clock.UtcNow, null, ct);
-                                    await uow.CommitAsync(ct);
-                                }
-
-                                string? remarks = null;
-                                if (attObj.TryGetPropertyValue("remarks", out var remNode) && remNode != null)
-                                    remarks = remNode.ToString().Trim('"');
-
-                                attachmentInfos.Add((row, remarks, onlineUrl));
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to upload attachment {AttachmentId}", row.AttachmentId);
-                                await using (var uow = await _uowFactory.CreateAsync(ct))
-                                {
-                                    await uow.Attachments.UpdateStatusAsync(row.AttachmentId, UploadStatus.Failed, null, ex.Message, _clock.UtcNow, TimeSpan.FromMinutes(5), ct);
-                                    await uow.CommitAsync(ct);
-                                }
-                            }
-                        }
-
-                        if (attachmentInfos.Count > 0)
-                        {
-                            // 2. Update ClaimPayload JSON and Notify Backend
-                            await UpdateClaimAndUploadAttachmentAsync(key, attachmentInfos, ct);
-                        }
+                        await uow.Attachments.UpsertAsync(row!, ct);
+                        await uow.CommitAsync(ct);
                     }
 
-                    processedClaims++;
-                    if (processedClaims % 5 == 0 || processedClaims == claimKeys.Count)
+                    try
                     {
-                        double percentage = 10 + ((double)processedClaims / claimKeys.Count * 90);
-                        progress.Report(new WorkerProgressReport("StreamC", $"Uploading attachments: {processedClaims}/{claimKeys.Count} claims", BatchId: batchId, Percentage: percentage, ProcessedCount: processedClaims, TotalCount: claimKeys.Count));
+                        // Upload
+                        var onlineUrl = await _attachmentService.UploadAsync(row!, ct);
+
+                        // Update Uploaded
+                        await using (var uow = await _uowFactory.CreateAsync(ct))
+                        {
+                            await uow.Attachments.UpdateStatusAsync(row!.AttachmentId, UploadStatus.Uploaded, onlineUrl, null, _clock.UtcNow, null, ct);
+                            await uow.CommitAsync(ct);
+                        }
+
+                        // Extract remarks
+                        string? remarks = null;
+                        if (att.TryGetPropertyValue("remarks", out var remNode) && remNode != null)
+                        {
+                            remarks = remNode.ToString().Trim('"');
+                        }
+
+                        attachmentInfos.Add((row!, remarks, onlineUrl));
+                        uploadedCount++;
+
+                        // Report Progress (0-70%)
+                        double percentage = (double)uploadedCount / totalAttachments * 70.0;
+                        progress.Report(new WorkerProgressReport("StreamC",
+                            $"Uploading {uploadedCount} of {totalAttachments}",
+                            BatchId: batchId,
+                            Percentage: percentage,
+                            ProcessedCount: uploadedCount,
+                            TotalCount: totalAttachments));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to upload attachment {AttachmentId}", row!.AttachmentId);
+                        await using (var uow = await _uowFactory.CreateAsync(ct))
+                        {
+                            await uow.Attachments.UpdateStatusAsync(row!.AttachmentId, UploadStatus.Failed, null, ex.Message, _clock.UtcNow, TimeSpan.FromMinutes(5), ct);
+                            await uow.CommitAsync(ct);
+                        }
                     }
                 }
+
+                if (attachmentInfos.Count > 0)
+                {
+                    claimAttachmentDetails[proIdClaim] = attachmentInfos;
+                    await UpdateClaimPayloadAsync(new ClaimKey(batch.ProviderDhsCode, proIdClaim), attachmentInfos, ct);
+                }
+            }
+
+            // Stage 2: Send Notification (70% -> 100%)
+            foreach (var group in claimGroups)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                var proIdClaim = group.Key;
+
+                if (claimAttachmentDetails.TryGetValue(proIdClaim, out var attachmentInfos))
+                {
+                    var attachmentDtos = new List<AttachmentDto>();
+                    foreach(var info in attachmentInfos)
+                    {
+                         attachmentDtos.Add(new AttachmentDto(
+                            AttachmentType: info.Row.ContentType ?? "application/octet-stream",
+                            FileSizeInByte: info.Row.SizeBytes ?? 0,
+                            OnlineURL: info.OnlineUrl,
+                            Remarks: info.Remarks,
+                            Location: info.Row.LocationPathPlaintext
+                        ));
+                    }
+
+                    // Notify Backend
+                    var request = new UploadAttachmentRequest(proIdClaim, attachmentDtos);
+                    var result = await _attachmentClient.UploadAttachmentAsync(request, ct);
+                    if (!result.Succeeded)
+                    {
+                        _logger.LogWarning("Failed to notify backend about attachments for claim {ProIdClaim}: {Error}", proIdClaim, result.ErrorMessage);
+                    }
+                }
+
+                notifiedClaimsCount++;
+
+                // Report Progress (70% -> 100%)
+                double percentage = 70.0 + ((double)notifiedClaimsCount / totalClaimsWithAttachments * 30.0);
+                progress.Report(new WorkerProgressReport("StreamC",
+                    $"Sending {notifiedClaimsCount} of {totalClaimsWithAttachments}",
+                    BatchId: batchId,
+                    Percentage: percentage,
+                    ProcessedCount: notifiedClaimsCount,
+                    TotalCount: totalClaimsWithAttachments));
             }
 
             progress.Report(new WorkerProgressReport("StreamC", "Attachment processing complete", BatchId: batchId, Percentage: 100));
@@ -150,7 +205,17 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
         }
     }
 
-    private async Task UpdateClaimAndUploadAttachmentAsync(ClaimKey key, List<(AttachmentRow Row, string? Remarks, string OnlineUrl)> attachmentInfos, CancellationToken ct)
+    private int GetProIdClaim(JsonObject obj)
+    {
+        if (obj.TryGetPropertyValue("ProIdClaim", out var node) && node != null && int.TryParse(node.ToString(), out var val))
+            return val;
+        // Fallback for case sensitivity or schema variations if necessary, though SQL query usually returns standard casing
+        if (obj.TryGetPropertyValue("proIdClaim", out node) && node != null && int.TryParse(node.ToString(), out val))
+            return val;
+        return 0;
+    }
+
+    private async Task UpdateClaimPayloadAsync(ClaimKey key, List<(AttachmentRow Row, string? Remarks, string OnlineUrl)> attachmentInfos, CancellationToken ct)
     {
         await using var uow = await _uowFactory.CreateAsync(ct);
         var payloadRow = await uow.ClaimPayloads.GetAsync(key, ct);
@@ -161,14 +226,11 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
 
         var attachmentsArray = bundleObj["attachments"] as JsonArray ?? new JsonArray();
 
-        var attachmentDtos = new List<AttachmentDto>();
-
         foreach (var info in attachmentInfos)
         {
             var attId = info.Row.AttachmentId;
             var url = info.OnlineUrl;
 
-            // Try to find existing attachment in JSON
             var existing = attachmentsArray.FirstOrDefault(x => x?["attachmentId"]?.ToString() == attId) as JsonObject;
             if (existing != null)
             {
@@ -185,14 +247,6 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                     ["onlineUrl"] = url
                 });
             }
-
-            attachmentDtos.Add(new AttachmentDto(
-                AttachmentType: info.Row.ContentType ?? "application/octet-stream",
-                FileSizeInByte: info.Row.SizeBytes ?? 0,
-                OnlineURL: url,
-                Remarks: info.Remarks,
-                Location: info.Row.LocationPathPlaintext
-            ));
         }
 
         bundleObj["attachments"] = attachmentsArray;
@@ -200,17 +254,9 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
         var updatedBytes = System.Text.Encoding.UTF8.GetBytes(updatedJson);
         var updatedSha = ComputeSha256(updatedBytes);
 
-        // 1. Update local DB
+        // Update local DB
         await uow.ClaimPayloads.UpsertAsync(payloadRow with { PayloadJsonPlaintext = updatedBytes, PayloadSha256 = updatedSha }, ct);
         await uow.CommitAsync(ct);
-
-        // 2. Notify Backend
-        var request = new UploadAttachmentRequest(key.ProIdClaim, attachmentDtos);
-        var result = await _attachmentClient.UploadAttachmentAsync(request, ct);
-        if (!result.Succeeded)
-        {
-            _logger.LogWarning("Failed to notify backend about attachments for claim {ProIdClaim}: {Error}", key.ProIdClaim, result.ErrorMessage);
-        }
     }
 
     private static string ComputeSha256(byte[] data)

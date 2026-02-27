@@ -367,6 +367,41 @@ WHERE h.CompanyCode = @CompanyCode
         return results.Distinct().ToList();
     }
 
+    public async Task<IReadOnlyList<JsonObject>> GetAttachmentsForBatchAsync(
+        string providerDhsCode,
+        string companyCode,
+        DateTimeOffset batchStartDateUtc,
+        DateTimeOffset batchEndDateUtc,
+        CancellationToken ct)
+    {
+        var (headerTable, claimKeyCol, dateCol) = await ResolveConfigAsync(providerDhsCode, ct);
+
+        await using var handle = await _providerDbFactory.OpenAsync(providerDhsCode, ct);
+
+        using var cmd = handle.Connection.CreateCommand();
+        cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
+
+        cmd.CommandText = $@"
+SELECT a.*
+FROM {DefaultAttachmentTable} a
+INNER JOIN {headerTable} h ON a.{DefaultClaimKeyColumn} = h.{claimKeyCol}
+WHERE h.CompanyCode = @CompanyCode
+  AND h.{dateCol} >= @StartDate
+  AND h.{dateCol} <= @EndDate;";
+
+        cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
+        cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
+        cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+
+        var results = new List<JsonObject>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+        {
+            results.Add(reader.ReadRowAsJsonObject());
+        }
+        return results;
+    }
+
     private async Task<(string HeaderTable, string ClaimKeyCol, string DateCol)> ResolveConfigAsync(string providerDhsCode, CancellationToken ct)
     {
         if (_configCache.TryGetValue(providerDhsCode, out var cached))
