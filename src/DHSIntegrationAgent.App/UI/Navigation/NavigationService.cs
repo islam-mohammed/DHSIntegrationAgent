@@ -24,4 +24,9 @@ public sealed class NavigationService : INavigationService
         var vm = _services.GetRequiredService<TViewModel>();
         _store.CurrentViewModel = vm;
     }
+
+    public void NavigateTo<TViewModel>(TViewModel viewModel) where TViewModel : ViewModelBase
+    {
+        _store.CurrentViewModel = viewModel;
+    }
 }

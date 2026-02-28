@@ -29,7 +29,6 @@ public sealed class ShellViewModel : ViewModelBase
         GoDashboardCommand = new RelayCommand(() => _navigation.NavigateTo<DashboardViewModel>(), () => IsMenuVisible);
         GoBatchesCommand = new RelayCommand(() => _navigation.NavigateTo<BatchesViewModel>(), () => IsMenuVisible);
         GoDomainMappingsCommand = new RelayCommand(() => _navigation.NavigateTo<DomainMappingsViewModel>(), () => IsMenuVisible);
-        GoAttachmentsCommand = new RelayCommand(() => _navigation.NavigateTo<AttachmentsViewModel>(), () => IsMenuVisible);
         GoDiagnosticsCommand = new RelayCommand(() => _navigation.NavigateTo<DiagnosticsViewModel>(), () => IsMenuVisible);
         GoSettingsCommand = new RelayCommand(() => _navigation.NavigateTo<SettingsViewModel>(), () => IsMenuVisible);
         GoContactCommand = new RelayCommand(() => _navigation.NavigateTo<ContactViewModel>());
@@ -47,7 +46,6 @@ public sealed class ShellViewModel : ViewModelBase
     public RelayCommand GoDashboardCommand { get; }
     public RelayCommand GoBatchesCommand { get; }
     public RelayCommand GoDomainMappingsCommand { get; }
-    public RelayCommand GoAttachmentsCommand { get; }
     public RelayCommand GoDiagnosticsCommand { get; }
     public RelayCommand GoSettingsCommand { get; }
     public RelayCommand GoContactCommand { get; }
@@ -101,7 +99,6 @@ public sealed class ShellViewModel : ViewModelBase
         GoDashboardCommand.RaiseCanExecuteChanged();
         GoBatchesCommand.RaiseCanExecuteChanged();
         GoDomainMappingsCommand.RaiseCanExecuteChanged();
-        GoAttachmentsCommand.RaiseCanExecuteChanged();
         GoDiagnosticsCommand.RaiseCanExecuteChanged();
         GoSettingsCommand.RaiseCanExecuteChanged();
     }
