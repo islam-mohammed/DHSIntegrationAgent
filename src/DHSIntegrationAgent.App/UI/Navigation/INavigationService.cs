@@ -1,4 +1,4 @@
-﻿using DHSIntegrationAgent.App.UI.Mvvm;
+using DHSIntegrationAgent.App.UI.Mvvm;
 
 namespace DHSIntegrationAgent.App.UI.Navigation;
 
@@ -9,5 +9,5 @@ namespace DHSIntegrationAgent.App.UI.Navigation;
 public interface INavigationService
 {
     void NavigateTo<TViewModel>() where TViewModel : ViewModelBase;
+    void NavigateTo<TViewModel>(TViewModel viewModel) where TViewModel : ViewModelBase;
 }
-

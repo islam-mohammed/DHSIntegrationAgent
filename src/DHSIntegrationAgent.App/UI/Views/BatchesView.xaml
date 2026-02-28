@@ -261,6 +261,9 @@
                                                                          Height="16"
                                                                          Foreground="#473762"/>
                                             </Button>
+                                            <Button ToolTip="Show Attachments" Cursor="Hand" Style="{StaticResource GreenActionBtn}" Command="{Binding DataContext.ShowAttachmentsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" CommandParameter="{Binding}" Visibility="{Binding HasAttachments, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,0,5,0">
+                                                <materialDesign:PackIcon Kind="Paperclip" Width="16" Height="16" Foreground="#32729B"/>
+                                            </Button>
                                             <Button ToolTip="Upload Attachments"
                                                     Cursor="Hand"
                                                     Style="{StaticResource GreenActionBtn}"

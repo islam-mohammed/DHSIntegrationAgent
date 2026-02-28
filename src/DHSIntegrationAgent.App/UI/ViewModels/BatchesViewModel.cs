@@ -5,6 +5,8 @@ using DHSIntegrationAgent.App.UI.Mvvm;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
+using DHSIntegrationAgent.App.UI.Navigation;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
 
@@ -14,6 +16,7 @@ public sealed class BatchesViewModel : ViewModelBase
     private readonly IBatchClient _batchClient;
     private readonly IBatchTracker _batchTracker;
     private readonly IAttachmentDispatchService _attachmentDispatchService;
+    private readonly INavigationService _navigation;
 
     public ObservableCollection<BatchRow> Batches { get; } = new();
     public object ActiveBatches => _batchTracker.ActiveBatches;
@@ -100,17 +103,21 @@ public sealed class BatchesViewModel : ViewModelBase
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
     public AsyncRelayCommand UploadAttachmentsCommand { get; }
+    public RelayCommand<BatchRow> ShowAttachmentsCommand { get; }
 
     public BatchesViewModel(
         ISqliteUnitOfWorkFactory unitOfWorkFactory,
         IBatchClient batchClient,
         IBatchTracker batchTracker,
-        IAttachmentDispatchService attachmentDispatchService)
+        IAttachmentDispatchService attachmentDispatchService,
+        INavigationService navigation)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
         _batchTracker = batchTracker ?? throw new ArgumentNullException(nameof(batchTracker));
         _attachmentDispatchService = attachmentDispatchService ?? throw new ArgumentNullException(nameof(attachmentDispatchService));
+        _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        ShowAttachmentsCommand = new RelayCommand<BatchRow>(OnShowAttachments);
 
         ApplyFilterCommand = new RelayCommand(() => { /* screen-only */ });
         ManualRetrySelectedPacketCommand = new RelayCommand(() => { /* screen-only */ });
@@ -229,6 +236,47 @@ public sealed class BatchesViewModel : ViewModelBase
                 {
                     IsRetrying = false;
                     MessageBox.Show($"Error starting retry: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
+            }
+        });
+    }
+
+
+        private void OnShowAttachments(BatchRow batch)
+    {
+        if (batch == null) return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+                var localBatch = await uow.Batches.GetByBcrIdAsync(batch.BcrId.ToString(), default);
+
+                if (localBatch != null)
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        var attachmentsVm = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<AttachmentsViewModel>(
+                            ((App)System.Windows.Application.Current).ServiceHost!.Services);
+
+                        _ = attachmentsVm.InitializeAsync(localBatch.BatchId, $"Batch BCR ID: {batch.BcrId}");
+                        _navigation.NavigateTo(attachmentsVm);
+                    });
+                }
+                else
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        MessageBox.Show("Batch not found locally. Please process the batch first.", "Not Found", MessageBoxButton.OK, MessageBoxImage.Information);
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    MessageBox.Show($"Error loading attachments: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 });
             }
         });
@@ -361,7 +409,7 @@ public sealed class BatchesViewModel : ViewModelBase
         }
     }
 
-    public async Task LoadBatchesAsync()
+        public async Task LoadBatchesAsync()
     {
         IsLoading = true;
         try
@@ -428,6 +476,7 @@ public sealed class BatchesViewModel : ViewModelBase
             if (result.Data != null)
             {
                 var failedClaimsMap = new Dictionary<string, bool>();
+                var hasAttachmentsMap = new Dictionary<string, bool>();
 
                 try
                 {
@@ -446,11 +495,20 @@ public sealed class BatchesViewModel : ViewModelBase
 
                             foreach (var lb in localBatches)
                             {
-                                if (lb.BcrId != null && countsMap.TryGetValue(lb.BatchId, out var counts))
+                                if (lb.BcrId != null)
                                 {
-                                    if (counts.Failed > 0)
+                                    if (countsMap.TryGetValue(lb.BatchId, out var counts))
                                     {
-                                        failedClaimsMap[lb.BcrId] = true;
+                                        if (counts.Failed > 0)
+                                        {
+                                            failedClaimsMap[lb.BcrId] = true;
+                                        }
+                                    }
+
+                                    var attachmentCount = await uow.Attachments.CountByBatchAsync(lb.BatchId, default);
+                                    if (attachmentCount > 0)
+                                    {
+                                        hasAttachmentsMap[lb.BcrId] = true;
                                     }
                                 }
                             }
@@ -470,6 +528,12 @@ public sealed class BatchesViewModel : ViewModelBase
                         hasFailed = failed;
                     }
 
+                    bool hasAtt = false;
+                    if (hasAttachmentsMap.TryGetValue(item.BcrId.ToString(), out var att))
+                    {
+                        hasAtt = att;
+                    }
+
                     Batches.Add(new BatchRow
                     {
                         BcrId = item.BcrId,
@@ -482,7 +546,8 @@ public sealed class BatchesViewModel : ViewModelBase
                         CompanyCode = item.CompanyCode ?? "",
                         MidTableTotalClaim = item.MidTableTotalClaim,
                         BatchStatus = item.BatchStatus ?? "",
-                        HasFailedClaims = hasFailed
+                        HasFailedClaims = hasFailed,
+                        HasAttachments = hasAtt
                     });
                 }
             }
@@ -512,7 +577,7 @@ public sealed class BatchesViewModel : ViewModelBase
         }
     }
 
-    public sealed class BatchRow
+public sealed class BatchRow
     {
         public int BcrId { get; set; }
         public DateTime BcrCreatedOn { get; set; }
@@ -529,6 +594,7 @@ public sealed class BatchesViewModel : ViewModelBase
         public string Status => BatchStatus;
         public bool HasResume { get; set; }
         public bool HasFailedClaims { get; set; }
+        public bool HasAttachments { get; set; }
     }
 
     public sealed class DispatchRow

@@ -152,13 +152,7 @@
                             <TextBlock Style="{StaticResource SidebarBtnText}"> Domain Mappings</TextBlock>
                         </StackPanel>
                     </Button>
-                    <Button  Style="{StaticResource SidebarBtn}"
-                             Command="{Binding GoAttachmentsCommand}" Width="219">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Width="189" >
-                            <materialDesign:PackIcon Kind="Attachment" Width="23" Height="23" Margin="0,0,10,0"/>
-                            <TextBlock Style="{StaticResource SidebarBtnText}"> Attachments</TextBlock>
-                        </StackPanel>
-                    </Button>
+
                     <Button  Style="{StaticResource SidebarBtn}"
                              Command="{Binding GoDiagnosticsCommand}" Width="219">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Width="189" >
