@@ -250,17 +250,24 @@ public sealed class BatchesViewModel : ViewModelBase
         {
             try
             {
-                await using var uow = await _unitOfWorkFactory.CreateAsync(default);
-                var localBatch = await uow.Batches.GetByBcrIdAsync(batch.BcrId.ToString(), default);
+                long? localBatchId = null;
+                await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+                {
+                    var localBatch = await uow.Batches.GetByBcrIdAsync(batch.BcrId.ToString(), default);
+                    if (localBatch != null)
+                    {
+                        localBatchId = localBatch.BatchId;
+                    }
+                }
 
-                if (localBatch != null)
+                if (localBatchId.HasValue)
                 {
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         var attachmentsVm = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<AttachmentsViewModel>(
                             ((App)System.Windows.Application.Current).ServiceHost!.Services);
 
-                        _ = attachmentsVm.InitializeAsync(localBatch.BatchId, $"Batch BCR ID: {batch.BcrId}");
+                        _ = attachmentsVm.InitializeAsync(localBatchId.Value, $"Batch BCR ID: {batch.BcrId}");
                         _navigation.NavigateTo(attachmentsVm);
                     });
                 }
