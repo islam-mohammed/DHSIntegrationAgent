@@ -12,8 +12,7 @@ namespace DHSIntegrationAgent.App.UI.ViewModels;
 public sealed class DomainMappingsViewModel : ViewModelBase
 {
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
-    private readonly IDomainMappingClient _domainMappingClient;
-    private readonly IProviderConfigurationService _configService;
+    private readonly IDomainMappingOrchestrator _orchestrator;
     private bool _isLoading;
 
     public ObservableCollection<MappingRow> MissingMappings { get; } = new();
@@ -22,7 +21,7 @@ public sealed class DomainMappingsViewModel : ViewModelBase
     public ObservableCollection<DomainMappingRow> DomainMappings { get; } = new();
 
     public AsyncRelayCommand RefreshCommand { get; }
-    public RelayCommand PostNowCommand { get; }
+    public AsyncRelayCommand PostNowCommand { get; }
     public AsyncRelayCommand LoadMissingMappingsCommand { get; }
 
     public bool IsLoading { get => _isLoading; set => SetProperty(ref _isLoading, value); }
@@ -31,24 +30,43 @@ public sealed class DomainMappingsViewModel : ViewModelBase
 
     public DomainMappingsViewModel(
         ISqliteUnitOfWorkFactory uowFactory,
-        IDomainMappingClient domainMappingClient,
-        IProviderConfigurationService configService)
+        IDomainMappingOrchestrator orchestrator)
     {
         _uowFactory = uowFactory;
-        _domainMappingClient = domainMappingClient;
-        _configService = configService;
+        _orchestrator = orchestrator;
 
         RefreshCommand = new AsyncRelayCommand(RefreshAllAsync);
         LoadMissingMappingsCommand = new AsyncRelayCommand(LoadMissingMappingsAsync);
-        PostNowCommand = new RelayCommand(() => { /* screen-only */ });
+        PostNowCommand = new AsyncRelayCommand(PostMissingNowAsync);
 
-        MappingDomainViewModel = new MappingDomainViewModel(uowFactory, configService);
+        MappingDomainViewModel = new MappingDomainViewModel(uowFactory, orchestrator);
     }
 
     public async Task RefreshAllAsync()
     {
+        await _orchestrator.RefreshFromProviderConfigAsync(CancellationToken.None);
         await LoadMissingMappingsAsync();
-        await MappingDomainViewModel.RefreshAsync();
+        await MappingDomainViewModel.LoadAsync();
+    }
+
+    private async Task PostMissingNowAsync()
+    {
+        try
+        {
+            IsLoading = true;
+            await _orchestrator.PostMissingNowAsync(CancellationToken.None);
+            await LoadMissingMappingsAsync();
+            await MappingDomainViewModel.LoadAsync();
+            MessageBox.Show("Finished posting missing mappings.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error posting mappings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     public async Task LoadMissingMappingsAsync()
@@ -76,73 +94,36 @@ public sealed class DomainMappingsViewModel : ViewModelBase
                 providerDhsCode = appSettings.ProviderDhsCode;
             }
 
-            // Call API
-            var result = await _domainMappingClient.GetMissingDomainMappingsAsync(providerDhsCode, CancellationToken.None);
-
-            if (!result.Succeeded)
+            // Read from SQLite
+            IReadOnlyList<DHSIntegrationAgent.Contracts.Persistence.MissingDomainMappingRow> missing;
+            await using (var uow = await _uowFactory.CreateAsync(CancellationToken.None))
             {
-                var errorMessage = result.Message ?? "Failed to load domain mappings.";
-
-                // Add more debugging info for 404 errors
-                if (result.StatusCode == 404)
-                {
-                    errorMessage = $"API Endpoint Not Found (HTTP 404)\n\n" +
-                                   $"Endpoint: api/DomainMapping/GetMissingDomainMappings\n" +
-                                   $"ProviderDhsCode: {providerDhsCode}\n\n" +
-                                   $"Possible causes:\n" +
-                                   $"1. The API endpoint is not implemented on the backend\n" +
-                                   $"2. The ProviderDhsCode '{providerDhsCode}' doesn't exist in the backend database\n" +
-                                   $"3. The endpoint URL format is incorrect\n\n" +
-                                   $"Please verify the API is running and the endpoint exists.";
-                }
-                else if (result.Errors?.Any() == true)
-                {
-                    errorMessage += "\n\nErrors:\n" + string.Join("\n", result.Errors);
-                }
-
-                MessageBox.Show(errorMessage, "API Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
+                missing = await uow.DomainMappings.GetAllMissingAsync(CancellationToken.None);
             }
 
-            if (result.Data != null)
+            foreach (var item in missing)
             {
-                foreach (var item in result.Data)
+                DomainMappings.Add(new DomainMappingRow
                 {
-                    DomainMappings.Add(new DomainMappingRow
-                    {
-                        DomTableId = item.DomainTableId,
-                        ProviderCode = item.ProviderCodeValue ?? "",
-                        ProviderName = item.ProviderNameValue ?? "",
-                        DomainTableName = item.DomainTableName ?? "",
-                        DhsDomainValue = 0, // Not provided by API for missing mappings
-                        IsDefault = 0,
-                        DisplayValue = "" // Not provided by API for missing mappings
-                    });
-                }
-
-                if (DomainMappings.Count == 0)
-                {
-                    MessageBox.Show(
-                        $"No missing domain mappings found for ProviderDhsCode: {providerDhsCode}\n\n" +
-                        $"All domains are already mapped!",
-                        "No Missing Mappings",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                }
+                    DomTableId = item.DomainTableId,
+                    ProviderCode = item.SourceValue ?? "",
+                    ProviderName = item.ProviderNameValue ?? item.SourceValue ?? "",
+                    DomainTableName = item.DomainTableName ?? item.DomainName ?? "",
+                    DhsDomainValue = 0,
+                    IsDefault = 0,
+                    DisplayValue = ""
+                });
             }
-        }
-        catch (HttpRequestException httpEx)
-        {
-            MessageBox.Show(
-                $"Network Error: Unable to connect to the API.\n\n" +
-                $"Error: {httpEx.Message}\n\n" +
-                $"Please check:\n" +
-                $"1. The API service is running\n" +
-                $"2. The API URL is configured correctly\n" +
-                $"3. Network connectivity",
-                "Network Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+
+            if (DomainMappings.Count == 0)
+            {
+                MessageBox.Show(
+                    $"No missing domain mappings found for ProviderDhsCode: {providerDhsCode}\n\n" +
+                    $"All domains are already mapped!",
+                    "No Missing Mappings",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
         }
         catch (Exception ex)
         {
