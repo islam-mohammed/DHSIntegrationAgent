@@ -427,7 +427,7 @@ public sealed class FetchStageService : IFetchStageService
 
             var itemsToPost = eligible.Skip(i).Take(BatchSize).ToList();
             var items = itemsToPost
-                .Select(x => new MismappedItem(x.SourceValue, x.ProviderNameValue ?? x.SourceValue, x.DomainTableId))
+                .Select(x => new MismappedItem(x.SourceValue, x.ProviderNameValue ?? x.SourceValue, x.DomainTableId, x.DomainTableName ?? x.DomainName))
                 .ToList();
 
             var request = new InsertMissMappingDomainRequest(providerDhsCode, items);

@@ -8,7 +8,8 @@ public sealed record InsertMissMappingDomainRequest(
 public sealed record MismappedItem(
     string ProviderCodeValue,
     string ProviderNameValue,
-    int DomainTableId
+    int DomainTableId,
+    string? DomainTableName = null
 );
 
 public sealed record InsertMissMappingDomainResult(
