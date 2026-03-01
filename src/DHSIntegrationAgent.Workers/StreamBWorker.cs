@@ -11,6 +11,7 @@ public sealed class StreamBWorker : IWorker
 {
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly IDispatchService _dispatchService;
+    private readonly IBatchRegistry _batchRegistry;
     private readonly ILogger<StreamBWorker> _logger;
 
     public string Id => "StreamB";
@@ -19,10 +20,12 @@ public sealed class StreamBWorker : IWorker
     public StreamBWorker(
         ISqliteUnitOfWorkFactory uowFactory,
         IDispatchService dispatchService,
+        IBatchRegistry batchRegistry,
         ILogger<StreamBWorker> logger)
     {
         _uowFactory = uowFactory;
         _dispatchService = dispatchService;
+        _batchRegistry = batchRegistry;
         _logger = logger;
     }
 
@@ -70,6 +73,12 @@ public sealed class StreamBWorker : IWorker
         foreach (var batch in batchesToProcess)
         {
             if (ct.IsCancellationRequested) break;
+
+            if (_batchRegistry.IsRegistered(batch.BatchId))
+            {
+                _logger.LogInformation("Skipping batch {BatchId} as it is currently being processed by another task.", batch.BatchId);
+                continue;
+            }
 
             try
             {
