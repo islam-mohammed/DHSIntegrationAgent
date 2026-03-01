@@ -101,7 +101,7 @@ public sealed class DomainMappingsViewModel : ViewModelBase
                 missing = await uow.DomainMappings.GetAllMissingAsync(CancellationToken.None);
             }
 
-            foreach (var item in missing)
+            foreach (var item in missing.Where(m => m.ProviderDhsCode == providerDhsCode))
             {
                 DomainMappings.Add(new DomainMappingRow
                 {

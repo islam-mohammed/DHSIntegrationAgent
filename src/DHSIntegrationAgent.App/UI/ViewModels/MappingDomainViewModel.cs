@@ -49,12 +49,21 @@ public sealed class MappingDomainViewModel : ViewModelBase
             IsLoading = true;
 
             await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);
+            var appSettings = await uow.AppSettings.GetAsync(CancellationToken.None);
+            var providerDhsCode = appSettings.ProviderDhsCode;
+
+            if (string.IsNullOrWhiteSpace(providerDhsCode))
+            {
+                MappingDomains.Clear();
+                return;
+            }
+
             var approved = await uow.DomainMappings.GetAllApprovedAsync(CancellationToken.None);
             var missing = await uow.DomainMappings.GetAllMissingAsync(CancellationToken.None);
 
             MappingDomains.Clear();
 
-            foreach (var mapping in approved)
+            foreach (var mapping in approved.Where(m => m.ProviderDhsCode == providerDhsCode))
             {
                 MappingDomains.Add(new MappingDomainRow
                 {
@@ -67,7 +76,7 @@ public sealed class MappingDomainViewModel : ViewModelBase
                 });
             }
 
-            foreach (var mapping in missing)
+            foreach (var mapping in missing.Where(m => m.ProviderDhsCode == providerDhsCode))
             {
                 MappingDomains.Add(new MappingDomainRow
                 {
