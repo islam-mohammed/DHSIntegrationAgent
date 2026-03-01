@@ -283,10 +283,9 @@ public sealed class DispatchService : IDispatchService
                 if (result.Succeeded)
                 {
                     var successSet = result.SuccessClaimsProIdClaim.Select(id => (int)id).ToHashSet();
-                    var failSet = result.FailClaimsProIdClaim.Select(id => (int)id).ToHashSet();
 
                     var successKeys = leased.Where(k => successSet.Contains(k.ProIdClaim)).ToList();
-                    var failedKeys = leased.Where(k => failSet.Contains(k.ProIdClaim) || !successSet.Contains(k.ProIdClaim)).ToList();
+                    var failedKeys = leased.Where(k => !successSet.Contains(k.ProIdClaim)).ToList();
 
                     if (successKeys.Count > 0)
                     {
@@ -542,10 +541,9 @@ public sealed class DispatchService : IDispatchService
                 if (result.Succeeded)
                 {
                     var successSet = result.SuccessClaimsProIdClaim.Select(id => (int)id).ToHashSet();
-                    var failSet = result.FailClaimsProIdClaim.Select(id => (int)id).ToHashSet();
 
                     var successKeys = leased.Where(k => successSet.Contains(k.ProIdClaim)).ToList();
-                    var failedKeys = leased.Where(k => failSet.Contains(k.ProIdClaim) || !successSet.Contains(k.ProIdClaim)).ToList();
+                    var failedKeys = leased.Where(k => !successSet.Contains(k.ProIdClaim)).ToList();
 
                     if (successKeys.Count > 0)
                     {

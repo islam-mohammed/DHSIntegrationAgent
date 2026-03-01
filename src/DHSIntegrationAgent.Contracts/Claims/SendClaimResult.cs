@@ -9,6 +9,5 @@ public sealed record SendClaimResult(
     bool Succeeded,
     string? ErrorMessage,
     IReadOnlyList<long> SuccessClaimsProIdClaim,
-    IReadOnlyList<long> FailClaimsProIdClaim,
     int? HttpStatusCode
 );

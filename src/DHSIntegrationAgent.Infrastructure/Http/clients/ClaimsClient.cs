@@ -62,8 +62,8 @@ public sealed class ClaimsClient : IClaimsClient
             return Fail("SendClaim failed: empty response body.", httpStatusCode: httpCode);
         }
 
-        // Parse: expect data.successClaimsProidClaim[] and data.failClaimsProidClaim[]
-        if (!TryParseSendClaimResponse(body, out var succeeded, out var message, out var successIds, out var failIds))
+        // Parse: expect data.successClaimsProidClaim[]
+        if (!TryParseSendClaimResponse(body, out var succeeded, out var message, out var successIds))
         {
             return Fail("SendClaim returned an unexpected response shape.", httpStatusCode: httpCode);
         }
@@ -75,7 +75,6 @@ public sealed class ClaimsClient : IClaimsClient
                 Succeeded: false,
                 ErrorMessage: string.IsNullOrWhiteSpace(message) ? "SendClaim returned succeeded=false." : message,
                 SuccessClaimsProIdClaim: successIds,
-                FailClaimsProIdClaim: failIds,
                 HttpStatusCode: httpCode);
         }
 
@@ -83,7 +82,6 @@ public sealed class ClaimsClient : IClaimsClient
             Succeeded: true,
             ErrorMessage: null,
             SuccessClaimsProIdClaim: successIds,
-            FailClaimsProIdClaim: failIds,
             HttpStatusCode: httpCode);
     }
 
@@ -92,20 +90,17 @@ public sealed class ClaimsClient : IClaimsClient
             Succeeded: false,
             ErrorMessage: error,
             SuccessClaimsProIdClaim: Array.Empty<long>(),
-            FailClaimsProIdClaim: Array.Empty<long>(),
             HttpStatusCode: httpStatusCode);
 
     private static bool TryParseSendClaimResponse(
         string json,
         out bool? succeeded,
         out string? message,
-        out IReadOnlyList<long> successIds,
-        out IReadOnlyList<long> failIds)
+        out IReadOnlyList<long> successIds)
     {
         succeeded = null;
         message = null;
         successIds = Array.Empty<long>();
-        failIds = Array.Empty<long>();
 
         try
         {
@@ -116,19 +111,17 @@ public sealed class ClaimsClient : IClaimsClient
             succeeded = TryGetBool(root, "succeeded", "Succeeded", "success", "Success");
             message = TryGetString(root, "message", "Message", "error", "Error");
 
-            // Required: data.successClaimsProidClaim[] and data.failClaimsProidClaim[]
+            // Required: data.successClaimsProidClaim[]
             if (!TryGetObject(root, out var dataObj, "data", "Data"))
                 return false;
 
             var success = ReadLongArray(dataObj, "successClaimsProidClaim", "SuccessClaimsProidClaim", "successClaimsProIdClaim", "successClaimsProidclaim");
-            var fail = ReadLongArray(dataObj, "failClaimsProidClaim", "FailClaimsProidClaim", "failClaimsProIdClaim", "failClaimsProidclaim");
 
             // Even if one list is missing, we still accept and return what we have (tolerant).
             successIds = success;
-            failIds = fail;
 
             // At least one list should exist to consider this recognizable.
-            return success.Count > 0 || fail.Count > 0 || dataObj.ValueKind == JsonValueKind.Object;
+            return success.Count > 0 || dataObj.ValueKind == JsonValueKind.Object;
         }
         catch (JsonException)
         {
