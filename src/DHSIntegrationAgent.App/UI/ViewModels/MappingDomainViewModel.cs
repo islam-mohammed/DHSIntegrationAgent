@@ -8,7 +8,7 @@ namespace DHSIntegrationAgent.App.UI.ViewModels;
 public sealed class MappingDomainViewModel : ViewModelBase
 {
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
-    private readonly IProviderConfigurationService _configService;
+    private readonly IDomainMappingOrchestrator _orchestrator;
     private bool _isLoading;
 
     public ObservableCollection<MappingDomainRow> MappingDomains { get; } = new();
@@ -17,10 +17,10 @@ public sealed class MappingDomainViewModel : ViewModelBase
     public AsyncRelayCommand LoadCommand { get; }
     public bool IsLoading { get => _isLoading; set => SetProperty(ref _isLoading, value); }
 
-    public MappingDomainViewModel(ISqliteUnitOfWorkFactory uowFactory, IProviderConfigurationService configService)
+    public MappingDomainViewModel(ISqliteUnitOfWorkFactory uowFactory, IDomainMappingOrchestrator orchestrator)
     {
         _uowFactory = uowFactory;
-        _configService = configService;
+        _orchestrator = orchestrator;
 
         LoadCommand = new AsyncRelayCommand(LoadAsync);
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
@@ -31,17 +31,7 @@ public sealed class MappingDomainViewModel : ViewModelBase
         try
         {
             IsLoading = true;
-            string? providerDhsCode = null;
-            await using (var uow = await _uowFactory.CreateAsync(CancellationToken.None))
-            {
-                var settings = await uow.AppSettings.GetAsync(CancellationToken.None);
-                providerDhsCode = settings.ProviderDhsCode;
-            }
-
-            if (!string.IsNullOrWhiteSpace(providerDhsCode))
-            {
-                await _configService.RefreshDomainMappingsAsync(providerDhsCode, CancellationToken.None);
-            }
+            await _orchestrator.RefreshFromProviderConfigAsync(CancellationToken.None);
         }
         catch { /* ignore refresh errors for now, load what we have */ }
         finally
@@ -59,12 +49,21 @@ public sealed class MappingDomainViewModel : ViewModelBase
             IsLoading = true;
 
             await using var uow = await _uowFactory.CreateAsync(CancellationToken.None);
+            var appSettings = await uow.AppSettings.GetAsync(CancellationToken.None);
+            var providerDhsCode = appSettings.ProviderDhsCode;
+
+            if (string.IsNullOrWhiteSpace(providerDhsCode))
+            {
+                MappingDomains.Clear();
+                return;
+            }
+
             var approved = await uow.DomainMappings.GetAllApprovedAsync(CancellationToken.None);
             var missing = await uow.DomainMappings.GetAllMissingAsync(CancellationToken.None);
 
             MappingDomains.Clear();
 
-            foreach (var mapping in approved)
+            foreach (var mapping in approved.Where(m => m.ProviderDhsCode == providerDhsCode))
             {
                 MappingDomains.Add(new MappingDomainRow
                 {
@@ -77,7 +76,7 @@ public sealed class MappingDomainViewModel : ViewModelBase
                 });
             }
 
-            foreach (var mapping in missing)
+            foreach (var mapping in missing.Where(m => m.ProviderDhsCode == providerDhsCode))
             {
                 MappingDomains.Add(new MappingDomainRow
                 {

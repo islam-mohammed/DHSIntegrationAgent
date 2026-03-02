@@ -90,6 +90,7 @@ public static class InfrastructureServiceCollectionExtensions
         // Domain Mapping API client  ✅ REQUIRED for DomainMappingsViewModel
         // -----------------------------------------------------------
         services.AddSingleton<IDomainMappingClient, DomainMappingClient>();
+        services.AddSingleton<IDomainMappingOrchestrator, DomainMappingOrchestrator>();
 
         // -----------------------------------------------------------
         // Claims and Resume API clients (WBS 2.5, 2.6)
