@@ -44,7 +44,16 @@ public sealed class DomainMappingsViewModel : ViewModelBase
 
     public async Task RefreshAllAsync()
     {
-        await _orchestrator.RefreshFromProviderConfigAsync(CancellationToken.None);
+        try
+        {
+            await _orchestrator.RefreshFromProviderConfigAsync(CancellationToken.None);
+        }
+        catch (Exception)
+        {
+            // Ignore API exceptions to maintain offline capabilities.
+            // It allows the UI to fallback to the cached local SQLite data.
+        }
+
         await LoadMissingMappingsAsync();
         await MappingDomainViewModel.LoadAsync();
     }
