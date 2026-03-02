@@ -1,0 +1,3887 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "HISToMotalabatechAPI",
+    "version": "1.0"
+  },
+  "paths": {
+    "/api/Authentication/login": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Batch/GetBatchRequest/{providerDhsCode}": {
+      "get": {
+        "tags": [
+          "Batch"
+        ],
+        "parameters": [
+          {
+            "name": "providerDhsCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Month",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "Year",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PayerId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageNumber",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Batch/CreateBatchRequest": {
+      "post": {
+        "tags": [
+          "Batch"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBatchRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBatchRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBatchRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBatchResponseDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Batch/DeleteBatch": {
+      "post": {
+        "tags": [
+          "Batch"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteBatchRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteBatchRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteBatchRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Claims/GetHISProIdClaimsByBcrId/{bcrId}": {
+      "get": {
+        "tags": [
+          "Claims"
+        ],
+        "parameters": [
+          {
+            "name": "bcrId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimHISProIdDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Claims/SendClaim": {
+      "post": {
+        "tags": [
+          "Claims"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ClaimDto"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ClaimDto"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ClaimDto"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendClaimResultDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Dashboard/GetDashboardData/{providerDhsCode}": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "parameters": [
+          {
+            "name": "providerDhsCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/DomainMapping/GetProviderDomainMapping/{providerDhsCode}": {
+      "get": {
+        "tags": [
+          "DomainMapping"
+        ],
+        "parameters": [
+          {
+            "name": "providerDhsCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainMappingDtoListBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/DomainMapping/GetMissingDomainMappings/{providerDhsCode}": {
+      "get": {
+        "tags": [
+          "DomainMapping"
+        ],
+        "parameters": [
+          {
+            "name": "providerDhsCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingDomainMappingDtoListBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/DomainMapping/GetProviderDomainMappingsWithMissing/{providerDhsCode}": {
+      "get": {
+        "tags": [
+          "DomainMapping"
+        ],
+        "parameters": [
+          {
+            "name": "providerDhsCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderDomainMappingsDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/DomainMapping/InsertMissMappingDomain": {
+      "post": {
+        "tags": [
+          "DomainMapping"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InsertMissMappingDomainRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InsertMissMappingDomainRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/InsertMissMappingDomainRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsertMissMappingDomainResultDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Health/CheckAPIHealth": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Provider/GetProviderInfo/{providerDhsCode}": {
+      "get": {
+        "tags": [
+          "Provider"
+        ],
+        "parameters": [
+          {
+            "name": "providerDhsCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfoDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Provider/GetProviderCompanyCodes/{providerDhsCode}": {
+      "get": {
+        "tags": [
+          "Provider"
+        ],
+        "parameters": [
+          {
+            "name": "providerDhsCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderPayerDtoListBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Provider/GetProviderConfigration/{providerDhsCode}": {
+      "get": {
+        "tags": [
+          "Provider"
+        ],
+        "parameters": [
+          {
+            "name": "providerDhsCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderConfigrationDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BatchCreationRequestDto": {
+        "type": "object",
+        "properties": {
+          "bcrId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "bcrCreatedOn": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "bcrMonth": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "bcrYear": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "userName": {
+            "type": "string",
+            "nullable": true
+          },
+          "payerNameEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "payerNameAr": {
+            "type": "string",
+            "nullable": true
+          },
+          "companyCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "midTableTotalClaim": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "batchStatus": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BatchCreationRequestDtoPagedResultDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchCreationRequestDto"
+            },
+            "nullable": true
+          },
+          "pageNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "readOnly": true
+          },
+          "hasPreviousPage": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "hasNextPage": {
+            "type": "boolean",
+            "readOnly": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BatchCreationRequestDtoPagedResultDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/BatchCreationRequestDtoPagedResultDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BatchPayerChartDto": {
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdOn": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "month": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "year": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "batchStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "payerNameEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "payerNameAr": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalClaims": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BatchRequestItemDto": {
+        "type": "object",
+        "properties": {
+          "companyCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "batchStartDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "batchEndDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totalClaims": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "providerDhsCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BatchStatusChartDto": {
+        "type": "object",
+        "properties": {
+          "statusName": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusDisplay": {
+            "type": "string",
+            "nullable": true
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "percentage": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BooleanBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClaimDto": {
+        "type": "object",
+        "properties": {
+          "claimHeader": {
+            "$ref": "#/components/schemas/DHSClaimHeaderDto"
+          },
+          "opticalVitalSigns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DHSOpticalVitalSignDto"
+            },
+            "nullable": true
+          },
+          "diagnosisDetails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DHSDiagnosisDetailDto"
+            },
+            "nullable": true
+          },
+          "labDetails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DHSLabDetailDto"
+            },
+            "nullable": true
+          },
+          "radiologyDetails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DHSRadiologyDetailDto"
+            },
+            "nullable": true
+          },
+          "serviceDetails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DHSServiceDetailDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClaimHISProIdDto": {
+        "type": "object",
+        "properties": {
+          "hisProIdClaim": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ClaimHISProIdDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ClaimHISProIdDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CommonType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "ksaID": {
+            "type": "string",
+            "nullable": true
+          },
+          "ksaCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "ksaName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateBatchRequestDto": {
+        "type": "object",
+        "properties": {
+          "batchRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchRequestItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateBatchResponseDto": {
+        "type": "object",
+        "properties": {
+          "createdBatchIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateBatchResponseDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/CreateBatchResponseDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DHSClaimHeaderDto": {
+        "type": "object",
+        "properties": {
+          "proIdClaim": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "doctorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "proRequestDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "patientName": {
+            "type": "string",
+            "nullable": true
+          },
+          "patientNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "memberID": {
+            "type": "string",
+            "nullable": true
+          },
+          "preAuthID": {
+            "type": "string",
+            "nullable": true
+          },
+          "specialty": {
+            "type": "string",
+            "nullable": true
+          },
+          "clinicalData": {
+            "type": "string",
+            "nullable": true
+          },
+          "claimType": {
+            "type": "string",
+            "nullable": true
+          },
+          "referInd": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "emerInd": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "submitBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "payTo": {
+            "type": "string",
+            "nullable": true
+          },
+          "temperature": {
+            "type": "string",
+            "nullable": true
+          },
+          "respiratoryRate": {
+            "type": "string",
+            "nullable": true
+          },
+          "bloodPressure": {
+            "type": "string",
+            "nullable": true
+          },
+          "height": {
+            "type": "string",
+            "nullable": true
+          },
+          "weight": {
+            "type": "string",
+            "nullable": true
+          },
+          "pulse": {
+            "type": "string",
+            "nullable": true
+          },
+          "internalNotes": {
+            "type": "string",
+            "nullable": true
+          },
+          "companyCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "policyHolderName": {
+            "type": "string",
+            "nullable": true
+          },
+          "policyHolderNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "class": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "treatmentCountryCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "destinationCode": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "providerCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "claimedAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "claimedAmountSAR": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "totalNetAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "totalDiscount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "totalDeductible": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "benType": {
+            "type": "string",
+            "nullable": true
+          },
+          "benHead": {
+            "type": "string",
+            "nullable": true
+          },
+          "provider_dhsCode": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "dhsm": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "batchNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "batchDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "batchStartDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "batchEndDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "patientID": {
+            "type": "string",
+            "nullable": true
+          },
+          "dob": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "age": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "nationality": {
+            "type": "string",
+            "nullable": true
+          },
+          "durationOFIllness": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "chiefComplaint": {
+            "type": "string",
+            "nullable": true
+          },
+          "maritalStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "patientGender": {
+            "type": "string",
+            "nullable": true
+          },
+          "subscriberRelationship": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitType": {
+            "type": "string",
+            "nullable": true
+          },
+          "plan_Type": {
+            "type": "string",
+            "nullable": true
+          },
+          "msvRef": {
+            "type": "string",
+            "nullable": true
+          },
+          "userID": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "issueNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "userName": {
+            "type": "string",
+            "nullable": true
+          },
+          "payerRef": {
+            "type": "string",
+            "nullable": true
+          },
+          "dhsc": {
+            "type": "string",
+            "nullable": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "mobileNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "pmaUserName": {
+            "type": "string",
+            "nullable": true
+          },
+          "admissionDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "dischargeDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "admissionNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "admissionSpecialty": {
+            "type": "string",
+            "nullable": true
+          },
+          "admissionType": {
+            "type": "string",
+            "nullable": true
+          },
+          "roomNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "bedNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "dischargeSpecialty": {
+            "type": "string",
+            "nullable": true
+          },
+          "lengthOfStay": {
+            "type": "string",
+            "nullable": true
+          },
+          "admissionWeight": {
+            "type": "string",
+            "nullable": true
+          },
+          "dischargeMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "iDno": {
+            "type": "string",
+            "nullable": true
+          },
+          "emergencyArrivalCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "emergencyStartDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "emergencyWaitingTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "triageDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "admissionTypeID": {
+            "type": "string",
+            "nullable": true
+          },
+          "dischargeDepositionsTypeID": {
+            "type": "string",
+            "nullable": true
+          },
+          "enconuterTypeID": {
+            "type": "string",
+            "nullable": true
+          },
+          "careTypeID": {
+            "type": "string",
+            "nullable": true
+          },
+          "triageCategoryTypeID": {
+            "type": "string",
+            "nullable": true
+          },
+          "emergencyDepositionTypeID": {
+            "type": "string",
+            "nullable": true
+          },
+          "significantSigns": {
+            "type": "string",
+            "nullable": true
+          },
+          "mainSymptoms": {
+            "type": "string",
+            "nullable": true
+          },
+          "dischargeSummary": {
+            "type": "string",
+            "nullable": true
+          },
+          "otherConditions": {
+            "type": "string",
+            "nullable": true
+          },
+          "encounterStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "encounterNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "priority": {
+            "type": "string",
+            "nullable": true
+          },
+          "patientIdType": {
+            "type": "string",
+            "nullable": true
+          },
+          "actIncidentCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "episodeNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "cchi": {
+            "type": "string",
+            "nullable": true
+          },
+          "branchID": {
+            "type": "string",
+            "nullable": true
+          },
+          "newBorn": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "oxygenSaturation": {
+            "type": "string",
+            "nullable": true
+          },
+          "birthWeight": {
+            "type": "string",
+            "nullable": true
+          },
+          "isFetched": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "isSync": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "fetchDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "relatedClaim": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "bCR_Id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "patientOccupation": {
+            "type": "string",
+            "nullable": true
+          },
+          "causeOfDeath": {
+            "type": "string",
+            "nullable": true
+          },
+          "treatmentPlan": {
+            "type": "string",
+            "nullable": true
+          },
+          "patientHistory": {
+            "type": "string",
+            "nullable": true
+          },
+          "physicalExamination": {
+            "type": "string",
+            "nullable": true
+          },
+          "historyOfPresentIllness": {
+            "type": "string",
+            "nullable": true
+          },
+          "patientReligion": {
+            "type": "string",
+            "nullable": true
+          },
+          "morphologyCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "investigationResult": {
+            "type": "string",
+            "nullable": true
+          },
+          "snomedCTCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "ventilationhours": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "fK_ClaimType_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_ClaimSubtype_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_GenderId": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_PatientIDType_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_MaritalStatus_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_Dept_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_Nationality_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_BirthCountry_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_BirthCity_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_Religion_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_AdmissionSpecialty_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_DischargeSpeciality_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_DischargeDisposition_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_EncounterAdmitSource_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_EncounterClass_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_EncounterStatus_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_ReAdmission_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_EmergencyArrivalCode_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_ServiceEventType_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_IntendedLengthOfStay_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_TriageCategory_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_DispositionCode_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_InvestigationResult_ID": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "fK_VisitType_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_PatientOccupation_Id": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_SubscriberRelationship_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "hisProIdClaim": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DHSDiagnosisDetailDto": {
+        "type": "object",
+        "properties": {
+          "diagnosisID": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "diagnosisCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "diagnosisDesc": {
+            "type": "string",
+            "nullable": true
+          },
+          "proIdClaim": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "dhsi": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "diagnosisTypeID": {
+            "type": "string",
+            "nullable": true
+          },
+          "diagnosisDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "onsetConditionTypeID": {
+            "type": "string",
+            "nullable": true
+          },
+          "illnessTypeIndicator": {
+            "type": "string",
+            "nullable": true
+          },
+          "diagnosisType": {
+            "type": "string",
+            "nullable": true
+          },
+          "fK_DiagnosisType_ID": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "fK_ConditionOnset_ID": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "diagnosis_Cloud_Desc": {
+            "type": "string",
+            "nullable": true
+          },
+          "ageLow": {
+            "type": "string",
+            "nullable": true
+          },
+          "ageHigh": {
+            "type": "string",
+            "nullable": true
+          },
+          "isUnacceptPrimaryDiagnosis": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "genderID": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "diagnosis_Order": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "diagnosis_Date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "fK_DiagnosisOnAdmission_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "isMorphologyRequired": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "isRTAType": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "isWPAType": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DHSLabDetailDto": {
+        "type": "object",
+        "properties": {
+          "labID": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "labProfile": {
+            "type": "string",
+            "nullable": true
+          },
+          "labTestName": {
+            "type": "string",
+            "nullable": true
+          },
+          "labResult": {
+            "type": "string",
+            "nullable": true
+          },
+          "labUnits": {
+            "type": "string",
+            "nullable": true
+          },
+          "labLow": {
+            "type": "string",
+            "nullable": true
+          },
+          "labHigh": {
+            "type": "string",
+            "nullable": true
+          },
+          "labSection": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "proIdClaim": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dhsi": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "resultDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "serviceCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "loincCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DHSOpticalVitalSignDto": {
+        "type": "object",
+        "properties": {
+          "serialNo": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rightEyeSphere_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyeSphere_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyeCylinder_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyeCylinder_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyeAxis_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyeAxis_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyePrism_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyePrism_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyePD_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyePD_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyeBifocal": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyeSphere_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyeSphere_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyeCylinder_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyeCylinder_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyeAxis_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyeAxis_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyePrism_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyePrism_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyePD_Distance": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyePD_Near": {
+            "type": "string",
+            "nullable": true
+          },
+          "leftEyeBifocal": {
+            "type": "string",
+            "nullable": true
+          },
+          "vertex": {
+            "type": "string",
+            "nullable": true
+          },
+          "proIdClaim": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "serviceCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "rightEyePower_Distance": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "rightEyePower_Near": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "leftEyePower_Distance": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "leftEyePower_Near": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "prismDirection": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DHSRadiologyDetailDto": {
+        "type": "object",
+        "properties": {
+          "radiologyID": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "serviceCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "clinicalData": {
+            "type": "string",
+            "nullable": true
+          },
+          "radiologyResult": {
+            "type": "string",
+            "nullable": true
+          },
+          "visitDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "proIdClaim": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "dhsi": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "resultDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DHSServiceDetailDto": {
+        "type": "object",
+        "properties": {
+          "serviceID": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemRefernce": {
+            "type": "string",
+            "nullable": true
+          },
+          "treatmentFromDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "treatmentToDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "numberOfIncidents": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "lineClaimedAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "coInsurance": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "coPay": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "lineItemDiscount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "netAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "serviceCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "mediCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "toothNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "submissionReasonCode": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "treatmentTypeIndicator": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "serviceGategory": {
+            "type": "string",
+            "nullable": true
+          },
+          "proIdClaim": {
+            "type": "string",
+            "nullable": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "vatIndicator": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "vatPercentage": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "patientVatAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "netVatAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "cashAmount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "pbmDuration": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "pbmTimes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "pbmUnit": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "pbmPer": {
+            "type": "string",
+            "nullable": true
+          },
+          "pbmUnitType": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceEventType": {
+            "type": "string",
+            "nullable": true
+          },
+          "ardrg": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "preAuthId": {
+            "type": "string",
+            "nullable": true
+          },
+          "doctorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "unitPrice": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "discPercentage": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "workOrder": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pharmacistSelectionReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "pharmacistSubstitute": {
+            "type": "string",
+            "nullable": true
+          },
+          "scientificCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "diagnosisCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "scientificCodeAbsenceReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "maternity": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "service_NphiesServiceCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "service_SystemURL": {
+            "type": "string",
+            "nullable": true
+          },
+          "service_NphiesServiceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "nphiesServiceTypeID": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "service_LongDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "service_ShortDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "isUnlistedCode": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "daysSupply": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "priceListPrice": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "priceListDiscount": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "fK_ServiceType_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_PharmacistSubstitute_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_PharmacistSelectionReason_ID": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "hasResult": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "factor": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "tax": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DashboardDto": {
+        "type": "object",
+        "properties": {
+          "providerDhsCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalBatches": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "batchStatusChart": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchStatusChartDto"
+            },
+            "nullable": true
+          },
+          "batchPayerChart": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchPayerChartDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DashboardDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/DashboardDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeleteBatchRequestDto": {
+        "type": "object",
+        "properties": {
+          "batchId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DomainMappingDto": {
+        "type": "object",
+        "properties": {
+          "domTable_ID": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "providerDomainCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "providerDomainValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "dhsDomainValue": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "isDefault": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "codeValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayValue": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DomainMappingDtoListBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DomainMappingDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GeneralConfigurationDto": {
+        "type": "object",
+        "properties": {
+          "leaseDurationSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "streamAIntervalSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "resumePollIntervalSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "apiTimeout": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "configCacheTtlMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "fetchIntervalMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "manualRetryCooldownMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "InsertMissMappingDomainRequestDto": {
+        "type": "object",
+        "properties": {
+          "providerDhsCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "mismappedItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MismappedDomainItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "InsertMissMappingDomainResultDto": {
+        "type": "object",
+        "properties": {
+          "totalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "insertedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "skippedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "skippedItems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "InsertMissMappingDomainResultDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/InsertMissMappingDomainResultDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginRequestDto": {
+        "required": [
+          "email",
+          "password"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "minLength": 1,
+            "type": "string",
+            "format": "email"
+          },
+          "groupID": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "minLength": 6,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginResponseDto": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "LoginResponseDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/LoginResponseDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MismappedDomainItemDto": {
+        "type": "object",
+        "properties": {
+          "providerCodeValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "providerNameValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "domainTableId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "MissingDomainMappingDto": {
+        "type": "object",
+        "properties": {
+          "providerCodeValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "providerNameValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "domainTableId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "domainTableName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "MissingDomainMappingDtoListBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissingDomainMappingDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ObjectBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderConfigrationDto": {
+        "type": "object",
+        "properties": {
+          "providerInfo": {
+            "$ref": "#/components/schemas/ProviderInfoDto"
+          },
+          "providerPayers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProviderPayerDto"
+            },
+            "nullable": true
+          },
+          "domainMappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DomainMappingDto"
+            },
+            "nullable": true
+          },
+          "missingDomainMappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissingDomainMappingDto"
+            },
+            "nullable": true
+          },
+          "generalConfiguration": {
+            "$ref": "#/components/schemas/GeneralConfigurationDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderConfigrationDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ProviderConfigrationDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderDomainMappingsDto": {
+        "type": "object",
+        "properties": {
+          "domainMappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DomainMappingDto"
+            },
+            "nullable": true
+          },
+          "missingDomainMappings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MissingDomainMappingDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderDomainMappingsDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ProviderDomainMappingsDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderInfoDto": {
+        "type": "object",
+        "properties": {
+          "provider_ID": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "providerCCHI": {
+            "type": "string",
+            "nullable": true
+          },
+          "providerNameAr": {
+            "type": "string",
+            "nullable": true
+          },
+          "providerNameEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "connectionString": {
+            "type": "string",
+            "nullable": true
+          },
+          "providerDHSCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "providerToken": {
+            "type": "string",
+            "nullable": true
+          },
+          "providerVendor": {
+            "type": "string",
+            "nullable": true
+          },
+          "integrationType": {
+            "type": "string",
+            "nullable": true
+          },
+          "dataBaseType": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderInfoDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ProviderInfoDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderPayerDto": {
+        "type": "object",
+        "properties": {
+          "payerId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "companyCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "payerNameEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentPayerNameEn": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderPayerDtoListBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProviderPayerDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SendClaimResultDto": {
+        "type": "object",
+        "properties": {
+          "successClaimsProidClaim": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "totalClaims": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "successCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failureCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SendClaimResultDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/SendClaimResultDto"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
