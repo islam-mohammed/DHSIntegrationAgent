@@ -9,13 +9,30 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 3;
+    public static readonly int CurrentSchemaVersion = 4;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
         new Migration(1, "001_InitialSchema_v1", BuildV1()),
         new Migration(2, "002_AddNetworkCredentials", BuildV2()),
-        new Migration(3, "003_AddBatchProgress", BuildV3())
+        new Migration(3, "003_AddBatchProgress", BuildV3()),
+        new Migration(4, "004_AddExtractionConfigOverrides", BuildV4())
+    };
+
+    private static IReadOnlyList<string> BuildV4() => new List<string>
+    {
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN DoctorSourceName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN ServiceSourceName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN DiagnosisSourceName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN LabSourceName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN RadiologySourceName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN AttachmentSourceName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN OpticalSourceName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN ItemDetailsSourceName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN AchiSourceName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN DateColumnName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN CustomItemSql TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN CustomAchiSql TEXT NULL;"
     };
 
     private static IReadOnlyList<string> BuildV3() => new List<string>
@@ -109,6 +126,8 @@ internal static class SqliteMigrations
             CustomLabSql           TEXT NULL,
             CustomRadiologySql     TEXT NULL,
             CustomOpticalSql       TEXT NULL,
+            CustomItemSql          TEXT NULL,
+            CustomAchiSql          TEXT NULL,
             Notes                  TEXT NULL,
             UpdatedUtc             TEXT NOT NULL
         );
