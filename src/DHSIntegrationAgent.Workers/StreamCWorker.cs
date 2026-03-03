@@ -63,7 +63,7 @@ public sealed class StreamCWorker : IWorker
 
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
-            batchesToProcess = await uow.Batches.GetBatchesWithDueRetriesAsync(_clock.UtcNow, 3, ct);
+            batchesToProcess = await uow.Batches.GetBatchesWithDueRetriesAsync(_clock.UtcNow, 4, ct);
         }
 
         foreach (var batch in batchesToProcess)

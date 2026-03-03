@@ -87,9 +87,9 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
                 LastError = $err,
                 AttemptCount = AttemptCount + 1,
                 NextRetryUtc = CASE (AttemptCount + 1)
-                    WHEN 1 THEN datetime($now, '+1 minutes')
-                    WHEN 2 THEN datetime($now, '+3 minutes')
-                    WHEN 3 THEN datetime($now, '+6 minutes')
+                    WHEN 1 THEN strftime('%Y-%m-%dT%H:%M:%f0000Z', $now, '+1 minutes')
+                    WHEN 2 THEN strftime('%Y-%m-%dT%H:%M:%f0000Z', $now, '+3 minutes')
+                    WHEN 3 THEN strftime('%Y-%m-%dT%H:%M:%f0000Z', $now, '+6 minutes')
                     ELSE NULL
                 END,
                 LockedBy = NULL,

@@ -672,7 +672,7 @@ public sealed class DispatchService : IDispatchService
                     EligibleEnqueueStatuses: new[] { EnqueueStatus.Failed },
                     RequireRetryDue: true,
                     BatchId: batch.BatchId,
-                    MaxAttemptCount: 3
+                    MaxAttemptCount: 4
                 );
 
                 leased = await uow.Claims.LeaseAsync(leaseRequest, ct);
