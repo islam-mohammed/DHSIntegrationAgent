@@ -7,6 +7,7 @@ public interface IDispatchService
 {
     Task ProcessBatchSenderAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct);
     Task<RetryBatchResult> RetryBatchAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct);
+    Task<RetryBatchResult> AutomaticRetryBatchAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct);
 }
 
 public sealed record RetryBatchResult(int TotalRetried, int SuccessCount, int FailedCount);

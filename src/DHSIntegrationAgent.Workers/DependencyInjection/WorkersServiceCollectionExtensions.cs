@@ -19,6 +19,7 @@ public static class WorkersServiceCollectionExtensions
         // Worker implementations
         services.AddSingleton<IWorker, StreamAWorker>();
         services.AddSingleton<IWorker, StreamBWorker>();
+        services.AddSingleton<IWorker, StreamCWorker>();
 
         // Real engine that orchestrates background workers.
         services.AddSingleton<WorkerEngine>();

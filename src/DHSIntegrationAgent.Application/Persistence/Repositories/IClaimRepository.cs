@@ -35,6 +35,12 @@ public interface IClaimRepository
         TimeSpan? nextRetryDelay,
         CancellationToken cancellationToken);
 
+    Task MarkFailedWithBackoffAsync(
+        IReadOnlyList<ClaimKey> claims,
+        string errorMessage,
+        DateTimeOffset utcNow,
+        CancellationToken cancellationToken);
+
     Task SetCompletionStatusAsync(
         IReadOnlyList<ClaimKey> claims,
         CompletionStatus completionStatus,

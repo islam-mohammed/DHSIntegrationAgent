@@ -72,6 +72,41 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task MarkFailedWithBackoffAsync(IReadOnlyList<ClaimKey> claims, string errorMessage, DateTimeOffset utcNow, CancellationToken cancellationToken)
+    {
+        if (claims.Count == 0) return;
+
+        await using var cmd = CreateCommand("");
+        var with = SqliteSqlBuilder.AddClaimKeysCte(cmd, "keys", claims);
+
+        cmd.CommandText =
+            $"""
+            {with}
+            UPDATE Claim
+            SET EnqueueStatus = $failed,
+                LastError = $err,
+                AttemptCount = AttemptCount + 1,
+                NextRetryUtc = CASE (AttemptCount + 1)
+                    WHEN 1 THEN strftime('%Y-%m-%dT%H:%M:%f0000Z', $now, '+1 minutes')
+                    WHEN 2 THEN strftime('%Y-%m-%dT%H:%M:%f0000Z', $now, '+3 minutes')
+                    WHEN 3 THEN strftime('%Y-%m-%dT%H:%M:%f0000Z', $now, '+6 minutes')
+                    ELSE NULL
+                END,
+                LockedBy = NULL,
+                InFlightUntilUtc = NULL,
+                LastUpdatedUtc = $now
+            WHERE EXISTS (
+                SELECT 1 FROM keys k
+                WHERE k.ProviderDhsCode = Claim.ProviderDhsCode AND k.ProIdClaim = Claim.ProIdClaim
+            );
+            """;
+        SqliteSqlBuilder.AddParam(cmd, "$failed", (int)EnqueueStatus.Failed);
+        SqliteSqlBuilder.AddParam(cmd, "$err", errorMessage);
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ClaimKey>> LeaseAsync(ClaimLeaseRequest request, CancellationToken cancellationToken)
     {
         if (request.Take <= 0) return Array.Empty<ClaimKey>();
@@ -95,6 +130,7 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
                 AND (InFlightUntilUtc IS NULL OR InFlightUntilUtc <= $now)
                 {(request.BatchId.HasValue ? "AND BatchId = $bid" : "")}
                 {(request.RequireRetryDue ? "AND (NextRetryUtc IS NULL OR NextRetryUtc <= $now)" : "")}
+                {(request.MaxAttemptCount.HasValue ? "AND AttemptCount < $maxAttempt" : "")}
               ORDER BY ProIdClaim
               LIMIT $take
             )
@@ -116,6 +152,10 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         if (request.BatchId.HasValue)
         {
             SqliteSqlBuilder.AddParam(cmd, "$bid", request.BatchId.Value);
+        }
+        if (request.MaxAttemptCount.HasValue)
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$maxAttempt", request.MaxAttemptCount.Value);
         }
 
         var leased = new List<ClaimKey>(request.Take);

@@ -10,5 +10,6 @@ public sealed record ClaimLeaseRequest(
     int Take,
     IReadOnlyList<EnqueueStatus> EligibleEnqueueStatuses,
     bool RequireRetryDue,
-    long? BatchId = null
+    long? BatchId = null,
+    int? MaxAttemptCount = null
 );
