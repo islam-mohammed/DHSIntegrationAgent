@@ -30,7 +30,9 @@ internal static class SqliteMigrations
         "ALTER TABLE ProviderExtractionConfig ADD COLUMN OpticalSourceName TEXT NULL;",
         "ALTER TABLE ProviderExtractionConfig ADD COLUMN ItemDetailsSourceName TEXT NULL;",
         "ALTER TABLE ProviderExtractionConfig ADD COLUMN AchiSourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN DateColumnName TEXT NULL;"
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN DateColumnName TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN CustomItemSql TEXT NULL;",
+        "ALTER TABLE ProviderExtractionConfig ADD COLUMN CustomAchiSql TEXT NULL;"
     };
 
     private static IReadOnlyList<string> BuildV3() => new List<string>
@@ -124,6 +126,8 @@ internal static class SqliteMigrations
             CustomLabSql           TEXT NULL,
             CustomRadiologySql     TEXT NULL,
             CustomOpticalSql       TEXT NULL,
+            CustomItemSql          TEXT NULL,
+            CustomAchiSql          TEXT NULL,
             Notes                  TEXT NULL,
             UpdatedUtc             TEXT NOT NULL
         );
