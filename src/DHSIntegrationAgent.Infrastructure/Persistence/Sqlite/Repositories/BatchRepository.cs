@@ -98,6 +98,19 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         return results;
     }
 
+    private async Task<IReadOnlyList<BatchRow>> ListInternalAsync(DbCommand cmd, CancellationToken cancellationToken)
+    {
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var results = new List<BatchRow>();
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            results.Add(ReadBatch(reader));
+        }
+
+        return results;
+    }
+
     private static BatchRow ReadBatch(DbDataReader reader)
     {
         return new BatchRow(
@@ -137,11 +150,36 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             SqliteSqlBuilder.AddParam(insert, "$e", SqliteUtc.ToIso(key.EndDateUtc));
             SqliteSqlBuilder.AddParam(insert, "$status", (int)batchStatus);
             SqliteSqlBuilder.AddParam(insert, "$now", SqliteUtc.ToIso(utcNow));
+
             await insert.ExecuteNonQueryAsync(cancellationToken);
         }
 
         var id = await TryGetBatchIdAsync(key, cancellationToken);
         return id ?? throw new InvalidOperationException("EnsureBatch failed: row not found after insert.");
+    }
+
+    public async Task<IReadOnlyList<BatchRow>> GetBatchesWithDueRetriesAsync(DateTimeOffset utcNow, int maxAttemptCount, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
+            FROM Batch
+            WHERE EXISTS (
+                SELECT 1 FROM Claim c
+                WHERE c.BatchId = Batch.BatchId
+                  AND c.EnqueueStatus = $failed
+                  AND c.NextRetryUtc IS NOT NULL
+                  AND c.NextRetryUtc <= $now
+                  AND c.AttemptCount < $maxAttempt
+            );
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$failed", (int)EnqueueStatus.Failed);
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+        SqliteSqlBuilder.AddParam(cmd, "$maxAttempt", maxAttemptCount);
+
+        return await ListInternalAsync(cmd, cancellationToken);
     }
 
     public async Task SetBcrIdAsync(long batchId, string bcrId, DateTimeOffset utcNow, CancellationToken cancellationToken)
