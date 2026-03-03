@@ -109,9 +109,6 @@ public sealed class LoginViewModel : ViewModelBase
                 password: Password,
                 ct: CancellationToken.None);
 
-            // TODO: Temporary bypass of login to overcome login issues.
-            outcome =  new LoginOutcome(true, "success login.");
-
             if (!outcome.Succeeded)
             {
                 Error = outcome.ErrorMessage ?? "Login failed.";
