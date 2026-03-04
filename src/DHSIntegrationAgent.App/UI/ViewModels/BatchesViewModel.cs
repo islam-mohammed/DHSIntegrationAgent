@@ -98,7 +98,7 @@ public sealed class BatchesViewModel : ViewModelBase
     }
 
     public RelayCommand ApplyFilterCommand { get; }
-    public RelayCommand ManualRetrySelectedPacketCommand { get; }
+    public RelayCommand<DispatchRow> ManualRetrySelectedPacketCommand { get; }
     public RelayCommand<BatchRow> RetryFailedClaimsCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
@@ -120,7 +120,7 @@ public sealed class BatchesViewModel : ViewModelBase
         ShowAttachmentsCommand = new RelayCommand<BatchRow>(OnShowAttachments);
 
         ApplyFilterCommand = new RelayCommand(() => { /* screen-only */ });
-        ManualRetrySelectedPacketCommand = new RelayCommand(() => { /* screen-only */ });
+        ManualRetrySelectedPacketCommand = new RelayCommand<DispatchRow>(OnManualRetrySelectedPacket, CanManualRetrySelectedPacket);
         RetryFailedClaimsCommand = new RelayCommand<BatchRow>(OnRetryFailedClaims, CanRetryFailedClaims);
         RefreshCommand = new AsyncRelayCommand(LoadBatchesAsync);
         SearchCommand = new AsyncRelayCommand(LoadBatchesAsync);
@@ -165,6 +165,7 @@ public sealed class BatchesViewModel : ViewModelBase
             if (batch != null)
             {
                 var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, default);
+                var rawDispatches = await uow.Dispatches.GetRecentForBatchAsync(batch.BatchId, 50, default);
 
                 // Use Dispatcher to ensure UI updates happen on the main thread
                 if (System.Windows.Application.Current?.Dispatcher != null)
@@ -172,11 +173,23 @@ public sealed class BatchesViewModel : ViewModelBase
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         HasFailedClaims = counts.Failed > 0;
+                        DispatchHistory.Clear();
+                        foreach(var d in rawDispatches) {
+                            if (d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.Failed || d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.PartiallySucceeded) {
+                                DispatchHistory.Add(new DispatchRow { PacketId = d.DispatchId, AttemptUtc = d.CreatedUtc.ToString("g"), Result = d.DispatchStatus.ToString(), CorrelationId = d.CorrelationId ?? "" });
+                            }
+                        }
                     });
                 }
                 else
                 {
                     HasFailedClaims = counts.Failed > 0;
+                    DispatchHistory.Clear();
+                    foreach(var d in rawDispatches) {
+                        if (d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.Failed || d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.PartiallySucceeded) {
+                            DispatchHistory.Add(new DispatchRow { PacketId = d.DispatchId, AttemptUtc = d.CreatedUtc.ToString("g"), Result = d.DispatchStatus.ToString(), CorrelationId = d.CorrelationId ?? "" });
+                        }
+                    }
                 }
             }
         }
@@ -186,7 +199,64 @@ public sealed class BatchesViewModel : ViewModelBase
         }
     }
 
+
+    private bool CanManualRetrySelectedPacket(DispatchRow dispatchRow) => !IsRetrying && dispatchRow != null;
+
+    private void OnManualRetrySelectedPacket(DispatchRow dispatchRow)
+    {
+        if (dispatchRow == null) return;
+
+        IsRetrying = true;
+        ManualRetrySelectedPacketCommand.RaiseCanExecuteChanged();
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var progress = new Progress<DHSIntegrationAgent.Contracts.Workers.WorkerProgressReport>(report =>
+                {
+                });
+
+                var result = await ((App)System.Windows.Application.Current).ServiceHost!.Services
+                    .GetRequiredService<IDispatchService>()
+                    .ManualRetryDispatchPacketAsync(dispatchRow.PacketId, progress, default);
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    IsRetrying = false;
+                    ManualRetrySelectedPacketCommand.RaiseCanExecuteChanged();
+
+                    if (result.Succeeded)
+                    {
+                        MessageBox.Show(
+                            $"Manual Retry Complete.\n\n" +
+                            $"Retried: {result.RetriedCount}\n" +
+                            $"Success: {result.SuccessCount}\n" +
+                            $"Failed: {result.FailedCount}",
+                            "Retry Summary",
+                            MessageBoxButton.OK,
+                            result.FailedCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Retry failed: {result.ErrorMessage}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    IsRetrying = false;
+                    ManualRetrySelectedPacketCommand.RaiseCanExecuteChanged();
+                    MessageBox.Show($"Error starting manual retry: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                });
+            }
+        });
+    }
+
     private void OnRetryFailedClaims(BatchRow targetBatch)
+
     {
         if (targetBatch == null) return;
 
@@ -606,7 +676,7 @@ public sealed class BatchRow
 
     public sealed class DispatchRow
     {
-        public int PacketId { get; set; }
+        public string PacketId { get; set; } = "";
         public string AttemptUtc { get; set; } = "";
         public string Result { get; set; } = "";
         public string CorrelationId { get; set; } = "";

@@ -241,16 +241,7 @@ public sealed class DispatchService : IDispatchService
             // Create Dispatch record
             await using (var uowDispatch = await _uowFactory.CreateAsync(ct))
             {
-                await uowDispatch.Dispatches.InsertDispatchAsync(
-                    dispatchId,
-                    batch.ProviderDhsCode,
-                    batch.BatchId,
-                    batch.BcrId,
-                    nextSeq,
-                    DispatchType.NormalSend,
-                    DispatchStatus.InFlight,
-                    _clock.UtcNow,
-                    ct);
+                await uowDispatch.Dispatches.InsertDispatchAsync(dispatchId, batch.ProviderDhsCode, batch.BatchId, batch.BcrId, nextSeq, DispatchType.NormalSend, DispatchStatus.InFlight, dispatchId, _clock.UtcNow, ct);
 
                 await uowDispatch.DispatchItems.InsertManyAsync(dispatchItems, ct);
                 await uowDispatch.CommitAsync(ct);
@@ -276,7 +267,7 @@ public sealed class DispatchService : IDispatchService
 
             try
             {
-                var result = await _claimsClient.SendClaimAsync(jsonArray, ct);
+                var result = await _claimsClient.SendClaimAsync(jsonArray, dispatchId, ct);
 
                 await using var uowResult = await _uowFactory.CreateAsync(ct);
 
@@ -311,13 +302,13 @@ public sealed class DispatchService : IDispatchService
                                       failedKeys.Count == leased.Count ? DispatchStatus.Failed :
                                       DispatchStatus.PartiallySucceeded;
 
-                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, finalStatus, result.HttpStatusCode, null, null, _clock.UtcNow, ct);
+                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, finalStatus, result.HttpStatusCode, null, dispatchId, _clock.UtcNow, ct);
                 }
                 else
                 {
                     await uowResult.Claims.MarkFailedAsync(leased, result.ErrorMessage ?? "SendClaim failed", _clock.UtcNow, TimeSpan.FromMinutes(1), ct);
                     await uowResult.Claims.IncrementAttemptAsync(leased, _clock.UtcNow, ct);
-                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, null, _clock.UtcNow, ct);
+                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, dispatchId, _clock.UtcNow, ct);
                 }
 
                 await uowResult.CommitAsync(ct);
@@ -341,7 +332,7 @@ public sealed class DispatchService : IDispatchService
                 await using var uowEx = await _uowFactory.CreateAsync(ct);
                 await uowEx.Claims.MarkFailedAsync(leased, ex.Message, _clock.UtcNow, TimeSpan.FromMinutes(1), ct);
                 await uowEx.Claims.IncrementAttemptAsync(leased, _clock.UtcNow, ct);
-                await uowEx.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, null, ex.Message, null, _clock.UtcNow, ct);
+                await uowEx.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, null, ex.Message, dispatchId, _clock.UtcNow, ct);
                 await uowEx.CommitAsync(ct);
             }
         }
@@ -501,16 +492,7 @@ public sealed class DispatchService : IDispatchService
             // Create Dispatch record
             await using (var uowDispatch = await _uowFactory.CreateAsync(ct))
             {
-                await uowDispatch.Dispatches.InsertDispatchAsync(
-                    dispatchId,
-                    batch.ProviderDhsCode,
-                    batch.BatchId,
-                    batch.BcrId,
-                    nextSeq,
-                    DispatchType.RetrySend,
-                    DispatchStatus.InFlight,
-                    _clock.UtcNow,
-                    ct);
+                await uowDispatch.Dispatches.InsertDispatchAsync(dispatchId, batch.ProviderDhsCode, batch.BatchId, batch.BcrId, nextSeq, DispatchType.RetrySend, DispatchStatus.InFlight, dispatchId, _clock.UtcNow, ct);
 
                 await uowDispatch.DispatchItems.InsertManyAsync(dispatchItems, ct);
                 await uowDispatch.CommitAsync(ct);
@@ -534,7 +516,7 @@ public sealed class DispatchService : IDispatchService
 
             try
             {
-                var result = await _claimsClient.SendClaimAsync(jsonArray, ct);
+                var result = await _claimsClient.SendClaimAsync(jsonArray, dispatchId, ct);
 
                 await using var uowResult = await _uowFactory.CreateAsync(ct);
 
@@ -570,13 +552,13 @@ public sealed class DispatchService : IDispatchService
                                       failedKeys.Count == leased.Count ? DispatchStatus.Failed :
                                       DispatchStatus.PartiallySucceeded;
 
-                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, finalStatus, result.HttpStatusCode, null, null, _clock.UtcNow, ct);
+                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, finalStatus, result.HttpStatusCode, null, dispatchId, _clock.UtcNow, ct);
                 }
                 else
                 {
                     await uowResult.Claims.MarkFailedAsync(leased, result.ErrorMessage ?? "SendClaim failed", _clock.UtcNow, TimeSpan.FromMinutes(1), ct);
                     await uowResult.Claims.IncrementAttemptAsync(leased, _clock.UtcNow, ct);
-                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, null, _clock.UtcNow, ct);
+                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, dispatchId, _clock.UtcNow, ct);
                     failedCount += leased.Count;
                 }
 
@@ -599,7 +581,7 @@ public sealed class DispatchService : IDispatchService
                 await using var uowEx = await _uowFactory.CreateAsync(ct);
                 await uowEx.Claims.MarkFailedAsync(leased, ex.Message, _clock.UtcNow, TimeSpan.FromMinutes(1), ct);
                 await uowEx.Claims.IncrementAttemptAsync(leased, _clock.UtcNow, ct);
-                await uowEx.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, null, ex.Message, null, _clock.UtcNow, ct);
+                await uowEx.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, null, ex.Message, dispatchId, _clock.UtcNow, ct);
                 await uowEx.CommitAsync(ct);
 
                 failedCount += leased.Count;
@@ -791,16 +773,7 @@ public sealed class DispatchService : IDispatchService
 
         await using (var uowDispatch = await _uowFactory.CreateAsync(ct))
         {
-            await uowDispatch.Dispatches.InsertDispatchAsync(
-                newDispatchId,
-                originalDispatch.ProviderDhsCode,
-                originalDispatch.BatchId,
-                originalDispatch.BcrId,
-                nextSeq,
-                DispatchType.RetrySend,
-                DispatchStatus.InFlight,
-                _clock.UtcNow,
-                ct);
+            await uowDispatch.Dispatches.InsertDispatchAsync(newDispatchId, originalDispatch.ProviderDhsCode, originalDispatch.BatchId, originalDispatch.BcrId, nextSeq, DispatchType.RetrySend, DispatchStatus.InFlight, newDispatchId, _clock.UtcNow, ct);
 
             await uowDispatch.DispatchItems.InsertManyAsync(dispatchItems, ct);
             await uowDispatch.CommitAsync(ct);
@@ -821,7 +794,7 @@ public sealed class DispatchService : IDispatchService
 
         try
         {
-            var result = await _claimsClient.SendClaimAsync(jsonArray, ct);
+            var result = await _claimsClient.SendClaimAsync(jsonArray, newDispatchId, ct);
 
             await using var uowResult = await _uowFactory.CreateAsync(ct);
 
@@ -855,12 +828,12 @@ public sealed class DispatchService : IDispatchService
                                   failedKeys.Count == leased.Count ? DispatchStatus.Failed :
                                   DispatchStatus.PartiallySucceeded;
 
-                await uowResult.Dispatches.UpdateDispatchResultAsync(newDispatchId, finalStatus, result.HttpStatusCode, null, null, _clock.UtcNow, ct);
+                await uowResult.Dispatches.UpdateDispatchResultAsync(newDispatchId, finalStatus, result.HttpStatusCode, null, newDispatchId, _clock.UtcNow, ct);
             }
             else
             {
                 await uowResult.Claims.MarkFailedWithBackoffAsync(leased, result.ErrorMessage ?? "SendClaim failed", _clock.UtcNow, ct);
-                await uowResult.Dispatches.UpdateDispatchResultAsync(newDispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, null, _clock.UtcNow, ct);
+                await uowResult.Dispatches.UpdateDispatchResultAsync(newDispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, newDispatchId, _clock.UtcNow, ct);
                 failedCount += leased.Count;
             }
 
@@ -881,7 +854,7 @@ public sealed class DispatchService : IDispatchService
             _logger.LogError(ex, "Failed to manually retry packet {DispatchId}", newDispatchId);
             await using var uowEx = await _uowFactory.CreateAsync(ct);
             await uowEx.Claims.MarkFailedWithBackoffAsync(leased, ex.Message, _clock.UtcNow, ct);
-            await uowEx.Dispatches.UpdateDispatchResultAsync(newDispatchId, DispatchStatus.Failed, null, ex.Message, null, _clock.UtcNow, ct);
+            await uowEx.Dispatches.UpdateDispatchResultAsync(newDispatchId, DispatchStatus.Failed, null, ex.Message, newDispatchId, _clock.UtcNow, ct);
             await uowEx.CommitAsync(ct);
 
             return new ManualRetryResult(false, ex.Message, leased.Count, 0, leased.Count);
@@ -1013,16 +986,7 @@ public sealed class DispatchService : IDispatchService
 
             await using (var uowDispatch = await _uowFactory.CreateAsync(ct))
             {
-                await uowDispatch.Dispatches.InsertDispatchAsync(
-                    dispatchId,
-                    batch.ProviderDhsCode,
-                    batch.BatchId,
-                    batch.BcrId,
-                    nextSeq,
-                    DispatchType.RetrySend,
-                    DispatchStatus.InFlight,
-                    _clock.UtcNow,
-                    ct);
+                await uowDispatch.Dispatches.InsertDispatchAsync(dispatchId, batch.ProviderDhsCode, batch.BatchId, batch.BcrId, nextSeq, DispatchType.RetrySend, DispatchStatus.InFlight, dispatchId, _clock.UtcNow, ct);
 
                 await uowDispatch.DispatchItems.InsertManyAsync(dispatchItems, ct);
                 await uowDispatch.CommitAsync(ct);
@@ -1040,7 +1004,7 @@ public sealed class DispatchService : IDispatchService
 
             try
             {
-                var result = await _claimsClient.SendClaimAsync(jsonArray, ct);
+                var result = await _claimsClient.SendClaimAsync(jsonArray, dispatchId, ct);
 
                 await using var uowResult = await _uowFactory.CreateAsync(ct);
 
@@ -1074,12 +1038,12 @@ public sealed class DispatchService : IDispatchService
                                       failedKeys.Count == leased.Count ? DispatchStatus.Failed :
                                       DispatchStatus.PartiallySucceeded;
 
-                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, finalStatus, result.HttpStatusCode, null, null, _clock.UtcNow, ct);
+                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, finalStatus, result.HttpStatusCode, null, dispatchId, _clock.UtcNow, ct);
                 }
                 else
                 {
                     await uowResult.Claims.MarkFailedWithBackoffAsync(leased, result.ErrorMessage ?? "SendClaim failed", _clock.UtcNow, ct);
-                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, null, _clock.UtcNow, ct);
+                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, dispatchId, _clock.UtcNow, ct);
                     failedCount += leased.Count;
                 }
 
@@ -1099,7 +1063,7 @@ public sealed class DispatchService : IDispatchService
                 _logger.LogError(ex, "Failed to auto-retry packet for batch {BatchId}", batch.BatchId);
                 await using var uowEx = await _uowFactory.CreateAsync(ct);
                 await uowEx.Claims.MarkFailedWithBackoffAsync(leased, ex.Message, _clock.UtcNow, ct);
-                await uowEx.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, null, ex.Message, null, _clock.UtcNow, ct);
+                await uowEx.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, null, ex.Message, dispatchId, _clock.UtcNow, ct);
                 await uowEx.CommitAsync(ct);
 
                 failedCount += leased.Count;

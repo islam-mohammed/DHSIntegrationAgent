@@ -17,15 +17,16 @@ internal sealed class DispatchRepository : SqliteRepositoryBase, IDispatchReposi
         int sequenceNo,
         DispatchType dispatchType,
         DispatchStatus dispatchStatus,
+        string? correlationId,
         DateTimeOffset utcNow,
         CancellationToken cancellationToken)
     {
         await using var cmd = CreateCommand(
             """
             INSERT INTO Dispatch
-            (DispatchId, ProviderDhsCode, BatchId, BcrId, SequenceNo, DispatchType, DispatchStatus, CreatedUtc, UpdatedUtc)
+            (DispatchId, ProviderDhsCode, BatchId, BcrId, SequenceNo, DispatchType, DispatchStatus, RequestGzip, CorrelationId, CreatedUtc, UpdatedUtc)
             VALUES
-            ($id, $p, $bid, $bcr, $seq, $type, $status, $now, $now);
+            ($id, $p, $bid, $bcr, $seq, $type, $status, 1, $corr, $now, $now);
             """);
 
         var nowIso = SqliteUtc.ToIso(utcNow);
@@ -36,6 +37,7 @@ internal sealed class DispatchRepository : SqliteRepositoryBase, IDispatchReposi
         SqliteSqlBuilder.AddParam(cmd, "$seq", sequenceNo);
         SqliteSqlBuilder.AddParam(cmd, "$type", (int)dispatchType);
         SqliteSqlBuilder.AddParam(cmd, "$status", (int)dispatchStatus);
+        SqliteSqlBuilder.AddParam(cmd, "$corr", correlationId);
         SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
@@ -157,6 +159,37 @@ internal sealed class DispatchRepository : SqliteRepositoryBase, IDispatchReposi
         }
 
         return null;
+    }
+
+
+    public async Task<IReadOnlyList<DispatchRow>> GetRecentForBatchAsync(long batchId, int limit, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT DispatchId, ProviderDhsCode, BatchId, BcrId, SequenceNo, DispatchType, DispatchStatus,
+                   AttemptCount, NextRetryUtc, RequestSizeBytes, RequestGzip, HttpStatusCode, LastError,
+                   CorrelationId, CreatedUtc, UpdatedUtc
+            FROM Dispatch
+            WHERE BatchId = $bid
+            ORDER BY CreatedUtc DESC
+            LIMIT $lim;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+        SqliteSqlBuilder.AddParam(cmd, "$lim", limit);
+
+        var results = new List<DispatchRow>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            results.Add(new DispatchRow(
+                reader.GetString(0), reader.GetString(1), reader.GetInt64(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3), reader.GetInt32(4), (DispatchType)reader.GetInt32(5),
+                (DispatchStatus)reader.GetInt32(6), reader.GetInt32(7), reader.IsDBNull(8) ? null : SqliteUtc.FromIso(reader.GetString(8)),
+                reader.IsDBNull(9) ? null : reader.GetInt32(9), reader.GetBoolean(10), reader.IsDBNull(11) ? null : reader.GetInt32(11),
+                reader.IsDBNull(12) ? null : reader.GetString(12), reader.IsDBNull(13) ? null : reader.GetString(13),
+                SqliteUtc.FromIso(reader.GetString(14)), SqliteUtc.FromIso(reader.GetString(15))));
+        }
+        return results;
     }
 
     public async Task<bool> HasRecentRetryAsync(long batchId, IReadOnlyList<int> proIdClaims, DateTimeOffset sinceUtc, CancellationToken cancellationToken)

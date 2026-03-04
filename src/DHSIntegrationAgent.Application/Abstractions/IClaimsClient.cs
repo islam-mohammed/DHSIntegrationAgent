@@ -13,5 +13,5 @@ public interface IClaimsClient
     /// Payload MUST be a JSON array string (e.g. "[{...},{...}]").
     /// Gzip compression is applied by the HTTP pipeline (GzipRequestHandler).
     /// </summary>
-    Task<SendClaimResult> SendClaimAsync(string claimBundlesJsonArray, CancellationToken ct);
+    Task<SendClaimResult> SendClaimAsync(string claimBundlesJsonArray, string? correlationId, CancellationToken ct);
 }
