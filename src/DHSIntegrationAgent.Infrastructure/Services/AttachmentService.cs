@@ -169,18 +169,18 @@ public sealed class AttachmentService : IAttachmentService
 
     private static string GetExtension(string? contentType, string? fileName)
     {
-        if (!string.IsNullOrWhiteSpace(contentType))
+        if (!string.IsNullOrWhiteSpace(fileName))
         {
-            if (_mimeTypeExtensions.TryGetValue(contentType, out var ext))
+            var ext = Path.GetExtension(fileName);
+            if (!string.IsNullOrWhiteSpace(ext))
             {
                 return ext;
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(fileName))
+        if (!string.IsNullOrWhiteSpace(contentType))
         {
-            var ext = Path.GetExtension(fileName);
-            if (!string.IsNullOrWhiteSpace(ext))
+            if (_mimeTypeExtensions.TryGetValue(contentType, out var ext))
             {
                 return ext;
             }
