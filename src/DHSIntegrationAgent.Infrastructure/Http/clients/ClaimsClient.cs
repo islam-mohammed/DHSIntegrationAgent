@@ -1,6 +1,7 @@
 using DHSIntegrationAgent.Contracts.Claims;
 ﻿using System.Net;
 using System.Text;
+using System.IO.Compression;
 using System.Text.Json;
 using DHSIntegrationAgent.Application.Abstractions;
 
@@ -30,7 +31,7 @@ public sealed class ClaimsClient : IClaimsClient
         _httpClientFactory = httpClientFactory;
     }
 
-    public async Task<SendClaimResult> SendClaimAsync(string claimBundlesJsonArray, CancellationToken ct)
+    public async Task<SendClaimResult> SendClaimAsync(string claimBundlesJsonArray, string? correlationId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(claimBundlesJsonArray))
             return Fail("SendClaim payload is empty.", httpStatusCode: null);
@@ -43,8 +44,27 @@ public sealed class ClaimsClient : IClaimsClient
         var client = _httpClientFactory.CreateClient("BackendApi");
         const string path = "api/Claims/SendClaim";
 
-        using var content = new StringContent(trimmed, Encoding.UTF8, "application/json");
+        var uncompressedBytes = Encoding.UTF8.GetBytes(trimmed);
+        byte[] compressedBytes;
+        using (var ms = new MemoryStream())
+        {
+            using (var gzip = new GZipStream(ms, CompressionLevel.Optimal, true))
+            {
+                gzip.Write(uncompressedBytes, 0, uncompressedBytes.Length);
+            }
+            compressedBytes = ms.ToArray();
+        }
+
+        using var content = new ByteArrayContent(compressedBytes);
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
+        content.Headers.ContentEncoding.Add("gzip");
+
         using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = content };
+
+        if (!string.IsNullOrWhiteSpace(correlationId))
+        {
+            request.Headers.TryAddWithoutValidation(ApiLoggingHandler.CorrelationHeaderName, correlationId);
+        }
 
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         var httpCode = (int)response.StatusCode;

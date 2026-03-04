@@ -12,6 +12,7 @@ public interface IDispatchRepository
         int sequenceNo,
         DispatchType dispatchType,
         DispatchStatus dispatchStatus,
+        string? correlationId,
         DateTimeOffset utcNow,
         CancellationToken cancellationToken);
 
@@ -35,6 +36,8 @@ public interface IDispatchRepository
     Task<int> GetNextSequenceNoAsync(long batchId, CancellationToken cancellationToken);
 
     Task<Contracts.Persistence.DispatchRow?> GetAsync(string dispatchId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Contracts.Persistence.DispatchRow>> GetRecentForBatchAsync(long batchId, int limit, CancellationToken cancellationToken);
 
     Task<bool> HasRecentRetryAsync(long batchId, IReadOnlyList<int> proIdClaims, DateTimeOffset sinceUtc, CancellationToken cancellationToken);
 }

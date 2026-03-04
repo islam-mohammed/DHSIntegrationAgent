@@ -82,7 +82,7 @@ public class DispatchServiceSenderTests
             .ReturnsAsync(new ClaimPayloadRow(new ClaimKey("provider", 100), System.Text.Encoding.UTF8.GetBytes("{\"claimHeader\": {\"proidclaim\": 100}}"), "", 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
 
         // Mock API response - ALL SUCCESS
-        _claimsClientMock.Setup(c => c.SendClaimAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _claimsClientMock.Setup(c => c.SendClaimAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SendClaimResult(true, null, new List<long> { 100, 101 }, 200));
 
         var progressMock = new Mock<IProgress<WorkerProgressReport>>();
@@ -149,7 +149,7 @@ public class DispatchServiceSenderTests
             .ReturnsAsync(new ClaimPayloadRow(new ClaimKey("provider", 100), System.Text.Encoding.UTF8.GetBytes("{\"claimHeader\": {\"proidclaim\": 100}}"), "", 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
 
         // Mock API response - PARTIAL SUCCESS (Only 100 succeeded, 101 failed because it's missing)
-        _claimsClientMock.Setup(c => c.SendClaimAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _claimsClientMock.Setup(c => c.SendClaimAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SendClaimResult(true, null, new List<long> { 100 }, 200));
 
         var progressMock = new Mock<IProgress<WorkerProgressReport>>();
@@ -216,7 +216,7 @@ public class DispatchServiceSenderTests
             .ReturnsAsync(new ClaimPayloadRow(new ClaimKey("provider", 100), System.Text.Encoding.UTF8.GetBytes("{\"claimHeader\": {\"proidclaim\": 100}}"), "", 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
 
         // Mock API response - ZERO SUCCESS (empty success list)
-        _claimsClientMock.Setup(c => c.SendClaimAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _claimsClientMock.Setup(c => c.SendClaimAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SendClaimResult(true, null, new List<long>(), 200));
 
         var progressMock = new Mock<IProgress<WorkerProgressReport>>();
@@ -282,7 +282,7 @@ public class DispatchServiceSenderTests
             .ReturnsAsync(new ClaimPayloadRow(new ClaimKey("provider", 100), System.Text.Encoding.UTF8.GetBytes("{\"claimHeader\": {\"proidclaim\": 100}}"), "", 1, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow));
 
         // Mock API response - FAILED (e.g. 500 Server Error)
-        _claimsClientMock.Setup(c => c.SendClaimAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _claimsClientMock.Setup(c => c.SendClaimAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SendClaimResult(false, "Server error", new List<long>(), 500));
 
         var progressMock = new Mock<IProgress<WorkerProgressReport>>();
