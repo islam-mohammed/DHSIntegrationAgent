@@ -673,7 +673,7 @@ public sealed class DispatchService : IDispatchService
         }
 
         var cooldownMinutes = appSettings.ManualRetryCooldownMinutes;
-        var leaseDurationSeconds = appSettings.LeaseDurationSeconds;
+        var leaseDurationSeconds = appSettings.LeaseDurationSeconds > 0 ? appSettings.LeaseDurationSeconds : 120;
         var sinceUtc = _clock.UtcNow.AddMinutes(-cooldownMinutes);
         var targetClaims = originalItems.Select(i => i.ProIdClaim).ToList();
 
