@@ -644,6 +644,250 @@ public sealed class DispatchService : IDispatchService
         return new RetryBatchResult(processedCount, successCount, failedCount);
     }
 
+    public async Task<ManualRetryResult> ManualRetryDispatchPacketAsync(string dispatchId, IProgress<WorkerProgressReport> progress, CancellationToken ct)
+    {
+        DispatchRow? originalDispatch;
+        IReadOnlyList<DispatchItemRow> originalItems;
+        AppSettingsRow? appSettings;
+
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            originalDispatch = await uow.Dispatches.GetAsync(dispatchId, ct);
+            if (originalDispatch == null)
+            {
+                return new ManualRetryResult(false, $"Dispatch {dispatchId} not found.", 0, 0, 0);
+            }
+
+            originalItems = await uow.DispatchItems.GetByDispatchIdAsync(dispatchId, ct);
+            if (originalItems.Count == 0)
+            {
+                return new ManualRetryResult(false, $"Dispatch {dispatchId} has no items.", 0, 0, 0);
+            }
+
+            appSettings = await uow.AppSettings.GetAsync(ct);
+        }
+
+        if (appSettings == null)
+        {
+            return new ManualRetryResult(false, "AppSettings not found.", 0, 0, 0);
+        }
+
+        var cooldownMinutes = appSettings.ManualRetryCooldownMinutes;
+        var leaseDurationSeconds = appSettings.LeaseDurationSeconds > 0 ? appSettings.LeaseDurationSeconds : 120;
+        var sinceUtc = _clock.UtcNow.AddMinutes(-cooldownMinutes);
+        var targetClaims = originalItems.Select(i => i.ProIdClaim).ToList();
+
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            var hasRecentRetry = await uow.Dispatches.HasRecentRetryAsync(originalDispatch.BatchId, targetClaims, sinceUtc, ct);
+            if (hasRecentRetry)
+            {
+                return new ManualRetryResult(false, $"Retry blocked: The exact same packet was retried within the last {cooldownMinutes} minutes.", 0, 0, 0);
+            }
+        }
+
+        IReadOnlyList<ClaimKey> leased;
+        int nextSeq;
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            var leaseRequest = new ClaimSpecificLeaseRequest(
+                ProviderDhsCode: originalDispatch.ProviderDhsCode,
+                ProIdClaims: targetClaims,
+                LockedBy: "Retry",
+                UtcNow: _clock.UtcNow,
+                LeaseUntilUtc: _clock.UtcNow.AddSeconds(leaseDurationSeconds),
+                EligibleEnqueueStatuses: new[] { EnqueueStatus.Failed }
+            );
+
+            leased = await uow.Claims.LeaseSpecificAsync(leaseRequest, ct);
+
+            // Ensure we got EXACTLY the claims requested. No partial retries.
+            if (leased.Count != targetClaims.Count)
+            {
+                // Release the ones we did get
+                if (leased.Count > 0)
+                {
+                    await uow.Claims.ReleaseLeaseAsync(leased, _clock.UtcNow, ct);
+                }
+                await uow.CommitAsync(ct);
+                return new ManualRetryResult(false, "Retry aborted: Some claims in the packet are currently in-flight or not in Failed status.", 0, 0, 0);
+            }
+
+            nextSeq = await uow.Dispatches.GetNextSequenceNoAsync(originalDispatch.BatchId, ct);
+            await uow.CommitAsync(ct);
+        }
+
+        var newDispatchId = Guid.NewGuid().ToString();
+        var bundles = new List<JsonNode>(leased.Count);
+        var dispatchItems = new List<DispatchItemRow>(leased.Count);
+
+        IReadOnlyList<ApprovedDomainMappingRow> approvedMappings;
+        await using (var uowMappings = await _uowFactory.CreateAsync(ct))
+        {
+            approvedMappings = await uowMappings.DomainMappings.GetAllApprovedAsync(ct);
+        }
+
+        var mappingLookup = approvedMappings
+            .GroupBy(m => (m.DomainTableId, m.SourceValue.Trim().ToLowerInvariant()))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            // Maintain order of original items
+            for (int i = 0; i < targetClaims.Count; i++)
+            {
+                var proIdClaim = targetClaims[i];
+                var key = leased.First(k => k.ProIdClaim == proIdClaim);
+                var payloadRow = await uow.ClaimPayloads.GetAsync(key, ct);
+
+                if (payloadRow != null)
+                {
+                    var node = JsonNode.Parse(payloadRow.PayloadJsonPlaintext);
+                    if (node is JsonObject bundleObj)
+                    {
+                        var header = bundleObj["claimHeader"]?.AsObject();
+                        if (header != null)
+                        {
+                            header.Remove("provider_dhsCode");
+                            header["providerCode"] = originalDispatch.ProviderDhsCode;
+                            if (!string.IsNullOrEmpty(originalDispatch.BcrId) && long.TryParse(originalDispatch.BcrId, out var bcrIdLong))
+                                header["bCR_Id"] = bcrIdLong;
+
+                            EnrichClaimHeader(header, mappingLookup);
+                        }
+
+                        var serviceDetails = bundleObj["serviceDetails"]?.AsArray();
+                        if (serviceDetails != null) EnrichServiceDetails(serviceDetails, mappingLookup);
+
+                        var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
+                        if (diagnosisDetails != null) EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
+
+                        var dhsDoctors = bundleObj["dhsDoctors"]?.AsArray();
+                        if (dhsDoctors != null) EnrichDoctorDetails(dhsDoctors, mappingLookup);
+
+                        InjectProIdClaimInt(bundleObj["radiologyDetails"]?.AsArray(), proIdClaim);
+                        InjectProIdClaimInt(dhsDoctors, proIdClaim);
+                        InjectProIdClaimInt(bundleObj["labDetails"]?.AsArray(), proIdClaim);
+                        InjectProIdClaimInt(bundleObj["diagnosisDetails"]?.AsArray(), proIdClaim);
+                        InjectProIdClaimInt(bundleObj["opticalVitalSigns"]?.AsArray(), proIdClaim);
+
+                        bundles.Add(bundleObj);
+                    }
+                }
+
+                dispatchItems.Add(new DispatchItemRow(newDispatchId, key.ProviderDhsCode, key.ProIdClaim, i + 1, DispatchItemResult.Unknown, null));
+            }
+        }
+
+        if (bundles.Count != leased.Count)
+        {
+            // Something went wrong loading payloads. Release and abort.
+            _logger.LogWarning("Missing payloads for manual retry {DispatchId}. Aborting.", dispatchId);
+            await using var uowRelease = await _uowFactory.CreateAsync(ct);
+            await uowRelease.Claims.ReleaseLeaseAsync(leased, _clock.UtcNow, ct);
+            await uowRelease.CommitAsync(ct);
+            return new ManualRetryResult(false, "Retry aborted: Could not load payload for all claims.", 0, 0, 0);
+        }
+
+        await using (var uowDispatch = await _uowFactory.CreateAsync(ct))
+        {
+            await uowDispatch.Dispatches.InsertDispatchAsync(
+                newDispatchId,
+                originalDispatch.ProviderDhsCode,
+                originalDispatch.BatchId,
+                originalDispatch.BcrId,
+                nextSeq,
+                DispatchType.RetrySend,
+                DispatchStatus.InFlight,
+                _clock.UtcNow,
+                ct);
+
+            await uowDispatch.DispatchItems.InsertManyAsync(dispatchItems, ct);
+            await uowDispatch.CommitAsync(ct);
+        }
+
+        var jsonArray = ClaimBundleJsonPacket.ToJsonArray(bundles);
+
+        progress.Report(new WorkerProgressReport(
+            "ManualRetry",
+            $"Sending manual retry packet ({leased.Count} claims)",
+            Percentage: 50,
+            BatchId: originalDispatch.BatchId,
+            ProcessedCount: 0,
+            TotalCount: leased.Count));
+
+        int successCount = 0;
+        int failedCount = 0;
+
+        try
+        {
+            var result = await _claimsClient.SendClaimAsync(jsonArray, ct);
+
+            await using var uowResult = await _uowFactory.CreateAsync(ct);
+
+            if (result.Succeeded)
+            {
+                var successSet = result.SuccessClaimsProIdClaim.Select(id => (int)id).ToHashSet();
+                var successKeys = leased.Where(k => successSet.Contains(k.ProIdClaim)).ToList();
+                var failedKeys = leased.Where(k => !successSet.Contains(k.ProIdClaim)).ToList();
+
+                if (successKeys.Count > 0)
+                {
+                    await uowResult.Claims.MarkEnqueuedAsync(successKeys, originalDispatch.BcrId, _clock.UtcNow, ct);
+                    successCount += successKeys.Count;
+                }
+
+                if (failedKeys.Count > 0)
+                {
+                    await uowResult.Claims.MarkFailedWithBackoffAsync(failedKeys, "Failed at backend queue (Manual Retry)", _clock.UtcNow, ct);
+                    failedCount += failedKeys.Count;
+                }
+
+                var itemResults = leased.Select(k =>
+                {
+                    var res = successSet.Contains(k.ProIdClaim) ? DispatchItemResult.Success : DispatchItemResult.Fail;
+                    return (k, res, res == DispatchItemResult.Fail ? "Not in success list" : (string?)null);
+                }).ToList();
+
+                await uowResult.DispatchItems.UpdateItemResultAsync(newDispatchId, itemResults, ct);
+
+                var finalStatus = successKeys.Count == leased.Count ? DispatchStatus.Succeeded :
+                                  failedKeys.Count == leased.Count ? DispatchStatus.Failed :
+                                  DispatchStatus.PartiallySucceeded;
+
+                await uowResult.Dispatches.UpdateDispatchResultAsync(newDispatchId, finalStatus, result.HttpStatusCode, null, null, _clock.UtcNow, ct);
+            }
+            else
+            {
+                await uowResult.Claims.MarkFailedWithBackoffAsync(leased, result.ErrorMessage ?? "SendClaim failed", _clock.UtcNow, ct);
+                await uowResult.Dispatches.UpdateDispatchResultAsync(newDispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, null, _clock.UtcNow, ct);
+                failedCount += leased.Count;
+            }
+
+            await uowResult.CommitAsync(ct);
+
+            progress.Report(new WorkerProgressReport(
+                "ManualRetry",
+                "Manual retry complete",
+                Percentage: 100,
+                BatchId: originalDispatch.BatchId,
+                ProcessedCount: leased.Count,
+                TotalCount: leased.Count));
+
+            return new ManualRetryResult(true, null, leased.Count, successCount, failedCount);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to manually retry packet {DispatchId}", newDispatchId);
+            await using var uowEx = await _uowFactory.CreateAsync(ct);
+            await uowEx.Claims.MarkFailedWithBackoffAsync(leased, ex.Message, _clock.UtcNow, ct);
+            await uowEx.Dispatches.UpdateDispatchResultAsync(newDispatchId, DispatchStatus.Failed, null, ex.Message, null, _clock.UtcNow, ct);
+            await uowEx.CommitAsync(ct);
+
+            return new ManualRetryResult(false, ex.Message, leased.Count, 0, leased.Count);
+        }
+    }
+
     public async Task<RetryBatchResult> AutomaticRetryBatchAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(batch.BcrId))
@@ -663,11 +907,14 @@ public sealed class DispatchService : IDispatchService
 
             await using (var uow = await _uowFactory.CreateAsync(ct))
             {
+                var settings = await uow.AppSettings.GetAsync(ct);
+                var leaseDurationSeconds = settings?.LeaseDurationSeconds > 0 ? settings.LeaseDurationSeconds : 120;
+
                 var leaseRequest = new ClaimLeaseRequest(
                     ProviderDhsCode: batch.ProviderDhsCode,
                     LockedBy: "Retry",
                     UtcNow: _clock.UtcNow,
-                    LeaseUntilUtc: _clock.UtcNow.AddMinutes(5),
+                    LeaseUntilUtc: _clock.UtcNow.AddSeconds(leaseDurationSeconds),
                     Take: 40,
                     EligibleEnqueueStatuses: new[] { EnqueueStatus.Failed },
                     RequireRetryDue: true,

@@ -120,4 +120,106 @@ internal sealed class DispatchRepository : SqliteRepositoryBase, IDispatchReposi
         var result = await cmd.ExecuteScalarAsync(cancellationToken);
         return Convert.ToInt32(result);
     }
+
+    public async Task<DispatchRow?> GetAsync(string dispatchId, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT DispatchId, ProviderDhsCode, BatchId, BcrId, SequenceNo, DispatchType, DispatchStatus,
+                   AttemptCount, NextRetryUtc, RequestSizeBytes, RequestGzip, HttpStatusCode, LastError,
+                   CorrelationId, CreatedUtc, UpdatedUtc
+            FROM Dispatch
+            WHERE DispatchId = $id;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$id", dispatchId);
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            return new DispatchRow(
+                DispatchId: reader.GetString(0),
+                ProviderDhsCode: reader.GetString(1),
+                BatchId: reader.GetInt64(2),
+                BcrId: reader.IsDBNull(3) ? null : reader.GetString(3),
+                SequenceNo: reader.GetInt32(4),
+                DispatchType: (DispatchType)reader.GetInt32(5),
+                DispatchStatus: (DispatchStatus)reader.GetInt32(6),
+                AttemptCount: reader.GetInt32(7),
+                NextRetryUtc: reader.IsDBNull(8) ? null : SqliteUtc.FromIso(reader.GetString(8)),
+                RequestSizeBytes: reader.IsDBNull(9) ? null : reader.GetInt32(9),
+                RequestGzip: reader.GetBoolean(10),
+                HttpStatusCode: reader.IsDBNull(11) ? null : reader.GetInt32(11),
+                LastError: reader.IsDBNull(12) ? null : reader.GetString(12),
+                CorrelationId: reader.IsDBNull(13) ? null : reader.GetString(13),
+                CreatedUtc: SqliteUtc.FromIso(reader.GetString(14)),
+                UpdatedUtc: SqliteUtc.FromIso(reader.GetString(15))
+            );
+        }
+
+        return null;
+    }
+
+    public async Task<bool> HasRecentRetryAsync(long batchId, IReadOnlyList<int> proIdClaims, DateTimeOffset sinceUtc, CancellationToken cancellationToken)
+    {
+        if (proIdClaims.Count == 0) return false;
+
+        // Check if there is a Dispatch of type RetrySend created after sinceUtc for the given batch
+        // AND that dispatch has exactly the same set of claims.
+        // Doing this in pure SQL is possible but might be complex with array comparisons.
+        // We'll fetch the recent retry dispatches and check their items in memory.
+
+        await using var cmd = CreateCommand(
+            """
+            SELECT d.DispatchId
+            FROM Dispatch d
+            WHERE d.BatchId = $bid
+              AND d.DispatchType = $type
+              AND d.CreatedUtc >= $since;
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+        SqliteSqlBuilder.AddParam(cmd, "$type", (int)DispatchType.RetrySend);
+        SqliteSqlBuilder.AddParam(cmd, "$since", SqliteUtc.ToIso(sinceUtc));
+
+        var recentDispatchIds = new List<string>();
+        await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                recentDispatchIds.Add(reader.GetString(0));
+            }
+        }
+
+        if (recentDispatchIds.Count == 0) return false;
+
+        var targetClaimsSet = proIdClaims.ToHashSet();
+
+        // Check items for each recent dispatch
+        foreach (var id in recentDispatchIds)
+        {
+            await using var itemCmd = CreateCommand(
+                """
+                SELECT ProIdClaim
+                FROM DispatchItem
+                WHERE DispatchId = $id;
+                """);
+            SqliteSqlBuilder.AddParam(itemCmd, "$id", id);
+
+            var claimsInDispatch = new List<int>();
+            await using (var itemReader = await itemCmd.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await itemReader.ReadAsync(cancellationToken))
+                {
+                    claimsInDispatch.Add(itemReader.GetInt32(0));
+                }
+            }
+
+            if (claimsInDispatch.Count == targetClaimsSet.Count && claimsInDispatch.All(c => targetClaimsSet.Contains(c)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

@@ -167,6 +167,55 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         return leased;
     }
 
+    public async Task<IReadOnlyList<ClaimKey>> LeaseSpecificAsync(ClaimSpecificLeaseRequest request, CancellationToken cancellationToken)
+    {
+        if (request.ProIdClaims.Count == 0) return Array.Empty<ClaimKey>();
+        if (request.EligibleEnqueueStatuses.Count == 0) return Array.Empty<ClaimKey>();
+
+        await using var cmd = CreateCommand("");
+        var nowIso = SqliteUtc.ToIso(request.UtcNow);
+        var leaseIso = SqliteUtc.ToIso(request.LeaseUntilUtc);
+
+        var statusInts = request.EligibleEnqueueStatuses.Select(s => (int)s).ToList();
+        var inClauseStatus = SqliteSqlBuilder.AddIntInClause(cmd, "s", statusInts);
+        var inClauseClaims = SqliteSqlBuilder.AddIntInClause(cmd, "c", request.ProIdClaims);
+
+        // Atomic lease acquisition + status transition to InFlight for specific claims
+        cmd.CommandText =
+            $"""
+            WITH cte AS (
+              SELECT rowid
+              FROM Claim
+              WHERE ProviderDhsCode = $p
+                AND ProIdClaim IN {inClauseClaims}
+                AND EnqueueStatus IN {inClauseStatus}
+                AND (InFlightUntilUtc IS NULL OR InFlightUntilUtc <= $now)
+            )
+            UPDATE Claim
+            SET LockedBy = $lock,
+                InFlightUntilUtc = $until,
+                EnqueueStatus = $inFlight,
+                LastUpdatedUtc = $now
+            WHERE rowid IN cte
+            RETURNING ProviderDhsCode, ProIdClaim;
+            """;
+
+        SqliteSqlBuilder.AddParam(cmd, "$p", request.ProviderDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
+        SqliteSqlBuilder.AddParam(cmd, "$lock", request.LockedBy);
+        SqliteSqlBuilder.AddParam(cmd, "$until", leaseIso);
+        SqliteSqlBuilder.AddParam(cmd, "$inFlight", (int)EnqueueStatus.InFlight);
+
+        var leased = new List<ClaimKey>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            leased.Add(new ClaimKey(reader.GetString(0), reader.GetInt32(1)));
+        }
+
+        return leased;
+    }
+
     public async Task ReleaseLeaseAsync(IReadOnlyList<ClaimKey> claims, DateTimeOffset utcNow, CancellationToken cancellationToken)
     {
         if (claims.Count == 0) return;
