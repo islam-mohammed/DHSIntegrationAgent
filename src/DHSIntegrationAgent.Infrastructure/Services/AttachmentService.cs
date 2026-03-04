@@ -20,6 +20,26 @@ public sealed class AttachmentService : IAttachmentService
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private string? _cachedSasUrl;
 
+    private static readonly Dictionary<string, string> _mimeTypeExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        {"application/pdf", ".pdf"},
+        {"image/jpeg", ".jpg"},
+        {"image/jpg", ".jpg"},
+        {"image/png", ".png"},
+        {"image/gif", ".gif"},
+        {"image/bmp", ".bmp"},
+        {"image/tiff", ".tiff"},
+        {"application/msword", ".doc"},
+        {"application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx"},
+        {"application/vnd.ms-excel", ".xls"},
+        {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx"},
+        {"text/plain", ".txt"},
+        {"text/csv", ".csv"},
+        {"text/xml", ".xml"},
+        {"application/xml", ".xml"},
+        {"application/json", ".json"}
+    };
+
     public AttachmentService(
         IOptions<AzureBlobOptions> options,
         IKeyProtector protector,
@@ -47,8 +67,11 @@ public sealed class AttachmentService : IAttachmentService
             containerClient = new BlobContainerClient(new Uri(sasUrl));
         }
 
-        // Use FileName or generate one if missing
-        var fileName = attachment.FileName ?? $"{attachment.AttachmentId}.dat";
+        var ext = GetExtension(attachment.ContentType, attachment.FileName);
+        var baseName = !string.IsNullOrWhiteSpace(attachment.FileName)
+            ? Path.GetFileNameWithoutExtension(attachment.FileName)
+            : attachment.AttachmentId.ToString();
+        var fileName = $"{baseName}{ext}";
 
         // Path structure: ProviderDhsCode/ProIdClaim/FileName
         var blobPath = $"{attachment.ProviderDhsCode}/{attachment.ProIdClaim}/{fileName}";
@@ -142,5 +165,27 @@ public sealed class AttachmentService : IAttachmentService
         }
 
         throw new InvalidOperationException("Azure Blob SAS URL or Connection String is not configured.");
+    }
+
+    private static string GetExtension(string? contentType, string? fileName)
+    {
+        if (!string.IsNullOrWhiteSpace(contentType))
+        {
+            if (_mimeTypeExtensions.TryGetValue(contentType, out var ext))
+            {
+                return ext;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(fileName))
+        {
+            var ext = Path.GetExtension(fileName);
+            if (!string.IsNullOrWhiteSpace(ext))
+            {
+                return ext;
+            }
+        }
+
+        return ".dat";
     }
 }
