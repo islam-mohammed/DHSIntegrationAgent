@@ -4,7 +4,7 @@ namespace DHSIntegrationAgent.Application.Abstractions;
 
 public interface IAttachmentClient
 {
-    Task<UpdateAttachmentsResult> UploadAttachmentAsync(UploadAttachmentRequest request, CancellationToken ct);
+    Task<UpdateAttachmentsResult> SendAttachmentAsync(UploadAttachmentRequest request, CancellationToken ct);
 }
 
 public sealed record UpdateAttachmentsResult(bool Succeeded, string? ErrorMessage, int? HttpStatusCode);

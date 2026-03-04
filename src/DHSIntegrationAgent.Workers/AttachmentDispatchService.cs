@@ -182,7 +182,7 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
 
                     // Notify Backend
                     var request = new UploadAttachmentRequest(proIdClaim, attachmentDtos);
-                    var result = await _attachmentClient.UploadAttachmentAsync(request, ct);
+                    var result = await _attachmentClient.SendAttachmentAsync(request, ct);
                     if (!result.Succeeded)
                     {
                         _logger.LogWarning("Failed to notify backend about attachments for claim {ProIdClaim}: {Error}", proIdClaim, result.ErrorMessage);

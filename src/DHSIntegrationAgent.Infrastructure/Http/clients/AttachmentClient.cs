@@ -14,7 +14,7 @@ public sealed class AttachmentClient : IAttachmentClient
         _httpClientFactory = httpClientFactory;
     }
 
-    public async Task<UpdateAttachmentsResult> UploadAttachmentAsync(UploadAttachmentRequest request, CancellationToken ct)
+    public async Task<UpdateAttachmentsResult> SendAttachmentAsync(UploadAttachmentRequest request, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("BackendApi");
         const string path = "api/Batch/UploadAttachment";
