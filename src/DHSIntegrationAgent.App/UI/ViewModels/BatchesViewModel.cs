@@ -175,7 +175,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         HasFailedClaims = counts.Failed > 0;
                         DispatchHistory.Clear();
                         foreach(var d in rawDispatches) {
-                            if (d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.Failed || d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.PartiallySucceeded) {
+                            if (d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.Failed) {
                                 DispatchHistory.Add(new DispatchRow { PacketId = d.DispatchId, AttemptUtc = d.CreatedUtc.ToString("g"), Result = d.DispatchStatus.ToString(), CorrelationId = d.CorrelationId ?? "" });
                             }
                         }
@@ -186,7 +186,7 @@ public sealed class BatchesViewModel : ViewModelBase
                     HasFailedClaims = counts.Failed > 0;
                     DispatchHistory.Clear();
                     foreach(var d in rawDispatches) {
-                        if (d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.Failed || d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.PartiallySucceeded) {
+                        if (d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.Failed) {
                             DispatchHistory.Add(new DispatchRow { PacketId = d.DispatchId, AttemptUtc = d.CreatedUtc.ToString("g"), Result = d.DispatchStatus.ToString(), CorrelationId = d.CorrelationId ?? "" });
                         }
                     }
