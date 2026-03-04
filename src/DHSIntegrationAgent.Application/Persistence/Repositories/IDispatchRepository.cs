@@ -33,4 +33,8 @@ public interface IDispatchRepository
     Task RecoverInFlightAsync(DateTimeOffset utcNow, CancellationToken cancellationToken);
 
     Task<int> GetNextSequenceNoAsync(long batchId, CancellationToken cancellationToken);
+
+    Task<Contracts.Persistence.DispatchRow?> GetAsync(string dispatchId, CancellationToken cancellationToken);
+
+    Task<bool> HasRecentRetryAsync(long batchId, IReadOnlyList<int> proIdClaims, DateTimeOffset sinceUtc, CancellationToken cancellationToken);
 }

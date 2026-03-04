@@ -11,4 +11,6 @@ public interface IDispatchItemRepository
         string dispatchId,
         IReadOnlyList<(ClaimKey Key, DispatchItemResult Result, string? ErrorMessage)> results,
         CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<DispatchItemRow>> GetByDispatchIdAsync(string dispatchId, CancellationToken cancellationToken);
 }

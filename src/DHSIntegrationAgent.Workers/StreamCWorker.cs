@@ -37,10 +37,22 @@ public sealed class StreamCWorker : IWorker
 
         while (!ct.IsCancellationRequested)
         {
+            var loopDelay = TimeSpan.FromSeconds(60);
             try
             {
+                await using (var uow = await _uowFactory.CreateAsync(ct))
+                {
+                    var settings = await uow.AppSettings.GetAsync(ct);
+                    if (settings != null && settings.FetchIntervalMinutes > 0)
+                    {
+                        // Use FetchIntervalMinutes as the generic retry interval if present
+                        loopDelay = TimeSpan.FromMinutes(settings.FetchIntervalMinutes);
+                    }
+                }
+
                 await ProcessEligibleBatchesAsync(progress, ct);
-                await Task.Delay(TimeSpan.FromSeconds(60), ct);
+
+                await Task.Delay(loopDelay, ct);
             }
             catch (OperationCanceledException)
             {
@@ -50,7 +62,7 @@ public sealed class StreamCWorker : IWorker
             {
                 _logger.LogError(ex, "Stream C worker loop encountered an error.");
                 progress.Report(new WorkerProgressReport(Id, $"Error: {ex.Message}", IsError: true));
-                await Task.Delay(TimeSpan.FromSeconds(60), ct);
+                await Task.Delay(loopDelay, ct);
             }
         }
 

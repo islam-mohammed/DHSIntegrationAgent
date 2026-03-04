@@ -66,4 +66,32 @@ internal sealed class DispatchItemRepository : SqliteRepositoryBase, IDispatchIt
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
     }
+
+    public async Task<IReadOnlyList<DispatchItemRow>> GetByDispatchIdAsync(string dispatchId, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT DispatchId, ProviderDhsCode, ProIdClaim, ItemOrder, ItemResult, ErrorMessage
+            FROM DispatchItem
+            WHERE DispatchId = $id
+            ORDER BY ItemOrder;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$id", dispatchId);
+
+        var results = new List<DispatchItemRow>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            results.Add(new DispatchItemRow(
+                DispatchId: reader.GetString(0),
+                ProviderDhsCode: reader.GetString(1),
+                ProIdClaim: reader.GetInt32(2),
+                ItemOrder: reader.GetInt32(3),
+                ItemResult: (DispatchItemResult)reader.GetInt32(4),
+                ErrorMessage: reader.IsDBNull(5) ? null : reader.GetString(5)
+            ));
+        }
+
+        return results;
+    }
 }

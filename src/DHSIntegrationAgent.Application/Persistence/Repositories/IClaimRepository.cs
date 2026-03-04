@@ -20,6 +20,8 @@ public interface IClaimRepository
     // Atomic lease acquisition (single UPDATE predicate)
     Task<IReadOnlyList<ClaimKey>> LeaseAsync(ClaimLeaseRequest request, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<ClaimKey>> LeaseSpecificAsync(ClaimSpecificLeaseRequest request, CancellationToken cancellationToken);
+
     Task ReleaseLeaseAsync(IReadOnlyList<ClaimKey> claims, DateTimeOffset utcNow, CancellationToken cancellationToken);
 
     Task MarkEnqueuedAsync(
