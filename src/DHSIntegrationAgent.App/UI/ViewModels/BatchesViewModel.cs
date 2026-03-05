@@ -95,18 +95,11 @@ public sealed class BatchesViewModel : ViewModelBase
     public bool IsRetrying
     {
         get => _isRetrying;
-        set
-        {
-            if (SetProperty(ref _isRetrying, value))
-            {
-                RetryFailedClaimsCommand.RaiseCanExecuteChanged();
-            }
-        }
+        set => SetProperty(ref _isRetrying, value);
     }
 
     public RelayCommand ApplyFilterCommand { get; }
     public RelayCommand<DispatchRow> ManualRetrySelectedPacketCommand { get; }
-    public RelayCommand<BatchRow> RetryFailedClaimsCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
     public AsyncRelayCommand UploadAttachmentsCommand { get; }
@@ -128,7 +121,6 @@ public sealed class BatchesViewModel : ViewModelBase
 
         ApplyFilterCommand = new RelayCommand(() => { /* screen-only */ });
         ManualRetrySelectedPacketCommand = new RelayCommand<DispatchRow>(OnManualRetrySelectedPacket, CanManualRetrySelectedPacket);
-        RetryFailedClaimsCommand = new RelayCommand<BatchRow>(OnRetryFailedClaims, CanRetryFailedClaims);
         RefreshCommand = new AsyncRelayCommand(LoadBatchesAsync);
         SearchCommand = new AsyncRelayCommand(LoadBatchesAsync);
         UploadAttachmentsCommand = new AsyncRelayCommand(OnUploadAttachmentsAsync);
@@ -263,63 +255,6 @@ public sealed class BatchesViewModel : ViewModelBase
             }
         });
     }
-
-    private void OnRetryFailedClaims(BatchRow targetBatch)
-
-    {
-        if (targetBatch == null) return;
-
-        IsRetrying = true;
-
-        // Fetch persistence batch again to pass to tracker
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await using var uow = await _unitOfWorkFactory.CreateAsync(default);
-                var batch = await uow.Batches.GetByBcrIdAsync(targetBatch.BcrId.ToString(), default);
-
-                if (batch != null)
-                {
-                    _batchTracker.TrackBatchRetry(batch, result =>
-                    {
-                        // Back on UI thread
-                        IsRetrying = false;
-                        _ = LoadBatchesAsync(); // Refresh list
-
-                        // Re-check failure status after refresh
-                        _ = CheckFailedClaimsAsync();
-
-                        MessageBox.Show(
-                            $"Retry Complete.\n\n" +
-                            $"Total Retried: {result.TotalRetried}\n" +
-                            $"Success: {result.SuccessCount}\n" +
-                            $"Failed: {result.FailedCount}",
-                            "Retry Summary",
-                            MessageBoxButton.OK,
-                            result.FailedCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
-                    });
-                }
-                else
-                {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        IsRetrying = false;
-                        MessageBox.Show("Batch not found locally.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                {
-                    IsRetrying = false;
-                    MessageBox.Show($"Error starting retry: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                });
-            }
-        });
-    }
-
 
         private void OnShowAttachments(BatchRow batch)
     {
