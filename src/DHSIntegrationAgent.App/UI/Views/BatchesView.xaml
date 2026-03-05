@@ -387,6 +387,51 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+
+                        <!-- Dispatch History Section -->
+                        <TextBlock Text="Recent Failed Packets"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   Margin="0,16,0,8"
+                                   Visibility="{Binding HasDispatchHistory, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                        <ItemsControl ItemsSource="{Binding DispatchHistory}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource BrushBorder}"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="0,0,0,12"
+                                            Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Attempted" FontSize="11" Foreground="{StaticResource BrushMuted}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding AttemptUtc}" FontSize="11" FontWeight="SemiBold"/>
+                                            </Grid>
+
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Packet ID" FontSize="11" Foreground="{StaticResource BrushMuted}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding PacketId}" FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="150" ToolTip="{Binding PacketId}"/>
+                                            </Grid>
+
+                                            <Button Content="Retry Packet"
+                                                    Command="{Binding DataContext.ManualRetrySelectedPacketCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource OutlineBtn}"
+                                                    Margin="0,8,0,0"
+                                                    HorizontalAlignment="Stretch"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </ScrollViewer>
                 </Grid>
             </Border>

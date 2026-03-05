@@ -664,7 +664,7 @@ public sealed class DispatchService : IDispatchService
             var hasRecentRetry = await uow.Dispatches.HasRecentRetryAsync(originalDispatch.BatchId, targetClaims, sinceUtc, ct);
             if (hasRecentRetry)
             {
-                return new ManualRetryResult(false, $"Retry blocked: The exact same packet was retried within the last {cooldownMinutes} minutes.", 0, 0, 0);
+                return new ManualRetryResult(false, $"Retry blocked: Another manual retry was performed for this batch within the last {cooldownMinutes} minutes.", 0, 0, 0);
             }
         }
 
@@ -1043,6 +1043,10 @@ public sealed class DispatchService : IDispatchService
                 else
                 {
                     await uowResult.Claims.MarkFailedWithBackoffAsync(leased, result.ErrorMessage ?? "SendClaim failed", _clock.UtcNow, ct);
+
+                    var itemResults = leased.Select(k => (k, DispatchItemResult.Fail, result.ErrorMessage ?? "SendClaim failed")).ToList();
+                    await uowResult.DispatchItems.UpdateItemResultAsync(dispatchId, itemResults, ct);
+
                     await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, dispatchId, _clock.UtcNow, ct);
                     failedCount += leased.Count;
                 }
@@ -1063,6 +1067,10 @@ public sealed class DispatchService : IDispatchService
                 _logger.LogError(ex, "Failed to auto-retry packet for batch {BatchId}", batch.BatchId);
                 await using var uowEx = await _uowFactory.CreateAsync(ct);
                 await uowEx.Claims.MarkFailedWithBackoffAsync(leased, ex.Message, _clock.UtcNow, ct);
+
+                var itemResults = leased.Select(k => (k, DispatchItemResult.Fail, ex.Message)).ToList();
+                await uowEx.DispatchItems.UpdateItemResultAsync(dispatchId, itemResults, ct);
+
                 await uowEx.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, null, ex.Message, dispatchId, _clock.UtcNow, ct);
                 await uowEx.CommitAsync(ct);
 
