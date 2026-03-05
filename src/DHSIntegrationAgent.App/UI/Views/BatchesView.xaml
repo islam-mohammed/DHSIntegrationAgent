@@ -3,10 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
              xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+             xmlns:converters="clr-namespace:DHSIntegrationAgent.App.UI.Converters"
              xmlns:controls="clr-namespace:DHSIntegrationAgent.App.UI.Controls">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
 
         <!-- Sample Data for Left Grid -->
         <x:Array x:Key="SampleBatchData" Type="{x:Type sys:Object}">
@@ -310,8 +312,9 @@
                                Margin="0,0,0,12"/>
 
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding ActiveBatches}">
-                            <ItemsControl.ItemTemplate>
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding ActiveBatches}">
+                                <ItemsControl.ItemTemplate>
                                 <DataTemplate>
                                     <Border BorderBrush="{StaticResource BrushBorder}"
                                             BorderThickness="0,0,0,1"
@@ -432,6 +435,7 @@
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        </StackPanel>
                     </ScrollViewer>
                 </Grid>
             </Border>
