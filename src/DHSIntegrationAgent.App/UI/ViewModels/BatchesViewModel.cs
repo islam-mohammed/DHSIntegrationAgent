@@ -22,6 +22,13 @@ public sealed class BatchesViewModel : ViewModelBase
     public object ActiveBatches => _batchTracker.ActiveBatches;
     public ObservableCollection<DispatchRow> DispatchHistory { get; } = new();
 
+    private bool _hasDispatchHistory;
+    public bool HasDispatchHistory
+    {
+        get => _hasDispatchHistory;
+        set => SetProperty(ref _hasDispatchHistory, value);
+    }
+
     private BatchRow? _selectedBatch;
     public BatchRow? SelectedBatch
     {
@@ -179,6 +186,7 @@ public sealed class BatchesViewModel : ViewModelBase
                                 DispatchHistory.Add(new DispatchRow { PacketId = d.DispatchId, AttemptUtc = d.CreatedUtc.ToString("g"), Result = d.DispatchStatus.ToString(), CorrelationId = d.CorrelationId ?? "" });
                             }
                         }
+                        HasDispatchHistory = DispatchHistory.Count > 0;
                     });
                 }
                 else
@@ -190,6 +198,7 @@ public sealed class BatchesViewModel : ViewModelBase
                             DispatchHistory.Add(new DispatchRow { PacketId = d.DispatchId, AttemptUtc = d.CreatedUtc.ToString("g"), Result = d.DispatchStatus.ToString(), CorrelationId = d.CorrelationId ?? "" });
                         }
                     }
+                    HasDispatchHistory = DispatchHistory.Count > 0;
                 }
             }
         }
