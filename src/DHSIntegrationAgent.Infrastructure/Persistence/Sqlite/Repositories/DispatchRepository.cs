@@ -196,16 +196,19 @@ internal sealed class DispatchRepository : SqliteRepositoryBase, IDispatchReposi
     {
         if (proIdClaims.Count == 0) return false;
 
-        // Any RetrySend dispatch within the cooldown period for the batch blocks manual retry.
+        // Any RetrySend dispatch within the cooldown period that includes the SAME claims blocks manual retry.
 
-        await using var cmd = CreateCommand(
-            """
+        await using var cmd = CreateCommand("");
+
+        cmd.CommandText = $"""
             SELECT COUNT(1)
-            FROM Dispatch
-            WHERE BatchId = $bid
-              AND DispatchType = $type
-              AND CreatedUtc >= $since;
-            """);
+            FROM Dispatch d
+            INNER JOIN DispatchItem di ON d.DispatchId = di.DispatchId
+            WHERE d.BatchId = $bid
+              AND d.DispatchType = $type
+              AND d.CreatedUtc >= $since
+              AND di.ProIdClaim IN {SqliteSqlBuilder.AddIntInClause(cmd, "pid", proIdClaims)};
+            """;
 
         SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
         SqliteSqlBuilder.AddParam(cmd, "$type", (int)DispatchType.RetrySend);

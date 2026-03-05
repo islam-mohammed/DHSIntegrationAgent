@@ -276,17 +276,6 @@
                                                                          Height="16"
                                                                          Foreground="#009999"/>
                                             </Button>
-                                            <Button ToolTip="Retry Failed Claims"
-                                                    Cursor="Hand"
-                                                    Style="{StaticResource GreenActionBtn}"
-                                                    Command="{Binding DataContext.RetryFailedClaimsCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                    CommandParameter="{Binding}"
-                                                    Visibility="{Binding HasFailedClaims, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <materialDesign:PackIcon Kind="Refresh"
-                                                                         Width="16"
-                                                                         Height="16"
-                                                                         Foreground="#EF4444"/>
-                                            </Button>
                                         </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>

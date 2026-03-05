@@ -40,15 +40,6 @@ public sealed class StreamCWorker : IWorker
             TimeSpan loopDelay = TimeSpan.FromSeconds(60);
             try
             {
-                await using (var uow = await _uowFactory.CreateAsync(ct))
-                {
-                    var settings = await uow.AppSettings.GetAsync(ct);
-                    if (settings != null && settings.FetchIntervalMinutes > 0)
-                    {
-                        loopDelay = TimeSpan.FromMinutes(settings.FetchIntervalMinutes);
-                    }
-                }
-
                 await ProcessEligibleBatchesAsync(progress, ct);
 
                 await Task.Delay(loopDelay, ct);
