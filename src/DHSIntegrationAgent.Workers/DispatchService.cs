@@ -843,6 +843,11 @@ public sealed class DispatchService : IDispatchService
 
             await uowResult.CommitAsync(ct);
 
+            if (!result.Succeeded)
+            {
+                return new ManualRetryResult(false, result.ErrorMessage ?? "SendClaim failed", leased.Count, successCount, failedCount);
+            }
+
             progress.Report(new WorkerProgressReport(
                 "ManualRetry",
                 "Manual retry complete",
