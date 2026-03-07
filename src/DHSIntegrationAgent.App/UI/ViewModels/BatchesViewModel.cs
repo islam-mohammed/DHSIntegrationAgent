@@ -510,6 +510,7 @@ public sealed class BatchesViewModel : ViewModelBase
             {
                 var failedClaimsMap = new Dictionary<string, bool>();
                 var hasAttachmentsMap = new Dictionary<string, bool>();
+                var failedDispatchesMap = new Dictionary<string, bool>();
 
                 try
                 {
@@ -525,6 +526,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         {
                             var batchIds = localBatches.Select(b => b.BatchId).ToList();
                             var countsMap = await uow.Claims.GetBatchCountsForBatchesAsync(batchIds, default);
+                            var dispatchCountsMap = await uow.Dispatches.GetFailedDispatchCountsForBatchesAsync(batchIds, default);
 
                             foreach (var lb in localBatches)
                             {
@@ -535,6 +537,14 @@ public sealed class BatchesViewModel : ViewModelBase
                                         if (counts.Failed > 0)
                                         {
                                             failedClaimsMap[lb.BcrId] = true;
+                                        }
+                                    }
+
+                                    if (dispatchCountsMap.TryGetValue(lb.BatchId, out var dispatchCount))
+                                    {
+                                        if (dispatchCount > 0)
+                                        {
+                                            failedDispatchesMap[lb.BcrId] = true;
                                         }
                                     }
 
@@ -567,6 +577,12 @@ public sealed class BatchesViewModel : ViewModelBase
                         hasAtt = att;
                     }
 
+                    bool hasFailedDispatches = false;
+                    if (failedDispatchesMap.TryGetValue(item.BcrId.ToString(), out var fd))
+                    {
+                        hasFailedDispatches = fd;
+                    }
+
                     Batches.Add(new BatchRow
                     {
                         BcrId = item.BcrId,
@@ -580,7 +596,8 @@ public sealed class BatchesViewModel : ViewModelBase
                         MidTableTotalClaim = item.MidTableTotalClaim,
                         BatchStatus = item.BatchStatus ?? "",
                         HasFailedClaims = hasFailed,
-                        HasAttachments = hasAtt
+                        HasAttachments = hasAtt,
+                        HasFailedDispatches = hasFailedDispatches
                     });
                 }
             }
@@ -628,6 +645,7 @@ public sealed class BatchRow
         public bool HasResume { get; set; }
         public bool HasFailedClaims { get; set; }
         public bool HasAttachments { get; set; }
+        public bool HasFailedDispatches { get; set; }
     }
 
     public sealed class DispatchRow

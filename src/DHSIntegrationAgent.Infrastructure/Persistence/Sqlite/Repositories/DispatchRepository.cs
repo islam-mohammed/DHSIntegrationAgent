@@ -217,4 +217,29 @@ internal sealed class DispatchRepository : SqliteRepositoryBase, IDispatchReposi
         var count = Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken));
         return count > 0;
     }
+
+    public async Task<Dictionary<long, int>> GetFailedDispatchCountsForBatchesAsync(IReadOnlyList<long> batchIds, CancellationToken cancellationToken)
+    {
+        var result = new Dictionary<long, int>();
+        if (batchIds == null || batchIds.Count == 0) return result;
+
+        await using var cmd = CreateCommand("SELECT 1;"); // Dummy initially to get cmd
+        var inClause = SqliteSqlBuilder.AddLongInClause(cmd, "p_bid", batchIds);
+        var sql = $@"
+            SELECT BatchId, COUNT(*)
+            FROM Dispatch
+            WHERE DispatchStatus = {(int)DispatchStatus.Failed}
+              AND BatchId IN {inClause}
+            GROUP BY BatchId;";
+
+        cmd.CommandText = sql;
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            result[reader.GetInt64(0)] = reader.GetInt32(1);
+        }
+
+        return result;
+    }
 }

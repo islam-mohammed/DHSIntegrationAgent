@@ -40,4 +40,6 @@ public interface IDispatchRepository
     Task<IReadOnlyList<Contracts.Persistence.DispatchRow>> GetRecentForBatchAsync(long batchId, int limit, CancellationToken cancellationToken);
 
     Task<bool> HasRecentRetryAsync(long batchId, IReadOnlyList<int> proIdClaims, DateTimeOffset sinceUtc, CancellationToken cancellationToken);
+
+    Task<Dictionary<long, int>> GetFailedDispatchCountsForBatchesAsync(IReadOnlyList<long> batchIds, CancellationToken cancellationToken);
 }

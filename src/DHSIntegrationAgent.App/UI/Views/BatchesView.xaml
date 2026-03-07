@@ -281,7 +281,7 @@
                                                     Style="{StaticResource GreenActionBtn}"
                                                     Command="{Binding DataContext.ShowDispatchHistoryCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                     CommandParameter="{Binding}"
-                                                    Visibility="{Binding HasFailedClaims, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                    Visibility="{Binding HasFailedDispatches, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                     Margin="0,0,5,0">
                                                 <materialDesign:PackIcon Kind="History"
                                                                          Width="16"
