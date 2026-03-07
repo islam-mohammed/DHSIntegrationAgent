@@ -39,7 +39,7 @@ public sealed class BatchesViewModel : ViewModelBase
             {
                 // Screen-only: populate placeholder detail
                 DispatchHistory.Clear();
-                _ = CheckFailedClaimsAsync();
+                HasDispatchHistory = false;
             }
         }
     }
@@ -104,6 +104,7 @@ public sealed class BatchesViewModel : ViewModelBase
     public AsyncRelayCommand SearchCommand { get; }
     public AsyncRelayCommand UploadAttachmentsCommand { get; }
     public RelayCommand<BatchRow> ShowAttachmentsCommand { get; }
+    public RelayCommand<BatchRow> ShowDispatchHistoryCommand { get; }
 
     public BatchesViewModel(
         ISqliteUnitOfWorkFactory unitOfWorkFactory,
@@ -118,6 +119,7 @@ public sealed class BatchesViewModel : ViewModelBase
         _attachmentDispatchService = attachmentDispatchService ?? throw new ArgumentNullException(nameof(attachmentDispatchService));
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
         ShowAttachmentsCommand = new RelayCommand<BatchRow>(OnShowAttachments);
+        ShowDispatchHistoryCommand = new RelayCommand<BatchRow>(OnShowDispatchHistory);
 
         ApplyFilterCommand = new RelayCommand(() => { /* screen-only */ });
         ManualRetrySelectedPacketCommand = new RelayCommand<DispatchRow>(OnManualRetrySelectedPacket, CanManualRetrySelectedPacket);
@@ -173,6 +175,7 @@ public sealed class BatchesViewModel : ViewModelBase
                     {
                         HasFailedClaims = counts.Failed > 0;
                         DispatchHistory.Clear();
+                HasDispatchHistory = false;
                         foreach(var d in rawDispatches) {
                             if (d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.Failed) {
                                 DispatchHistory.Add(new DispatchRow { PacketId = d.DispatchId, AttemptUtc = d.CreatedUtc.ToString("g"), Result = d.DispatchStatus.ToString(), CorrelationId = d.CorrelationId ?? "" });
@@ -185,6 +188,7 @@ public sealed class BatchesViewModel : ViewModelBase
                 {
                     HasFailedClaims = counts.Failed > 0;
                     DispatchHistory.Clear();
+                HasDispatchHistory = false;
                     foreach(var d in rawDispatches) {
                         if (d.DispatchStatus == DHSIntegrationAgent.Domain.WorkStates.DispatchStatus.Failed) {
                             DispatchHistory.Add(new DispatchRow { PacketId = d.DispatchId, AttemptUtc = d.CreatedUtc.ToString("g"), Result = d.DispatchStatus.ToString(), CorrelationId = d.CorrelationId ?? "" });
@@ -202,6 +206,14 @@ public sealed class BatchesViewModel : ViewModelBase
 
 
     private bool CanManualRetrySelectedPacket(DispatchRow dispatchRow) => !IsRetrying && dispatchRow != null;
+
+    private void OnShowDispatchHistory(BatchRow batch)
+    {
+        if (batch == null) return;
+
+        SelectedBatch = batch;
+        _ = CheckFailedClaimsAsync();
+    }
 
     private void OnManualRetrySelectedPacket(DispatchRow dispatchRow)
     {
