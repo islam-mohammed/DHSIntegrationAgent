@@ -428,7 +428,7 @@
                                             <Button Content="Retry Packet"
                                                     Command="{Binding DataContext.ManualRetrySelectedPacketCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}"
-                                                    Style="{StaticResource OutlineBtn}"
+                                                    Style="{StaticResource OutlinePrimButton}"
                                                     Margin="0,8,0,0"
                                                     HorizontalAlignment="Stretch"/>
                                         </StackPanel>
