@@ -1320,13 +1320,35 @@ public sealed class DispatchService : IDispatchService
 
                 if (result.Succeeded)
                 {
-                    await uowResult.Claims.MarkRequeueSuccessAsync(leased, _clock.UtcNow, ct);
+                    var successSet = result.SuccessClaimsProIdClaim.Select(id => (int)id).ToHashSet();
+                    var successKeys = leased.Where(k => successSet.Contains(k.ProIdClaim)).ToList();
+                    var failedKeys = leased.Where(k => !successSet.Contains(k.ProIdClaim)).ToList();
 
-                    var itemResults = leased.Select(k => (k, DispatchItemResult.Success, (string?)null)).ToList();
+                    if (successKeys.Count > 0)
+                    {
+                        await uowResult.Claims.MarkRequeueSuccessAsync(successKeys, _clock.UtcNow, ct);
+                        totalRequeued += successKeys.Count;
+                    }
+
+                    if (failedKeys.Count > 0)
+                    {
+                        await uowResult.Claims.MarkRequeueFailedAsync(failedKeys, "Failed at backend queue (Requeue)", _clock.UtcNow, ct);
+                        requeueFailed += failedKeys.Count;
+                    }
+
+                    var itemResults = leased.Select(k =>
+                    {
+                        var res = successSet.Contains(k.ProIdClaim) ? DispatchItemResult.Success : DispatchItemResult.Fail;
+                        return (k, res, res == DispatchItemResult.Fail ? "Not in success list" : (string?)null);
+                    }).ToList();
+
                     await uowResult.DispatchItems.UpdateItemResultAsync(dispatchId, itemResults, ct);
-                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Succeeded, result.HttpStatusCode, null, dispatchId, _clock.UtcNow, ct);
 
-                    totalRequeued += leased.Count;
+                    var finalStatus = successKeys.Count == leased.Count ? DispatchStatus.Succeeded :
+                                      failedKeys.Count == leased.Count ? DispatchStatus.Failed :
+                                      DispatchStatus.PartiallySucceeded;
+
+                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, finalStatus, result.HttpStatusCode, null, dispatchId, _clock.UtcNow, ct);
                 }
                 else
                 {
