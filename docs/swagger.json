@@ -488,6 +488,114 @@
         }
       }
     },
+    "/api/Batch/UploadAttachment": {
+      "post": {
+        "tags": [
+          "Batch"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadAttachmentRequestDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadAttachmentRequestDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadAttachmentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server Error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAttachmentResultDtoBaseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/Claims/GetHISProIdClaimsByBcrId/{bcrId}": {
       "get": {
         "tags": [
@@ -1578,6 +1686,33 @@
   },
   "components": {
     "schemas": {
+      "AttachmentItemDto": {
+        "type": "object",
+        "properties": {
+          "attachmentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "fileSizeInByte": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "onlineURL": {
+            "type": "string",
+            "nullable": true
+          },
+          "remarks": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "BatchCreationRequestDto": {
         "type": "object",
         "properties": {
@@ -1619,6 +1754,10 @@
           "midTableTotalClaim": {
             "type": "integer",
             "format": "int32",
+            "nullable": true
+          },
+          "resumeBatch": {
+            "type": "boolean",
             "nullable": true
           },
           "batchStatus": {
@@ -1849,6 +1988,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DHSServiceDetailDto"
+            },
+            "nullable": true
+          },
+          "dhsDoctors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DoctorDto"
             },
             "nullable": true
           }
@@ -2538,9 +2684,7 @@
             "$ref": "#/components/schemas/CommonType"
           },
           "fK_InvestigationResult_ID": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
+            "$ref": "#/components/schemas/CommonType"
           },
           "fK_VisitType_ID": {
             "$ref": "#/components/schemas/CommonType"
@@ -2609,14 +2753,10 @@
             "nullable": true
           },
           "fK_DiagnosisType_ID": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
+            "$ref": "#/components/schemas/CommonType"
           },
           "fK_ConditionOnset_ID": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
+            "$ref": "#/components/schemas/CommonType"
           },
           "diagnosis_Cloud_Desc": {
             "type": "string",
@@ -3243,12 +3383,122 @@
         },
         "additionalProperties": false
       },
+      "DoctorDto": {
+        "type": "object",
+        "properties": {
+          "doc_ID": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "scfhsNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "doctorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "doctorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "doc_DOB": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "specialty": {
+            "type": "string",
+            "nullable": true
+          },
+          "doc_IDNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "doc_Certificate": {
+            "type": "string",
+            "nullable": true
+          },
+          "doc_Phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "doc_Mobile": {
+            "type": "string",
+            "nullable": true
+          },
+          "practitionerIdentifier": {
+            "type": "string",
+            "nullable": true
+          },
+          "practitionerCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "practitionerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "doctorGender": {
+            "type": "string",
+            "nullable": true
+          },
+          "nationality_Code": {
+            "type": "string",
+            "nullable": true
+          },
+          "religion_Code": {
+            "type": "string",
+            "nullable": true
+          },
+          "doctorType_Code": {
+            "type": "string",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "doc_HISRefID": {
+            "type": "string",
+            "nullable": true
+          },
+          "benType": {
+            "type": "string",
+            "nullable": true
+          },
+          "benHead": {
+            "type": "string",
+            "nullable": true
+          },
+          "fK_Gender": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_Nationality": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_Religion": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_PractitionerRoleType": {
+            "$ref": "#/components/schemas/CommonType"
+          },
+          "fK_ClaimCareTeamRole": {
+            "$ref": "#/components/schemas/CommonType"
+          }
+        },
+        "additionalProperties": false
+      },
       "DomainMappingDto": {
         "type": "object",
         "properties": {
           "domTable_ID": {
             "type": "integer",
             "format": "int32",
+            "nullable": true
+          },
+          "domainTableName": {
+            "type": "string",
             "nullable": true
           },
           "providerDomainCode": {
@@ -3344,6 +3594,11 @@
             "nullable": true
           },
           "manualRetryCooldownMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "fetchClaimCountPerThread": {
             "type": "integer",
             "format": "int32",
             "nullable": true
@@ -3878,6 +4133,87 @@
           },
           "data": {
             "$ref": "#/components/schemas/SendClaimResultDto"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UploadAttachmentRequestDto": {
+        "type": "object",
+        "properties": {
+          "proIdClaim": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentItemDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UploadAttachmentResultDto": {
+        "type": "object",
+        "properties": {
+          "proIdClaim": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalAttachments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "successCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failureCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAttachmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UploadAttachmentResultDtoBaseResponse": {
+        "type": "object",
+        "properties": {
+          "succeeded": {
+            "type": "boolean"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/UploadAttachmentResultDto"
           }
         },
         "additionalProperties": false
