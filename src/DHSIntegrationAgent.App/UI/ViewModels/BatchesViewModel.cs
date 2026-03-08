@@ -98,11 +98,19 @@ public sealed class BatchesViewModel : ViewModelBase
         set => SetProperty(ref _isRetrying, value);
     }
 
+    private bool _isResuming;
+    public bool IsResuming
+    {
+        get => _isResuming;
+        set => SetProperty(ref _isResuming, value);
+    }
+
     public RelayCommand ApplyFilterCommand { get; }
     public RelayCommand<DispatchRow> ManualRetrySelectedPacketCommand { get; }
     public AsyncRelayCommand RefreshCommand { get; }
     public AsyncRelayCommand SearchCommand { get; }
     public AsyncRelayCommand UploadAttachmentsCommand { get; }
+    public AsyncRelayCommand<BatchRow> ResumeSelectedBatchCommand { get; }
     public RelayCommand<BatchRow> ShowAttachmentsCommand { get; }
     public RelayCommand<BatchRow> ShowDispatchHistoryCommand { get; }
 
@@ -126,6 +134,7 @@ public sealed class BatchesViewModel : ViewModelBase
         RefreshCommand = new AsyncRelayCommand(LoadBatchesAsync);
         SearchCommand = new AsyncRelayCommand(LoadBatchesAsync);
         UploadAttachmentsCommand = new AsyncRelayCommand(OnUploadAttachmentsAsync);
+        ResumeSelectedBatchCommand = new AsyncRelayCommand<BatchRow>(OnResumeSelectedBatchAsync);
 
         // Initialize with default "All" option synchronously to prevent type name display in ComboBox
         var allPayer = new PayerItem { PayerId = null, PayerName = "All" };
@@ -313,6 +322,73 @@ public sealed class BatchesViewModel : ViewModelBase
                 });
             }
         });
+    }
+
+    private async Task OnResumeSelectedBatchAsync(BatchRow? batch)
+    {
+        if (batch == null || !batch.CanResume) return;
+
+        IsResuming = true;
+        try
+        {
+            long batchId;
+            int pendingCount;
+
+            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+            {
+                var localBatch = await uow.Batches.GetByBcrIdAsync(batch.BcrId.ToString(), default);
+                if (localBatch == null)
+                {
+                    MessageBox.Show("Batch details not found in local database. Please process the batch first.", "Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                batchId = localBatch.BatchId;
+                pendingCount = await uow.Claims.CountPendingCompletionAsync(batchId, default);
+            }
+
+            var result = MessageBox.Show(
+                $"This batch has {pendingCount} claims pending completion confirmation.\nResume will check completed claims using the resume API and retry/requeue incomplete claims if needed.\nDo you want to continue?",
+                "Confirm Resume",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _batchTracker.TrackManualResume(batchId, batch.BcrId.ToString(), resumeResult =>
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        IsResuming = false;
+
+                        if (resumeResult.Succeeded)
+                        {
+                            MessageBox.Show(
+                                $"Resume Complete.\n\n" +
+                                $"Processed: {resumeResult.RetriedCount}\n" +
+                                $"Success: {resumeResult.SuccessCount}\n" +
+                                $"Failed: {resumeResult.FailedCount}",
+                                "Resume Summary",
+                                MessageBoxButton.OK,
+                                resumeResult.FailedCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
+                        }
+                        else
+                        {
+                            MessageBox.Show($"Resume failed: {resumeResult.ErrorMessage}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+                    });
+                });
+                return; // Tracker handles completion, so skip finally block setting IsResuming=false prematurely
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                MessageBox.Show($"Error during resume: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            });
+        }
+
+        IsResuming = false;
     }
 
     private async Task OnUploadAttachmentsAsync()
@@ -597,7 +673,8 @@ public sealed class BatchesViewModel : ViewModelBase
                         BatchStatus = item.BatchStatus ?? "",
                         HasFailedClaims = hasFailed,
                         HasAttachments = hasAtt,
-                        HasFailedDispatches = hasFailedDispatches
+                        HasFailedDispatches = hasFailedDispatches,
+                        ResumeBatch = item.ResumeBatch ?? false
                     });
                 }
             }
@@ -643,6 +720,8 @@ public sealed class BatchRow
         // Legacy properties for existing UI bindings
         public string Status => BatchStatus;
         public bool HasResume { get; set; }
+        public bool ResumeBatch { get; set; }
+        public bool CanResume => ResumeBatch && BcrId > 0;
         public bool HasFailedClaims { get; set; }
         public bool HasAttachments { get; set; }
         public bool HasFailedDispatches { get; set; }

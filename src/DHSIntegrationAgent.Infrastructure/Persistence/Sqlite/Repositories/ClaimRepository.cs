@@ -465,6 +465,99 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         return result;
     }
 
+    public async Task<int> CountPendingCompletionAsync(long batchId, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT COUNT(1)
+            FROM Claim
+            WHERE BatchId = $bid
+              AND EnqueueStatus = $enq
+              AND CompletionStatus = $comp;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+        SqliteSqlBuilder.AddParam(cmd, "$enq", (int)EnqueueStatus.Enqueued);
+        SqliteSqlBuilder.AddParam(cmd, "$comp", (int)CompletionStatus.Unknown);
+
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<ClaimKey>> ListIncompletesAsync(long batchId, DateTimeOffset utcNow, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT ProviderDhsCode, ProIdClaim
+            FROM Claim
+            WHERE BatchId = $bid
+              AND EnqueueStatus = $enq
+              AND CompletionStatus = $comp
+              AND (NextRequeueUtc IS NULL OR NextRequeueUtc <= $now);
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+        SqliteSqlBuilder.AddParam(cmd, "$enq", (int)EnqueueStatus.Enqueued);
+        SqliteSqlBuilder.AddParam(cmd, "$comp", (int)CompletionStatus.Unknown);
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+
+        var result = new List<ClaimKey>();
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken))
+        {
+            result.Add(new ClaimKey(r.GetString(0), r.GetInt32(1)));
+        }
+        return result;
+    }
+
+    public async Task MarkRequeueSuccessAsync(IReadOnlyList<ClaimKey> claims, DateTimeOffset utcNow, CancellationToken cancellationToken)
+    {
+        if (claims.Count == 0) return;
+
+        await using var cmd = CreateCommand("");
+        var with = SqliteSqlBuilder.AddClaimKeysCte(cmd, "keys", claims);
+
+        cmd.CommandText =
+            $"""
+            {with}
+            UPDATE Claim
+            SET LastEnqueuedUtc = $now,
+                NextRequeueUtc = NULL,
+                LastUpdatedUtc = $now
+            WHERE EXISTS (
+                SELECT 1 FROM keys k
+                WHERE k.ProviderDhsCode = Claim.ProviderDhsCode AND k.ProIdClaim = Claim.ProIdClaim
+            );
+            """;
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task MarkRequeueFailedAsync(IReadOnlyList<ClaimKey> claims, string errorMessage, DateTimeOffset utcNow, CancellationToken cancellationToken)
+    {
+        if (claims.Count == 0) return;
+
+        await using var cmd = CreateCommand("");
+        var with = SqliteSqlBuilder.AddClaimKeysCte(cmd, "keys", claims);
+
+        cmd.CommandText =
+            $"""
+            {with}
+            UPDATE Claim
+            SET NextRequeueUtc = $next,
+                LastRequeueError = $err,
+                RequeueAttemptCount = RequeueAttemptCount + 1,
+                LastUpdatedUtc = $now
+            WHERE EXISTS (
+                SELECT 1 FROM keys k
+                WHERE k.ProviderDhsCode = Claim.ProviderDhsCode AND k.ProIdClaim = Claim.ProIdClaim
+            );
+            """;
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+        SqliteSqlBuilder.AddParam(cmd, "$next", SqliteUtc.ToIso(utcNow.AddMinutes(3)));
+        SqliteSqlBuilder.AddParam(cmd, "$err", errorMessage ?? "");
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task<int?> GetMaxProIdClaimAsync(long batchId, CancellationToken cancellationToken)
     {
         await using var cmd = CreateCommand(

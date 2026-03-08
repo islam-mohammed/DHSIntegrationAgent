@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using DHSIntegrationAgent.Adapters.Claims;
 using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Application.Claims;
 using DHSIntegrationAgent.Application.Providers;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Contracts.Claims;
@@ -17,6 +18,7 @@ public sealed class DispatchService : IDispatchService
 {
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly IClaimsClient _claimsClient;
+    private readonly IResumeClient _resumeClient;
     private readonly ISystemClock _clock;
     private readonly ILogger<DispatchService> _logger;
 
@@ -76,11 +78,13 @@ public sealed class DispatchService : IDispatchService
     public DispatchService(
         ISqliteUnitOfWorkFactory uowFactory,
         IClaimsClient claimsClient,
+        IResumeClient resumeClient,
         ISystemClock clock,
         ILogger<DispatchService> logger)
     {
         _uowFactory = uowFactory;
         _claimsClient = claimsClient;
+        _resumeClient = resumeClient;
         _clock = clock;
         _logger = logger;
     }
@@ -1093,6 +1097,288 @@ public sealed class DispatchService : IDispatchService
         }
 
         return new RetryBatchResult(processedCount, successCount, failedCount);
+    }
+
+    public async Task<ManualRetryResult> ResumeBatchAsync(long batchId, IProgress<WorkerProgressReport> progress, CancellationToken ct)
+    {
+        BatchRow? batch;
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            batch = await uow.Batches.GetByIdAsync(batchId, ct);
+        }
+
+        if (batch == null || string.IsNullOrWhiteSpace(batch.BcrId))
+        {
+            return new ManualRetryResult(false, "Batch or BcrId not found", 0, 0, 0);
+        }
+
+        progress.Report(new WorkerProgressReport(
+            "StreamD",
+            "Preparing resume...",
+            Percentage: 0,
+            BatchId: batch.BatchId,
+            ProcessedCount: 0,
+            TotalCount: 0));
+
+        progress.Report(new WorkerProgressReport(
+            "StreamD",
+            $"Checking completion status for batch {batch.BcrId}...",
+            Percentage: 10,
+            BatchId: batch.BatchId,
+            ProcessedCount: 0,
+            TotalCount: 0));
+
+        var resumeResult = await _resumeClient.GetHisProIdClaimByBcrIdAsync(batch.BcrId, ct);
+        if (!resumeResult.Succeeded)
+        {
+            return new ManualRetryResult(false, resumeResult.ErrorMessage ?? "Resume API failed", 0, 0, 0);
+        }
+
+        var completedIds = new HashSet<long>(resumeResult.HisProIdClaim);
+        var matchingKeys = new List<ClaimKey>();
+        int pendingCount;
+
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            var allKeys = await uow.Claims.ListByBatchAsync(batch.BatchId, ct);
+            foreach (var key in allKeys)
+            {
+                if (completedIds.Contains(key.ProIdClaim))
+                {
+                    matchingKeys.Add(key);
+                }
+            }
+
+            if (matchingKeys.Count > 0)
+            {
+                await uow.Claims.SetCompletionStatusAsync(matchingKeys, CompletionStatus.Completed, _clock.UtcNow, ct);
+            }
+
+            pendingCount = await uow.Claims.CountPendingCompletionAsync(batch.BatchId, ct);
+            await uow.CommitAsync(ct);
+        }
+
+        progress.Report(new WorkerProgressReport(
+            "StreamD",
+            $"Resume check complete. {matchingKeys.Count} completed, {pendingCount} still incomplete.",
+            Percentage: 50,
+            BatchId: batch.BatchId,
+            ProcessedCount: matchingKeys.Count,
+            TotalCount: matchingKeys.Count + pendingCount));
+
+        if (pendingCount == 0)
+        {
+            await using (var uow = await _uowFactory.CreateAsync(ct))
+            {
+                await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Completed, false, null, _clock.UtcNow, ct);
+                await uow.CommitAsync(ct);
+            }
+
+            progress.Report(new WorkerProgressReport(
+                "StreamD",
+                "Resume completed. All claims are completed.",
+                Percentage: 100,
+                BatchId: batch.BatchId,
+                ProcessedCount: matchingKeys.Count,
+                TotalCount: matchingKeys.Count));
+
+            return new ManualRetryResult(true, null, matchingKeys.Count, matchingKeys.Count, 0);
+        }
+
+        progress.Report(new WorkerProgressReport(
+            "StreamD",
+            $"Requeueing {pendingCount} incomplete claims...",
+            Percentage: 60,
+            BatchId: batch.BatchId,
+            ProcessedCount: 0,
+            TotalCount: pendingCount));
+
+        int totalRequeued = 0;
+        int requeueFailed = 0;
+
+        IReadOnlyList<ApprovedDomainMappingRow> approvedMappings;
+        await using (var uowMappings = await _uowFactory.CreateAsync(ct))
+        {
+            approvedMappings = await uowMappings.DomainMappings.GetAllApprovedAsync(ct);
+        }
+
+        var mappingLookup = approvedMappings
+            .GroupBy(m => (m.DomainTableId, m.SourceValue.Trim().ToLowerInvariant()))
+            .ToDictionary(g => g.Key, g => g.First());
+
+        IReadOnlyList<ClaimKey> allIncompletes;
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            allIncompletes = await uow.Claims.ListIncompletesAsync(batch.BatchId, _clock.UtcNow, ct);
+        }
+
+        var remainingIncompletes = allIncompletes.Select(k => k.ProIdClaim).ToList();
+
+        while (!ct.IsCancellationRequested && remainingIncompletes.Count > 0)
+        {
+            IReadOnlyList<ClaimKey> leased;
+            int nextSeq;
+
+            var toLease = remainingIncompletes.Take(40).ToList();
+
+            await using (var uow = await _uowFactory.CreateAsync(ct))
+            {
+                var leaseRequest = new ClaimSpecificLeaseRequest(
+                    ProviderDhsCode: batch.ProviderDhsCode,
+                    ProIdClaims: toLease,
+                    LockedBy: "Requeue",
+                    UtcNow: _clock.UtcNow,
+                    LeaseUntilUtc: _clock.UtcNow.AddMinutes(5),
+                    EligibleEnqueueStatuses: new[] { EnqueueStatus.Enqueued }
+                );
+
+                leased = await uow.Claims.LeaseSpecificAsync(leaseRequest, ct);
+                if (leased.Count == 0)
+                {
+                    // If we couldn't lease any, skip them so we don't loop forever
+                    remainingIncompletes.RemoveAll(id => toLease.Contains(id));
+                    continue;
+                }
+
+                nextSeq = await uow.Dispatches.GetNextSequenceNoAsync(batch.BatchId, ct);
+                await uow.CommitAsync(ct);
+            }
+
+            var dispatchId = Guid.NewGuid().ToString();
+            var bundles = new List<JsonNode>(leased.Count);
+            var dispatchItems = new List<DispatchItemRow>(leased.Count);
+
+            await using (var uow = await _uowFactory.CreateAsync(ct))
+            {
+                for (int i = 0; i < leased.Count; i++)
+                {
+                    var key = leased[i];
+                    var payloadRow = await uow.ClaimPayloads.GetAsync(key, ct);
+
+                    if (payloadRow != null)
+                    {
+                        var node = JsonNode.Parse(payloadRow.PayloadJsonPlaintext);
+                        if (node is JsonObject bundleObj)
+                        {
+                            var header = bundleObj["claimHeader"]?.AsObject();
+                            if (header != null)
+                            {
+                                header.Remove("provider_dhsCode");
+                                header["providerCode"] = batch.ProviderDhsCode;
+                                if (long.TryParse(batch.BcrId, out var bcrIdLong))
+                                    header["bCR_Id"] = bcrIdLong;
+
+                                EnrichClaimHeader(header, mappingLookup);
+                            }
+
+                            var serviceDetails = bundleObj["serviceDetails"]?.AsArray();
+                            if (serviceDetails != null) EnrichServiceDetails(serviceDetails, mappingLookup);
+
+                            var diagnosisDetails = bundleObj["diagnosisDetails"]?.AsArray();
+                            if (diagnosisDetails != null) EnrichDiagnosisDetails(diagnosisDetails, mappingLookup);
+
+                            var dhsDoctors = bundleObj["dhsDoctors"]?.AsArray();
+                            if (dhsDoctors != null) EnrichDoctorDetails(dhsDoctors, mappingLookup);
+
+                            InjectProIdClaimInt(bundleObj["radiologyDetails"]?.AsArray(), key.ProIdClaim);
+                            InjectProIdClaimInt(dhsDoctors, key.ProIdClaim);
+                            InjectProIdClaimInt(bundleObj["labDetails"]?.AsArray(), key.ProIdClaim);
+                            InjectProIdClaimInt(bundleObj["diagnosisDetails"]?.AsArray(), key.ProIdClaim);
+                            InjectProIdClaimInt(bundleObj["opticalVitalSigns"]?.AsArray(), key.ProIdClaim);
+
+                            bundles.Add(bundleObj);
+                        }
+                    }
+
+                    dispatchItems.Add(new DispatchItemRow(dispatchId, key.ProviderDhsCode, key.ProIdClaim, i + 1, DispatchItemResult.Unknown, null));
+                }
+            }
+
+            if (bundles.Count == 0)
+            {
+                await using var uowRelease = await _uowFactory.CreateAsync(ct);
+                await uowRelease.Claims.ReleaseLeaseAsync(leased, _clock.UtcNow, ct);
+                await uowRelease.CommitAsync(ct);
+                break;
+            }
+
+            await using (var uowDispatch = await _uowFactory.CreateAsync(ct))
+            {
+                await uowDispatch.Dispatches.InsertDispatchAsync(dispatchId, batch.ProviderDhsCode, batch.BatchId, batch.BcrId, nextSeq, DispatchType.RequeueIncomplete, DispatchStatus.InFlight, dispatchId, _clock.UtcNow, ct);
+
+                await uowDispatch.DispatchItems.InsertManyAsync(dispatchItems, ct);
+                await uowDispatch.CommitAsync(ct);
+            }
+
+            var jsonArray = ClaimBundleJsonPacket.ToJsonArray(bundles);
+
+            try
+            {
+                var result = await _claimsClient.SendClaimAsync(jsonArray, dispatchId, ct);
+
+                await using var uowResult = await _uowFactory.CreateAsync(ct);
+
+                if (result.Succeeded)
+                {
+                    await uowResult.Claims.MarkRequeueSuccessAsync(leased, _clock.UtcNow, ct);
+
+                    var itemResults = leased.Select(k => (k, DispatchItemResult.Success, (string?)null)).ToList();
+                    await uowResult.DispatchItems.UpdateItemResultAsync(dispatchId, itemResults, ct);
+                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Succeeded, result.HttpStatusCode, null, dispatchId, _clock.UtcNow, ct);
+
+                    totalRequeued += leased.Count;
+                }
+                else
+                {
+                    await uowResult.Claims.MarkRequeueFailedAsync(leased, result.ErrorMessage ?? "SendClaim failed", _clock.UtcNow, ct);
+
+                    var itemResults = leased.Select(k => (k, DispatchItemResult.Fail, result.ErrorMessage ?? "SendClaim failed")).ToList();
+                    await uowResult.DispatchItems.UpdateItemResultAsync(dispatchId, itemResults, ct);
+                    await uowResult.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, result.HttpStatusCode, result.ErrorMessage, dispatchId, _clock.UtcNow, ct);
+
+                    requeueFailed += leased.Count;
+                }
+
+                await uowResult.Claims.ReleaseLeaseAsync(leased, _clock.UtcNow, ct);
+                await uowResult.CommitAsync(ct);
+
+                double chunkPercentage = 60 + (((double)(totalRequeued + requeueFailed) / pendingCount) * 40);
+                progress.Report(new WorkerProgressReport(
+                    "StreamD",
+                    $"Requeueing {totalRequeued + requeueFailed} of {pendingCount} claims",
+                    Percentage: chunkPercentage,
+                    BatchId: batch.BatchId,
+                    ProcessedCount: totalRequeued + requeueFailed,
+                    TotalCount: pendingCount));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to requeue packet {DispatchId}", dispatchId);
+                await using var uowEx = await _uowFactory.CreateAsync(ct);
+                await uowEx.Claims.MarkRequeueFailedAsync(leased, ex.Message, _clock.UtcNow, ct);
+
+                var itemResults = leased.Select(k => (k, DispatchItemResult.Fail, ex.Message)).ToList();
+                await uowEx.DispatchItems.UpdateItemResultAsync(dispatchId, itemResults, ct);
+                await uowEx.Dispatches.UpdateDispatchResultAsync(dispatchId, DispatchStatus.Failed, null, ex.Message, dispatchId, _clock.UtcNow, ct);
+                await uowEx.Claims.ReleaseLeaseAsync(leased, _clock.UtcNow, ct);
+                await uowEx.CommitAsync(ct);
+
+                requeueFailed += leased.Count;
+            }
+
+            // Explicitly remove processed items to prevent infinite looping
+            remainingIncompletes.RemoveAll(id => toLease.Contains(id));
+        }
+
+        progress.Report(new WorkerProgressReport(
+            "StreamD",
+            $"Resume completed. {matchingKeys.Count} claims completed, {totalRequeued} claims requeued.",
+            Percentage: 100,
+            BatchId: batch.BatchId,
+            ProcessedCount: matchingKeys.Count + totalRequeued,
+            TotalCount: matchingKeys.Count + pendingCount));
+
+        return new ManualRetryResult(true, null, matchingKeys.Count + totalRequeued + requeueFailed, matchingKeys.Count + totalRequeued, requeueFailed);
     }
 
     private void EnrichClaimHeader(JsonObject header, Dictionary<(int DomainTableId, string SourceValue), ApprovedDomainMappingRow> mappingLookup)

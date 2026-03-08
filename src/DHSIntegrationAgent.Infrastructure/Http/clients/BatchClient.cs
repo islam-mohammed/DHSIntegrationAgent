@@ -241,7 +241,8 @@ public sealed class BatchClient : IBatchClient
                     PayerNameAr: d.PayerNameAr,
                     CompanyCode: d.CompanyCode,
                     MidTableTotalClaim: d.MidTableTotalClaim,
-                    BatchStatus: d.BatchStatus
+                    BatchStatus: d.BatchStatus,
+                    ResumeBatch: d.ResumeBatch
                 )).ToList() ?? new List<BatchRequestItem>();
 
                 return new GetBatchRequestResult(
@@ -373,6 +374,7 @@ public sealed class BatchClient : IBatchClient
         string? PayerNameAr,
         string? CompanyCode,
         int MidTableTotalClaim,
-        string? BatchStatus
+        string? BatchStatus,
+        bool? ResumeBatch
     );
 }

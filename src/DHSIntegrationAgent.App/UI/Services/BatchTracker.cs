@@ -231,6 +231,71 @@ public sealed class BatchTracker : IBatchTracker
         }
     }
 
+    public void TrackManualResume(long batchId, string bcrId, Action<ManualRetryResult> onCompletion)
+    {
+        var progressViewModel = new BatchProgressViewModel
+        {
+            InternalBatchId = batchId,
+            BatchNumber = bcrId,
+            StatusMessage = "Initializing Resume...",
+            TotalClaims = 0,
+            PercentageOverride = 0
+        };
+
+        // Ensure we add to collection on UI thread
+        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        {
+            var existing = ActiveBatches.FirstOrDefault(x => x.InternalBatchId == batchId);
+            if (existing != null) ActiveBatches.Remove(existing);
+            ActiveBatches.Add(progressViewModel);
+        });
+
+        _ = Task.Run(async () =>
+        {
+            ManualRetryResult result = new ManualRetryResult(false, "Unknown error", 0, 0, 0);
+            try
+            {
+                _batchRegistry.Register(batchId);
+
+                var progress = new Progress<WorkerProgressReport>(report =>
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
+                        if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
+                        if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
+                        if (report.Message != null) progressViewModel.StatusMessage = report.Message;
+                    });
+                });
+
+                result = await _dispatchService.ResumeBatchAsync(batchId, progress, default);
+
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    progressViewModel.PercentageOverride = 100;
+                    progressViewModel.StatusMessage = result.Succeeded
+                        ? $"Resume Complete. Succeeded: {result.SuccessCount}, Failed: {result.FailedCount}."
+                        : $"Resume Failed: {result.ErrorMessage}";
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error executing Stream D resume logic for batch {batchId}: {ex}");
+                System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    progressViewModel.IsError = true;
+                    progressViewModel.StatusMessage = $"Error: {ex.Message}";
+                });
+                result = new ManualRetryResult(false, ex.Message, 0, 0, 0);
+            }
+            finally
+            {
+                _batchRegistry.Unregister(batchId);
+                System.Windows.Application.Current?.Dispatcher.Invoke(() => onCompletion(result));
+            }
+        });
+    }
+
     public void TrackBatchRetry(BatchRow batch, Action<RetryBatchResult> onCompletion)
     {
         var progressViewModel = new BatchProgressViewModel
