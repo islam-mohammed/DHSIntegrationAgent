@@ -518,7 +518,8 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
             $"""
             {with}
             UPDATE Claim
-            SET LastEnqueuedUtc = $now,
+            SET EnqueueStatus = $enq,
+                LastEnqueuedUtc = $now,
                 NextRequeueUtc = NULL,
                 LastUpdatedUtc = $now
             WHERE EXISTS (
@@ -527,6 +528,7 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
             );
             """;
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+        SqliteSqlBuilder.AddParam(cmd, "$enq", (int)EnqueueStatus.Enqueued);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -542,7 +544,8 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
             $"""
             {with}
             UPDATE Claim
-            SET NextRequeueUtc = $next,
+            SET EnqueueStatus = $enq,
+                NextRequeueUtc = $next,
                 LastRequeueError = $err,
                 RequeueAttemptCount = RequeueAttemptCount + 1,
                 LastUpdatedUtc = $now
@@ -554,6 +557,7 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
         SqliteSqlBuilder.AddParam(cmd, "$next", SqliteUtc.ToIso(utcNow.AddMinutes(3)));
         SqliteSqlBuilder.AddParam(cmd, "$err", errorMessage ?? "");
+        SqliteSqlBuilder.AddParam(cmd, "$enq", (int)EnqueueStatus.Enqueued);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
