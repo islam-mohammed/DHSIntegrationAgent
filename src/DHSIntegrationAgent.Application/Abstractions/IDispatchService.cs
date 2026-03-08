@@ -9,6 +9,7 @@ public interface IDispatchService
     Task<RetryBatchResult> RetryBatchAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct);
     Task<RetryBatchResult> AutomaticRetryBatchAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct);
     Task<ManualRetryResult> ManualRetryDispatchPacketAsync(string dispatchId, IProgress<WorkerProgressReport> progress, CancellationToken ct);
+    Task<ManualRetryResult> ResumeBatchAsync(long batchId, IProgress<WorkerProgressReport> progress, CancellationToken ct);
 }
 
 public sealed record RetryBatchResult(int TotalRetried, int SuccessCount, int FailedCount);

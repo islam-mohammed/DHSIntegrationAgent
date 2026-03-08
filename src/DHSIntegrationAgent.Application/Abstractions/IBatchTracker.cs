@@ -25,6 +25,11 @@ public interface IBatchTracker
     void TrackBatchRetry(BatchRow batch, Action<RetryBatchResult> onCompletion);
 
     /// <summary>
+    /// Starts tracking a manual Stream D Resume process.
+    /// </summary>
+    void TrackManualResume(long batchId, string bcrId, Action<ManualRetryResult> onCompletion);
+
+    /// <summary>
     /// Gets the collection of active batch creation progress items.
     /// Note: In this project, we're returning the ViewModel collection directly for simplicity.
     /// </summary>

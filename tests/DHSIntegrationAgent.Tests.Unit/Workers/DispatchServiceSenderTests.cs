@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
+using DHSIntegrationAgent.Application.Claims;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
 using DHSIntegrationAgent.Contracts.Claims;
 using DHSIntegrationAgent.Contracts.Persistence;
@@ -21,6 +22,7 @@ public class DispatchServiceSenderTests
 {
     private readonly Mock<ISqliteUnitOfWorkFactory> _uowFactoryMock;
     private readonly Mock<IClaimsClient> _claimsClientMock;
+    private readonly Mock<IResumeClient> _resumeClientMock;
     private readonly Mock<ISystemClock> _clockMock;
     private readonly Mock<ILogger<DispatchService>> _loggerMock;
     private readonly DispatchService _service;
@@ -29,12 +31,14 @@ public class DispatchServiceSenderTests
     {
         _uowFactoryMock = new Mock<ISqliteUnitOfWorkFactory>();
         _claimsClientMock = new Mock<IClaimsClient>();
+        _resumeClientMock = new Mock<IResumeClient>();
         _clockMock = new Mock<ISystemClock>();
         _loggerMock = new Mock<ILogger<DispatchService>>();
 
         _service = new DispatchService(
             _uowFactoryMock.Object,
             _claimsClientMock.Object,
+            _resumeClientMock.Object,
             _clockMock.Object,
             _loggerMock.Object);
     }

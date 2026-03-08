@@ -17,7 +17,7 @@ public class DispatchServiceMappingTests
         // Arrange
         // We use reflection because EnrichSection is private.
         // We don't need real dependencies for this specific logic test.
-        var service = (DispatchService)Activator.CreateInstance(typeof(DispatchService), new object[] { null!, null!, null!, null! })!;
+        var service = (DispatchService)Activator.CreateInstance(typeof(DispatchService), new object[] { null!, null!, null!, null!, null! })!;
 
         var method = typeof(DispatchService).GetMethod("EnrichSection", BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);

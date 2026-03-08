@@ -59,5 +59,13 @@ public interface IClaimRepository
 
     Task<IReadOnlyList<ClaimKey>> ListByBatchAsync(long batchId, CancellationToken cancellationToken);
 
+    Task<int> CountPendingCompletionAsync(long batchId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ClaimKey>> ListIncompletesAsync(long batchId, DateTimeOffset utcNow, CancellationToken cancellationToken);
+
+    Task MarkRequeueSuccessAsync(IReadOnlyList<ClaimKey> claims, DateTimeOffset utcNow, CancellationToken cancellationToken);
+
+    Task MarkRequeueFailedAsync(IReadOnlyList<ClaimKey> claims, string errorMessage, DateTimeOffset utcNow, CancellationToken cancellationToken);
+
     Task<int?> GetMaxProIdClaimAsync(long batchId, CancellationToken cancellationToken);
 }
