@@ -171,6 +171,24 @@
                         Margin="0,2,0,6"
                         TextWrapping="Wrap"/>
 
+                    <!-- Test API Health Connection -->
+                    <DockPanel Margin="0,5,0,15">
+                        <Button DockPanel.Dock="Left"
+                                Height="30"
+                                Padding="15,0"
+                                Content="Test API Health"
+                                Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Command="{Binding CheckHealthCommand}"
+                                IsEnabled="{Binding IsCheckingHealth, Converter={StaticResource InverseBooleanConverter}}"/>
+                        <TextBlock DockPanel.Dock="Left"
+                                   Text="{Binding ApiHealthMessage}"
+                                   VerticalAlignment="Center"
+                                   Margin="10,0,0,0"
+                                   FontSize="12"
+                                   Foreground="Gray"
+                                   TextWrapping="Wrap"/>
+                    </DockPanel>
+
                     <!-- Save Button -->
                     <Button Height="45"
                         Margin="0,0,0,15"

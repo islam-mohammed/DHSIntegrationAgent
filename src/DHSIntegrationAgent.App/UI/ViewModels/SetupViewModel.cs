@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
+using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.App.UI.Mvvm;
 using DHSIntegrationAgent.App.UI.Navigation;
@@ -18,6 +19,7 @@ public sealed class SetupViewModel : ViewModelBase
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly INavigationService _navigation;
     private readonly IKeyProtector _protector;
+    private readonly IHealthClient _healthClient;
 
     private string _groupId = "";
     private string _providerDhsCode = "";
@@ -29,17 +31,23 @@ public sealed class SetupViewModel : ViewModelBase
     private string? _saveError;
     private bool _isSaving;
 
+    private string? _apiHealthMessage;
+    private bool _isCheckingHealth;
+
     public SetupViewModel(
         ISqliteUnitOfWorkFactory uowFactory,
         INavigationService navigation,
-        IKeyProtector protector)
+        IKeyProtector protector,
+        IHealthClient healthClient)
     {
         _uowFactory = uowFactory;
         _navigation = navigation;
         _protector = protector;
+        _healthClient = healthClient;
 
         // Save starts enabled; AsyncRelayCommand disables only while executing.
         SaveCommand = new AsyncRelayCommand(SaveAsync);
+        CheckHealthCommand = new AsyncRelayCommand(CheckHealthAsync);
     }
 
     public string GroupId
@@ -104,7 +112,20 @@ public sealed class SetupViewModel : ViewModelBase
         private set => SetProperty(ref _isSaving, value);
     }
 
+    public string? ApiHealthMessage
+    {
+        get => _apiHealthMessage;
+        private set => SetProperty(ref _apiHealthMessage, value);
+    }
+
+    public bool IsCheckingHealth
+    {
+        get => _isCheckingHealth;
+        private set => SetProperty(ref _isCheckingHealth, value);
+    }
+
     public AsyncRelayCommand SaveCommand { get; }
+    public AsyncRelayCommand CheckHealthCommand { get; }
 
     private bool Validate()
     {
@@ -134,6 +155,35 @@ public sealed class SetupViewModel : ViewModelBase
         }
 
         return ok;
+    }
+
+    private async Task CheckHealthAsync()
+    {
+        if (IsCheckingHealth) return;
+
+        IsCheckingHealth = true;
+        ApiHealthMessage = "Checking...";
+
+        try
+        {
+            var result = await _healthClient.CheckApiHealthAsync(CancellationToken.None);
+            if (result.Succeeded)
+            {
+                ApiHealthMessage = $"✅ Connection successful ({DateTime.Now:HH:mm:ss})";
+            }
+            else
+            {
+                ApiHealthMessage = $"❌ Health check failed: {result.Message}";
+            }
+        }
+        catch (Exception ex)
+        {
+            ApiHealthMessage = $"❌ Error: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingHealth = false;
+        }
     }
 
     private async Task SaveAsync()
