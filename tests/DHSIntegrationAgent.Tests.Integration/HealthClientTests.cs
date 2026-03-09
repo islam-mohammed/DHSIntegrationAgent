@@ -51,4 +51,44 @@ public class HealthClientTests
         Assert.Equal(200, result.StatusCode);
         Assert.Equal("Success", result.Message);
     }
+
+    [Fact]
+    public async Task CheckApiHealthAsync_ReturnsHttpStatus_WhenApiResponseIsNonJson()
+    {
+        // Arrange
+        var htmlResponse = "<html><body>502 Bad Gateway</body></html>";
+
+        var services = new ServiceCollection();
+
+        var options = Options.Create(new ApiOptions { BaseUrl = "http://localhost", UseGzipPostRequests = false });
+        services.AddSingleton(options);
+
+        var mockHandler = new CapturingHttpMessageHandler(req =>
+        {
+            if (req.RequestUri?.PathAndQuery == "/api/Health/CheckAPIHealth")
+            {
+                return new HttpResponseMessage(HttpStatusCode.BadGateway) { Content = new StringContent(htmlResponse) };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+
+        services.AddHttpClient("BackendApi", client =>
+        {
+            client.BaseAddress = new Uri("http://localhost");
+        }).ConfigurePrimaryHttpMessageHandler(() => mockHandler);
+
+        services.AddSingleton<IHealthClient, HealthClient>();
+        var sp = services.BuildServiceProvider();
+
+        var sut = sp.GetRequiredService<IHealthClient>();
+
+        // Act
+        var result = await sut.CheckApiHealthAsync(CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.False(result.Succeeded);
+        Assert.Equal(502, result.StatusCode);
+        Assert.Contains("502", result.Message);
+    }
 }

@@ -32,14 +32,22 @@ public sealed class HealthClient : IHealthClient
 
             if (!string.IsNullOrWhiteSpace(body))
             {
-                var parsed = JsonSerializer.Deserialize<HealthResponse>(body, JsonOptions);
-                if (parsed is not null)
+                try
                 {
-                    return new ApiHealthResult(
-                        parsed.Succeeded,
-                        parsed.StatusCode,
-                        parsed.Message,
-                        parsed.Errors);
+                    var parsed = JsonSerializer.Deserialize<HealthResponse>(body, JsonOptions);
+                    if (parsed is not null)
+                    {
+                        return new ApiHealthResult(
+                            parsed.Succeeded,
+                            parsed.StatusCode,
+                            parsed.Message,
+                            parsed.Errors);
+                    }
+                }
+                catch (JsonException)
+                {
+                    // If response is not valid JSON (e.g. an HTML proxy error), fall back
+                    // to the default behavior below, preserving the actual HTTP status code.
                 }
             }
 
