@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using DHSIntegrationAgent.App.UI.Mvvm;
+using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
@@ -7,6 +8,7 @@ namespace DHSIntegrationAgent.App.UI.ViewModels;
 public sealed class DiagnosticsViewModel : ViewModelBase
 {
     private readonly ISqliteUnitOfWorkFactory _unitOfWorkFactory;
+    private readonly IHealthClient _healthClient;
 
     public ObservableCollection<ApiCallRow> ApiCalls { get; } = new();
 
@@ -17,16 +19,35 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         set => SetProperty(ref _isLoading, value);
     }
 
+    private bool _isCheckingHealth;
+    public bool IsCheckingHealth
+    {
+        get => _isCheckingHealth;
+        set => SetProperty(ref _isCheckingHealth, value);
+    }
+
+    private string? _apiHealthMessage;
+    public string? ApiHealthMessage
+    {
+        get => _apiHealthMessage;
+        set => SetProperty(ref _apiHealthMessage, value);
+    }
+
     public AsyncRelayCommand RefreshCommand { get; }
     public RelayCommand ExportSupportBundleCommand { get; }
+    public AsyncRelayCommand CheckHealthCommand { get; }
 
     public LogsViewModel LogsViewModel { get; }
 
-    public DiagnosticsViewModel(ISqliteUnitOfWorkFactory unitOfWorkFactory)
+    public DiagnosticsViewModel(
+        ISqliteUnitOfWorkFactory unitOfWorkFactory,
+        IHealthClient healthClient)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
+        _healthClient = healthClient ?? throw new ArgumentNullException(nameof(healthClient));
 
         RefreshCommand = new AsyncRelayCommand(LoadApiCallsAsync);
+        CheckHealthCommand = new AsyncRelayCommand(CheckHealthAsync);
         ExportSupportBundleCommand = new RelayCommand(() =>
         {
             // Screen-only: real export is WBS 6.2 + 5.8 wiring
@@ -37,6 +58,38 @@ public sealed class DiagnosticsViewModel : ViewModelBase
 
         // Load data on initialization
         _ = LoadApiCallsAsync();
+    }
+
+    private async Task CheckHealthAsync()
+    {
+        if (IsCheckingHealth) return;
+
+        IsCheckingHealth = true;
+        ApiHealthMessage = "Checking API Health...";
+
+        try
+        {
+            var result = await _healthClient.CheckApiHealthAsync(CancellationToken.None);
+            if (result.Succeeded)
+            {
+                ApiHealthMessage = $"✅ Connection successful ({DateTime.Now:HH:mm:ss})";
+            }
+            else
+            {
+                ApiHealthMessage = $"❌ Health check failed: {result.Message}";
+            }
+
+            // Immediately refresh the API Call Log grid so the health check appears
+            await LoadApiCallsAsync();
+        }
+        catch (Exception ex)
+        {
+            ApiHealthMessage = $"❌ Error: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingHealth = false;
+        }
     }
 
     private async Task LoadApiCallsAsync()

@@ -99,6 +99,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton<IResumeClient, ResumeClient>();
         services.AddSingleton<IAttachmentClient, AttachmentClient>();
         services.AddSingleton<IAttachmentService, AttachmentService>();
+        services.AddSingleton<IHealthClient, HealthClient>();
 
         // -----------------------------------------------------------
         // Approved Domain Mapping refresh (Change Request)
