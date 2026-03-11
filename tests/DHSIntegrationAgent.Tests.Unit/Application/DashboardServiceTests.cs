@@ -28,10 +28,10 @@ public class DashboardServiceTests
 
         var now = DateTimeOffset.UtcNow;
 
-        apiCallLogRepoMock.Setup(r => r.GetLastSuccessfulCallUtcAsync("provider1", "Batch_Create", It.IsAny<CancellationToken>()))
+        apiCallLogRepoMock.Setup(r => r.GetLastSuccessfulCallUtcAsync("Batch_Create", It.IsAny<CancellationToken>()))
             .ReturnsAsync(now.AddMinutes(-10));
 
-        apiCallLogRepoMock.Setup(r => r.GetLastSuccessfulCallUtcAsync("provider1", "Claims_Send", It.IsAny<CancellationToken>()))
+        apiCallLogRepoMock.Setup(r => r.GetLastSuccessfulCallUtcAsync("Claims_Send", It.IsAny<CancellationToken>()))
             .ReturnsAsync(now.AddMinutes(-5));
 
         var service = new DashboardService(uowFactoryMock.Object);
