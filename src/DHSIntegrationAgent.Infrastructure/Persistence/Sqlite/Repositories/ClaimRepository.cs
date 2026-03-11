@@ -576,4 +576,47 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         if (result is null || result == DBNull.Value) return null;
         return Convert.ToInt32(result);
     }
+
+    public async Task<(int Staged, int Enqueued, int Completed, int Failed)> GetDashboardCountsAsync(string providerDhsCode, string? companyCode, CancellationToken cancellationToken)
+    {
+        var sql = """
+            SELECT
+                SUM(CASE WHEN EnqueueStatus = $notSent THEN 1 ELSE 0 END),
+                SUM(CASE WHEN EnqueueStatus = $enqueued AND CompletionStatus = $unknown THEN 1 ELSE 0 END),
+                SUM(CASE WHEN CompletionStatus = $completed THEN 1 ELSE 0 END),
+                SUM(CASE WHEN EnqueueStatus = $failed THEN 1 ELSE 0 END)
+            FROM Claim
+            WHERE ProviderDhsCode = $p
+            """;
+
+        if (!string.IsNullOrEmpty(companyCode))
+        {
+            sql += " AND CompanyCode = $cc";
+        }
+
+        await using var cmd = CreateCommand(sql);
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$notSent", (int)EnqueueStatus.NotSent);
+        SqliteSqlBuilder.AddParam(cmd, "$enqueued", (int)EnqueueStatus.Enqueued);
+        SqliteSqlBuilder.AddParam(cmd, "$unknown", (int)CompletionStatus.Unknown);
+        SqliteSqlBuilder.AddParam(cmd, "$completed", (int)CompletionStatus.Completed);
+        SqliteSqlBuilder.AddParam(cmd, "$failed", (int)EnqueueStatus.Failed);
+
+        if (!string.IsNullOrEmpty(companyCode))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$cc", companyCode);
+        }
+
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (await r.ReadAsync(cancellationToken))
+        {
+            var staged = r.IsDBNull(0) ? 0 : r.GetInt32(0);
+            var enqueued = r.IsDBNull(1) ? 0 : r.GetInt32(1);
+            var completed = r.IsDBNull(2) ? 0 : r.GetInt32(2);
+            var failed = r.IsDBNull(3) ? 0 : r.GetInt32(3);
+            return (staged, enqueued, completed, failed);
+        }
+
+        return (0, 0, 0, 0);
+    }
 }

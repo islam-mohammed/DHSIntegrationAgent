@@ -57,6 +57,32 @@ internal sealed class ApiCallLogRepository : IApiCallLogRepository
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<DateTimeOffset?> GetLastSuccessfulCallUtcAsync(string providerDhsCode, string endpointName, CancellationToken cancellationToken)
+    {
+        await using var cmd = _conn.CreateCommand();
+        cmd.Transaction = _tx;
+        cmd.CommandText =
+            """
+            SELECT MAX(RequestUtc)
+            FROM ApiCallLog
+            WHERE ProviderDhsCode = $p
+              AND EndpointName = $e
+              AND Succeeded = 1;
+            """;
+
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$e", endpointName);
+
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+
+        if (result is null || result == DBNull.Value)
+        {
+            return null;
+        }
+
+        return SqliteUtc.FromIso((string)result);
+    }
+
     public async Task<IReadOnlyList<ApiCallLogItem>> GetRecentApiCallsAsync(int limit, CancellationToken cancellationToken)
     {
         await using var cmd = _conn.CreateCommand();

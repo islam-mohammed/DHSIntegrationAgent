@@ -15,6 +15,8 @@ public static class ApplicationServiceCollectionExtensions
         // Batch Registry for isolation
         services.AddSingleton<IBatchRegistry, BatchRegistry>();
 
+        services.AddTransient<IDashboardService, DHSIntegrationAgent.Application.Dashboard.DashboardService>();
+
         // App (non-secret)
         services.AddOptions<AppOptions>()
             .Bind(configuration.GetSection("App"))

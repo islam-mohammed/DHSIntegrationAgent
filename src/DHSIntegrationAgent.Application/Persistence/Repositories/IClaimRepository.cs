@@ -68,4 +68,6 @@ public interface IClaimRepository
     Task MarkRequeueFailedAsync(IReadOnlyList<ClaimKey> claims, string errorMessage, DateTimeOffset utcNow, CancellationToken cancellationToken);
 
     Task<int?> GetMaxProIdClaimAsync(long batchId, CancellationToken cancellationToken);
+
+    Task<(int Staged, int Enqueued, int Completed, int Failed)> GetDashboardCountsAsync(string providerDhsCode, string? companyCode, CancellationToken cancellationToken);
 }

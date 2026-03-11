@@ -1,9 +1,14 @@
 ﻿using DHSIntegrationAgent.App.UI.Mvvm;
+using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Application.Providers;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
 
 public sealed class DashboardViewModel : ViewModelBase
 {
+    private readonly IDashboardService _dashboardService;
+    private readonly IProviderContext _providerContext;
+
     private int _stagedCount;
     private int _enqueuedCount;
     private int _completedCount;
@@ -30,15 +35,36 @@ public sealed class DashboardViewModel : ViewModelBase
         set => SetProperty(ref _selectedPayer, value);
     }
 
-    // Screen-only scaffolding: a Refresh command placeholder
-    public RelayCommand RefreshCommand { get; }
+    public AsyncRelayCommand RefreshCommand { get; }
 
-    public DashboardViewModel()
+    public DashboardViewModel(IDashboardService dashboardService, IProviderContext providerContext)
     {
-        RefreshCommand = new RelayCommand(() =>
-        {
-            // Screen-only: real values will be wired in WBS 4.* streams + repositories.
-            // Keep it harmless and PHI-safe.
-        });
+        _dashboardService = dashboardService;
+        _providerContext = providerContext;
+
+        RefreshCommand = new AsyncRelayCommand(() => LoadDataAsync(CancellationToken.None));
+    }
+
+    private async Task LoadDataAsync(CancellationToken ct)
+    {
+        var providerDhsCode = await _providerContext.GetProviderDhsCodeAsync(ct);
+        ProviderDhsCode = providerDhsCode;
+
+        string? payerCode = string.IsNullOrWhiteSpace(SelectedPayer) || SelectedPayer == "—" ? null : SelectedPayer;
+
+        var metrics = await _dashboardService.GetMetricsAsync(providerDhsCode, payerCode, ct);
+
+        StagedCount = metrics.StagedCount;
+        EnqueuedCount = metrics.EnqueuedCount;
+        CompletedCount = metrics.CompletedCount;
+        FailedCount = metrics.FailedCount;
+
+        LastFetchUtc = metrics.LastFetchUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—";
+        LastSendUtc = metrics.LastSendUtc?.ToString("yyyy-MM-dd HH:mm:ss") ?? "—";
+    }
+
+    public Task OnNavigatedToAsync(CancellationToken ct)
+    {
+        return LoadDataAsync(ct);
     }
 }
