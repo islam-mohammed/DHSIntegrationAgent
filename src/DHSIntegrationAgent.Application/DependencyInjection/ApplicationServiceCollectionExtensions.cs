@@ -1,6 +1,7 @@
 using DHSIntegrationAgent.Application.Configuration;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Services;
+using DHSIntegrationAgent.Application.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +17,9 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton<IBatchRegistry, BatchRegistry>();
 
         services.AddTransient<IDashboardService, DHSIntegrationAgent.Application.Dashboard.DashboardService>();
+
+        // Provider Context
+        services.AddSingleton<IProviderContext, ProviderContext>();
 
         // App (non-secret)
         services.AddOptions<AppOptions>()
