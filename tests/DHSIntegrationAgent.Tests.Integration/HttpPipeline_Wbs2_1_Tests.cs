@@ -103,6 +103,9 @@ public sealed class HttpPipeline_Wbs2_1_Tests
 
             services.AddSingleton<Microsoft.Extensions.Hosting.IHostEnvironment>(new MockHostEnv());
 
+            // Provide a dummy IProviderContext since ApiLoggingHandler needs it now
+            services.AddSingleton<DHSIntegrationAgent.Application.Providers.IProviderContext>(new DummyProviderContext());
+
             // Minimal configuration to satisfy options + HttpClient registration
             var cfg = new ConfigurationBuilder()
                 .AddInMemoryCollection(new[]
@@ -211,5 +214,10 @@ public sealed class HttpPipeline_Wbs2_1_Tests
         public string ApplicationName { get; set; } = "Tests";
         public string ContentRootPath { get; set; } = "";
         public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = null!;
+    }
+
+    private sealed class DummyProviderContext : DHSIntegrationAgent.Application.Providers.IProviderContext
+    {
+        public Task<string> GetProviderDhsCodeAsync(CancellationToken ct) => Task.FromResult("MOCK_PROVIDER");
     }
 }

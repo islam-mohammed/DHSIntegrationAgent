@@ -26,10 +26,13 @@ public sealed class ApiLoggingHandler : DelegatingHandler
         new KeyValuePair<string, string>("api/Claims/GetHISProIdClaimsByBcrId", "Claims_GetCompletedIds")
     };
 
-    public ApiLoggingHandler(ILogger<ApiLoggingHandler> logger, IApiCallRecorder recorder)
+    private readonly Application.Providers.IProviderContext _providerContext;
+
+    public ApiLoggingHandler(ILogger<ApiLoggingHandler> logger, IApiCallRecorder recorder, Application.Providers.IProviderContext providerContext)
     {
         _logger = logger;
         _recorder = recorder;
+        _providerContext = providerContext;
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -43,9 +46,20 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
         HttpResponseMessage? response = null;
         Exception? error = null;
+        string? activeProviderDhsCode = null;
 
         try
         {
+            // Attempt to get active provider context
+            try
+            {
+                activeProviderDhsCode = await _providerContext.GetProviderDhsCodeAsync(ct);
+            }
+            catch
+            {
+                // Ignore context retrieval errors (e.g. no active DB/profile)
+            }
+
             response = await base.SendAsync(request, ct);
             return response;
         }
@@ -64,7 +78,7 @@ public sealed class ApiLoggingHandler : DelegatingHandler
             var url = request.RequestUri?.ToString() ?? "";
 
             var endpointName = GetEndpointName(url);
-            var providerDhsCode = ExtractProviderDhsCode(url);
+            var providerDhsCode = ExtractProviderDhsCode(url) ?? activeProviderDhsCode;
             var succeeded = error == null && response is { IsSuccessStatusCode: true };
 
             var record = new ApiCallRecord(

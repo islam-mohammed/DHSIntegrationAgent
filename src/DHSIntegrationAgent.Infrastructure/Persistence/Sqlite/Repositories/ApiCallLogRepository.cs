@@ -57,7 +57,7 @@ internal sealed class ApiCallLogRepository : IApiCallLogRepository
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    public async Task<DateTimeOffset?> GetLastSuccessfulCallUtcAsync(string endpointName, CancellationToken cancellationToken)
+    public async Task<DateTimeOffset?> GetLastSuccessfulCallUtcAsync(string providerDhsCode, string endpointName, CancellationToken cancellationToken)
     {
         await using var cmd = _conn.CreateCommand();
         cmd.Transaction = _tx;
@@ -65,10 +65,12 @@ internal sealed class ApiCallLogRepository : IApiCallLogRepository
             """
             SELECT MAX(RequestUtc)
             FROM ApiCallLog
-            WHERE EndpointName = $e
+            WHERE ProviderDhsCode = $p
+              AND EndpointName = $e
               AND Succeeded = 1;
             """;
 
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
         SqliteSqlBuilder.AddParam(cmd, "$e", endpointName);
 
         var result = await cmd.ExecuteScalarAsync(cancellationToken);

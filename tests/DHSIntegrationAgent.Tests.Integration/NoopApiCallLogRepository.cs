@@ -16,7 +16,7 @@ namespace DHSIntegrationAgent.Tests.Integration
             return Task.FromResult<IReadOnlyList<ApiCallLogItem>>(Array.Empty<ApiCallLogItem>());
         }
 
-        public Task<DateTimeOffset?> GetLastSuccessfulCallUtcAsync(string endpointName, CancellationToken cancellationToken)
+        public Task<DateTimeOffset?> GetLastSuccessfulCallUtcAsync(string providerDhsCode, string endpointName, CancellationToken cancellationToken)
         {
             return Task.FromResult<DateTimeOffset?>(null);
         }

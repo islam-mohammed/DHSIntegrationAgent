@@ -21,8 +21,8 @@ public sealed class DashboardService : IDashboardService
 
         var (staged, enqueued, completed, failed) = await uow.Claims.GetDashboardCountsAsync(providerDhsCode, companyCode, ct);
 
-        DateTimeOffset? lastFetchUtc = await uow.ApiCallLogs.GetLastSuccessfulCallUtcAsync("Batch_Create", ct);
-        DateTimeOffset? lastSendUtc = await uow.ApiCallLogs.GetLastSuccessfulCallUtcAsync("Claims_Send", ct);
+        DateTimeOffset? lastFetchUtc = await uow.ApiCallLogs.GetLastSuccessfulCallUtcAsync(providerDhsCode, "Batch_Create", ct);
+        DateTimeOffset? lastSendUtc = await uow.ApiCallLogs.GetLastSuccessfulCallUtcAsync(providerDhsCode, "Claims_Send", ct);
 
         return new DashboardMetrics(
             StagedCount: staged,
