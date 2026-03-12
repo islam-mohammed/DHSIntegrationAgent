@@ -687,7 +687,11 @@ public sealed class BatchesViewModel : ViewModelBase
                 var draftBatches = await uow.Batches.ListByStatusAsync(DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Draft, default);
                 var fetchingBatches = await uow.Batches.ListByStatusAsync(DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Fetching, default);
 
-                var localPendingBatches = draftBatches.Concat(fetchingBatches).ToList();
+                // Deduplicate by BatchId in case a batch moved from Draft to Fetching between the two queries
+                var localPendingBatches = draftBatches.Concat(fetchingBatches)
+                    .GroupBy(b => b.BatchId)
+                    .Select(g => g.First())
+                    .ToList();
 
                 foreach (var lb in localPendingBatches)
                 {
