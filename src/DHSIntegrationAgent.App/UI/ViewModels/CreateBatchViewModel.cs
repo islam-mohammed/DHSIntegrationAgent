@@ -216,8 +216,6 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 }
             }
 
-            RequestClose?.Invoke();
-
             // 4. Delete existing batch if replacement confirmed
             if (shouldReplace && batchToDelete != null)
             {
@@ -264,7 +262,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 _batchTracker.TrackBatchCreation(batchRow, summary);
             }
 
-         
+            RequestClose?.Invoke();
         }
         catch (Exception ex)
         {
