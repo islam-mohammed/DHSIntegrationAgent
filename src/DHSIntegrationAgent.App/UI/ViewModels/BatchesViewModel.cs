@@ -167,24 +167,36 @@ public sealed class BatchesViewModel : ViewModelBase
                         }
                     }
 
-                    if (!string.IsNullOrEmpty(bcrId))
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
-                        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                        var batchRow = Batches.FirstOrDefault(b => b.LocalBatchId == batchId);
+
+                        if (batchRow == null && !string.IsNullOrEmpty(bcrId))
                         {
-                            var batchRow = Batches.FirstOrDefault(b => b.BcrId.ToString() == bcrId);
-                            if (batchRow != null)
+                            batchRow = Batches.FirstOrDefault(b => b.BcrId.ToString() == bcrId);
+                        }
+
+                        if (batchRow != null)
+                        {
+                            if (!string.IsNullOrEmpty(bcrId) && batchRow.BcrId == 0)
                             {
-                                if (report.Percentage < 100 && batchRow.BatchStatus != "Sending" && batchRow.BatchStatus != "Completed")
+                                if (int.TryParse(bcrId, out var parsedBcrId))
                                 {
-                                    batchRow.BatchStatus = "Sending";
-                                }
-                                else if (report.Percentage >= 100 || report.IsError)
-                                {
-                                    _ = LoadBatchesAsync();
+                                    batchRow.BcrId = parsedBcrId;
                                 }
                             }
-                        });
-                    }
+
+                            if (report.Percentage < 100 && batchRow.BatchStatus != "Sending" && batchRow.BatchStatus != "Completed")
+                            {
+                                batchRow.BatchStatus = "Sending";
+                            }
+                        }
+
+                        if (report.Percentage >= 100 || report.IsError)
+                        {
+                            _ = LoadBatchesAsync();
+                        }
+                    });
                 }
                 catch (Exception ex)
                 {
@@ -639,6 +651,7 @@ public sealed class BatchesViewModel : ViewModelBase
                 var failedClaimsMap = new Dictionary<string, bool>();
                 var hasAttachmentsMap = new Dictionary<string, bool>();
                 var failedDispatchesMap = new Dictionary<string, bool>();
+                var localBatchIdMap = new Dictionary<string, long>();
 
                 try
                 {
@@ -660,6 +673,8 @@ public sealed class BatchesViewModel : ViewModelBase
                             {
                                 if (lb.BcrId != null)
                                 {
+                                    localBatchIdMap[lb.BcrId] = lb.BatchId;
+
                                     if (countsMap.TryGetValue(lb.BatchId, out var counts))
                                     {
                                         if (counts.Failed > 0)
@@ -711,8 +726,15 @@ public sealed class BatchesViewModel : ViewModelBase
                         hasFailedDispatches = fd;
                     }
 
+                    long? localBatchId = null;
+                    if (localBatchIdMap.TryGetValue(item.BcrId.ToString(), out var bid))
+                    {
+                        localBatchId = bid;
+                    }
+
                     Batches.Add(new BatchRow
                     {
+                        LocalBatchId = localBatchId,
                         BcrId = item.BcrId,
                         BcrCreatedOn = item.BcrCreatedOn,
                         BcrMonth = item.BcrMonth,
@@ -806,6 +828,7 @@ public sealed class BatchesViewModel : ViewModelBase
 
                     Batches.Insert(0, new BatchRow
                     {
+                        LocalBatchId = lb.BatchId,
                         BcrId = batchBcrId,
                         BcrCreatedOn = lb.CreatedUtc.DateTime,
                         BcrMonth = bcrMonth,
@@ -855,6 +878,7 @@ public sealed class BatchesViewModel : ViewModelBase
 
 public sealed class BatchRow : ViewModelBase
     {
+        private long? _localBatchId;
         private int _bcrId;
         private DateTime _bcrCreatedOn;
         private int _bcrMonth;
@@ -871,6 +895,7 @@ public sealed class BatchRow : ViewModelBase
         private bool _hasAttachments;
         private bool _hasFailedDispatches;
 
+        public long? LocalBatchId { get => _localBatchId; set => SetProperty(ref _localBatchId, value); }
         public int BcrId { get => _bcrId; set => SetProperty(ref _bcrId, value); }
         public DateTime BcrCreatedOn { get => _bcrCreatedOn; set => SetProperty(ref _bcrCreatedOn, value); }
         public int BcrMonth { get => _bcrMonth; set => SetProperty(ref _bcrMonth, value); }
