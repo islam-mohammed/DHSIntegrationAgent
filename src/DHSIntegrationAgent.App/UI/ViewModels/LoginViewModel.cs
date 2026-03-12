@@ -100,6 +100,9 @@ public sealed class LoginViewModel : ViewModelBase
         IsLoading = true;
         Error = null;
 
+        // Yield momentarily so the WPF UI thread can render the LoadingOverlay
+        await Task.Delay(50);
+
         try
         {
             // Important: We do NOT persist sessions.
