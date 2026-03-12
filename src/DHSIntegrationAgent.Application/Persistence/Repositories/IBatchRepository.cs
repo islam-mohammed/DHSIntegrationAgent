@@ -16,6 +16,7 @@ public interface IBatchRepository
     Task<long> EnsureBatchAsync(
         BatchKey key,
         BatchStatus batchStatus,
+        int totalClaims,
         DateTimeOffset utcNow,
         CancellationToken cancellationToken);
 

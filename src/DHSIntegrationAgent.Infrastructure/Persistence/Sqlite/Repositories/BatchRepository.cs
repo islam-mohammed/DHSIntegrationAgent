@@ -134,13 +134,13 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         );
     }
 
-    public async Task<long> EnsureBatchAsync(BatchKey key, BatchStatus batchStatus, DateTimeOffset utcNow, CancellationToken cancellationToken)
+    public async Task<long> EnsureBatchAsync(BatchKey key, BatchStatus batchStatus, int totalClaims, DateTimeOffset utcNow, CancellationToken cancellationToken)
     {
         await using (var insert = CreateCommand(
             """
             INSERT OR IGNORE INTO Batch
             (ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, ProcessedClaims, TotalClaims, Percentage)
-            VALUES ($p, $c, $m, $s, $e, $status, 0, $now, $now, 0, 0, 0);
+            VALUES ($p, $c, $m, $s, $e, $status, 0, $now, $now, 0, $total, 0);
             """))
         {
             SqliteSqlBuilder.AddParam(insert, "$p", key.ProviderDhsCode);
@@ -150,6 +150,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             SqliteSqlBuilder.AddParam(insert, "$e", SqliteUtc.ToIso(key.EndDateUtc));
             SqliteSqlBuilder.AddParam(insert, "$status", (int)batchStatus);
             SqliteSqlBuilder.AddParam(insert, "$now", SqliteUtc.ToIso(utcNow));
+            SqliteSqlBuilder.AddParam(insert, "$total", totalClaims);
 
             await insert.ExecuteNonQueryAsync(cancellationToken);
         }

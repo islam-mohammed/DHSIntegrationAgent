@@ -181,6 +181,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
             }
 
             FinancialSummary? summary = null;
+            int initialTotalClaimsCount = 0;
             if (integrationType.Equals("Tables", StringComparison.OrdinalIgnoreCase))
             {
                 summary = await _tablesAdapter.GetFinancialSummaryAsync(
@@ -189,6 +190,8 @@ public sealed class CreateBatchViewModel : ViewModelBase
                     startDateOffset,
                     endDateOffset,
                     default);
+
+                initialTotalClaimsCount = summary.TotalClaims;
 
                 var message = $"Batch Validation Summary for {SelectedPayer.PayerName} ({SelectedMonth}/{SelectedYear}):\n\n" +
                               $"Total Claims: {summary.TotalClaims}\n" +
@@ -209,6 +212,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
             {
                 // For other integration types, just show a simple confirmation or count
                 var count = await _tablesAdapter.CountClaimsAsync(providerDhsCode, SelectedPayer.CompanyCode, startDateOffset, endDateOffset, default);
+                initialTotalClaimsCount = count;
                 var result = MessageBox.Show($"Create batch for {SelectedPayer.PayerName} with {count} claims?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (result != MessageBoxResult.Yes)
                 {
@@ -246,7 +250,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 var key = new BatchKey(providerDhsCode, SelectedPayer.CompanyCode, monthKey, startDateOffset, endDateOffset);
 
                 // Start as Draft to allow Fetch & Stage to pick it up properly (isolated)
-                batchId = await uow.Batches.EnsureBatchAsync(key, BatchStatus.Draft, _clock.UtcNow, default);
+                batchId = await uow.Batches.EnsureBatchAsync(key, BatchStatus.Draft, initialTotalClaimsCount, _clock.UtcNow, default);
                 await uow.CommitAsync(default);
             }
 

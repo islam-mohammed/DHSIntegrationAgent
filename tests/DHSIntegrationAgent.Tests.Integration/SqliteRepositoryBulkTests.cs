@@ -55,8 +55,8 @@ public sealed class SqliteRepositoryBulkTests
             // Using default for dates as they are not nullable in BatchKey struct
             await using (var uow = await uowFactory.CreateAsync(CancellationToken.None))
             {
-                await uow.Batches.EnsureBatchAsync(new BatchKey("P1", "C1", "202601", default, default), BatchStatus.Draft, now, CancellationToken.None);
-                await uow.Batches.EnsureBatchAsync(new BatchKey("P1", "C1", "202602", default, default), BatchStatus.Ready, now, CancellationToken.None);
+                await uow.Batches.EnsureBatchAsync(new BatchKey("P1", "C1", "202601", default, default), BatchStatus.Draft, 0, now, CancellationToken.None);
+                await uow.Batches.EnsureBatchAsync(new BatchKey("P1", "C1", "202602", default, default), BatchStatus.Ready, 0, now, CancellationToken.None);
 
                 var b1 = await uow.Batches.TryGetBatchIdAsync(new BatchKey("P1", "C1", "202601", default, default), CancellationToken.None);
                 var b2 = await uow.Batches.TryGetBatchIdAsync(new BatchKey("P1", "C1", "202602", default, default), CancellationToken.None);
