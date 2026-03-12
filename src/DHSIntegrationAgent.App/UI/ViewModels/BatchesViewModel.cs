@@ -706,6 +706,13 @@ public sealed class BatchesViewModel : ViewModelBase
                         int.TryParse(lb.MonthKey.Substring(4, 2), out bcrMonth);
                     }
 
+                    // Apply filters to local batches
+                    if (filterMonth.HasValue && filterMonth.Value != bcrMonth)
+                        continue;
+
+                    if (filterYear.HasValue && filterYear.Value != bcrYear)
+                        continue;
+
                     // Try to fetch payer profile for the names
                     string payerNameEn = $"Payer {lb.CompanyCode}";
                     string payerNameAr = "";
@@ -713,6 +720,17 @@ public sealed class BatchesViewModel : ViewModelBase
                     if (payerProfile != null)
                     {
                         payerNameEn = payerProfile.PayerName ?? payerNameEn;
+
+                        // Apply payer filter logic (if it differs from "All" which usually sets filterPayerId = null)
+                        if (filterPayerId.HasValue && payerProfile.PayerId != filterPayerId.Value)
+                        {
+                            continue;
+                        }
+                    }
+                    else if (filterPayerId.HasValue)
+                    {
+                        // If we are filtering by a specific PayerId, but couldn't find a profile for this batch, skip it.
+                        continue;
                     }
 
                     int batchBcrId = 0;
