@@ -90,7 +90,7 @@
                             <Grid>
                                 <PasswordBox x:Name="PwdBox"
                                  BorderThickness="0"
-                                 FontSize="14"  Padding="5,0,0,0"
+                                 FontSize="14"  Padding="5,10,0,0"
                                  VerticalAlignment="Center"
                                  mvvm:PasswordBoxAssistant.BindPassword="True"
                                  mvvm:PasswordBoxAssistant.BoundPassword="{Binding Password, Mode=TwoWay}" />
