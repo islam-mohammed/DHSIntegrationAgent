@@ -728,7 +728,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         // Apply payer filter logic (if it differs from "All" which usually sets filterPayerId = null)
                         if (filterPayerId.HasValue)
                         {
-                            int? effectivePayerId = null;
+                            var effectivePayerId = payerProfile.PayerId;
                             if (!string.IsNullOrWhiteSpace(payerProfile.PayerCode) && int.TryParse(payerProfile.PayerCode, out var parsed))
                             {
                                 effectivePayerId = parsed;

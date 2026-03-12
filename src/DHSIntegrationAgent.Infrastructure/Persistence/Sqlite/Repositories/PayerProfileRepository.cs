@@ -42,7 +42,7 @@ internal sealed class PayerProfileRepository : SqliteRepositoryBase, IPayerProfi
     {
         await using var cmd = CreateCommand(
             """
-            SELECT ProviderDhsCode, CompanyCode, PayerCode, PayerName, IsActive
+            SELECT PayerId, ProviderDhsCode, CompanyCode, PayerCode, PayerName, IsActive
             FROM PayerProfile
             WHERE ProviderDhsCode = $p AND IsActive = 1
             ORDER BY CompanyCode;
@@ -54,11 +54,12 @@ internal sealed class PayerProfileRepository : SqliteRepositoryBase, IPayerProfi
         while (await r.ReadAsync(cancellationToken))
         {
             list.Add(new PayerProfileRow(
-                ProviderDhsCode: r.GetString(0),
-                CompanyCode: r.GetString(1),
-                PayerCode: r.IsDBNull(2) ? null : r.GetString(2),
-                PayerName: r.IsDBNull(3) ? null : r.GetString(3),
-                IsActive: r.GetInt32(4) == 1));
+                PayerId: r.GetInt32(0),
+                ProviderDhsCode: r.GetString(1),
+                CompanyCode: r.GetString(2),
+                PayerCode: r.IsDBNull(3) ? null : r.GetString(3),
+                PayerName: r.IsDBNull(4) ? null : r.GetString(4),
+                IsActive: r.GetInt32(5) == 1));
         }
         return list;
     }
@@ -114,7 +115,7 @@ internal sealed class PayerProfileRepository : SqliteRepositoryBase, IPayerProfi
     {
         await using var cmd = CreateCommand(
             """
-            SELECT ProviderDhsCode, CompanyCode, PayerCode, PayerName, IsActive
+            SELECT PayerId, ProviderDhsCode, CompanyCode, PayerCode, PayerName, IsActive
             FROM PayerProfile
             WHERE ProviderDhsCode = $p AND CompanyCode = $cc
             LIMIT 1;
@@ -126,11 +127,12 @@ internal sealed class PayerProfileRepository : SqliteRepositoryBase, IPayerProfi
         if (await r.ReadAsync(cancellationToken))
         {
             return new PayerProfileRow(
-                ProviderDhsCode: r.GetString(0),
-                CompanyCode: r.GetString(1),
-                PayerCode: r.IsDBNull(2) ? null : r.GetString(2),
-                PayerName: r.IsDBNull(3) ? null : r.GetString(3),
-                IsActive: r.GetInt32(4) == 1);
+                PayerId: r.GetInt32(0),
+                ProviderDhsCode: r.GetString(1),
+                CompanyCode: r.GetString(2),
+                PayerCode: r.IsDBNull(3) ? null : r.GetString(3),
+                PayerName: r.IsDBNull(4) ? null : r.GetString(4),
+                IsActive: r.GetInt32(5) == 1);
         }
         return null;
     }
