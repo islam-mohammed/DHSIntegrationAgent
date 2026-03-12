@@ -678,6 +678,94 @@ public sealed class BatchesViewModel : ViewModelBase
                     });
                 }
             }
+
+            // Also load any local Draft or Fetching batches that don't have a backend BcrId yet,
+            // or aren't returned by the API yet.
+            try
+            {
+                await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+                var draftBatches = await uow.Batches.ListByStatusAsync(DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Draft, default);
+                var fetchingBatches = await uow.Batches.ListByStatusAsync(DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Fetching, default);
+
+                // Deduplicate by BatchId in case a batch moved from Draft to Fetching between the two queries
+                var localPendingBatches = draftBatches.Concat(fetchingBatches)
+                    .GroupBy(b => b.BatchId)
+                    .Select(g => g.First())
+                    .ToList();
+
+                foreach (var lb in localPendingBatches)
+                {
+                    // If it already has a BcrId and is already in the list, skip it.
+                    if (!string.IsNullOrEmpty(lb.BcrId) && Batches.Any(b => b.BcrId.ToString() == lb.BcrId))
+                    {
+                        continue;
+                    }
+
+                    int bcrMonth = 0;
+                    int bcrYear = 0;
+
+                    if (!string.IsNullOrEmpty(lb.MonthKey) && lb.MonthKey.Length == 6)
+                    {
+                        int.TryParse(lb.MonthKey.Substring(0, 4), out bcrYear);
+                        int.TryParse(lb.MonthKey.Substring(4, 2), out bcrMonth);
+                    }
+
+                    // Apply filters to local batches
+                    if (filterMonth.HasValue && filterMonth.Value != bcrMonth)
+                        continue;
+
+                    if (filterYear.HasValue && filterYear.Value != bcrYear)
+                        continue;
+
+                    // Try to fetch payer profile for the names
+                    string payerNameEn = $"Payer {lb.CompanyCode}";
+                    string payerNameAr = "";
+                    var payerProfile = await uow.Payers.GetByCompanyCodeAsync(providerDhsCode, lb.CompanyCode, default);
+                    if (payerProfile != null)
+                    {
+                        payerNameEn = payerProfile.PayerName ?? payerNameEn;
+
+                        // Apply payer filter logic (if it differs from "All" which usually sets filterPayerId = null)
+                        if (filterPayerId.HasValue && payerProfile.PayerId != filterPayerId.Value)
+                        {
+                            continue;
+                        }
+                    }
+                    else if (filterPayerId.HasValue)
+                    {
+                        // If we are filtering by a specific PayerId, but couldn't find a profile for this batch, skip it.
+                        continue;
+                    }
+
+                    int batchBcrId = 0;
+                    if (!string.IsNullOrEmpty(lb.BcrId))
+                    {
+                        int.TryParse(lb.BcrId, out batchBcrId);
+                    }
+
+                    Batches.Insert(0, new BatchRow
+                    {
+                        BcrId = batchBcrId,
+                        BcrCreatedOn = lb.CreatedUtc.DateTime,
+                        BcrMonth = bcrMonth,
+                        BcrYear = bcrYear,
+                        UserName = "Local User",
+                        PayerNameEn = payerNameEn,
+                        PayerNameAr = payerNameAr,
+                        CompanyCode = lb.CompanyCode,
+                        MidTableTotalClaim = lb.TotalClaims,
+                        BatchStatus = lb.BatchStatus.ToString(),
+                        HasFailedClaims = false,
+                        HasAttachments = false,
+                        HasFailedDispatches = false,
+                        ResumeBatch = false
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading local pending batches: {ex.Message}");
+            }
         }
         catch (HttpRequestException ex)
         {

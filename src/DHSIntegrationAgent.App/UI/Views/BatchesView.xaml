@@ -92,6 +92,18 @@
                         </StackPanel>
                     </Button>
 
+                    <Button Cursor="Hand"
+                            Width="100"
+                            Style="{StaticResource IconTextBtn}"
+                            Command="{Binding RefreshCommand}"
+                            IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}"
+                            Margin="0,0,10,0">
+                        <StackPanel Margin="10,0,15,0" Orientation="Horizontal" HorizontalAlignment="Left">
+                            <materialDesign:PackIcon Kind="Refresh" Width="17" Height="17" Margin="0,0,5,0"/>
+                            <TextBlock VerticalAlignment="Center" Foreground="#fff">Refresh</TextBlock>
+                        </StackPanel>
+                    </Button>
+
                     <Button Cursor="Hand" 
                             Style="{StaticResource IconTextBtn2}" 
                             Click="CreateBatch_Click"
