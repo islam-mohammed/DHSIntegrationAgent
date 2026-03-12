@@ -17,6 +17,7 @@ public sealed class BatchesViewModel : ViewModelBase
     private readonly IBatchTracker _batchTracker;
     private readonly IAttachmentDispatchService _attachmentDispatchService;
     private readonly INavigationService _navigation;
+    private readonly IWorkerEngine _workerEngine;
 
     public ObservableCollection<BatchRow> Batches { get; } = new();
     public object ActiveBatches => _batchTracker.ActiveBatches;
@@ -119,13 +120,15 @@ public sealed class BatchesViewModel : ViewModelBase
         IBatchClient batchClient,
         IBatchTracker batchTracker,
         IAttachmentDispatchService attachmentDispatchService,
-        INavigationService navigation)
+        INavigationService navigation,
+        IWorkerEngine workerEngine)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
         _batchTracker = batchTracker ?? throw new ArgumentNullException(nameof(batchTracker));
         _attachmentDispatchService = attachmentDispatchService ?? throw new ArgumentNullException(nameof(attachmentDispatchService));
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
+        _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
         ShowAttachmentsCommand = new RelayCommand<BatchRow>(OnShowAttachments);
         ShowDispatchHistoryCommand = new RelayCommand<BatchRow>(OnShowDispatchHistory);
 
@@ -140,6 +143,55 @@ public sealed class BatchesViewModel : ViewModelBase
         var allPayer = new PayerItem { PayerId = null, PayerName = "All" };
         Payers.Add(allPayer);
         SelectedPayer = allPayer;
+
+        _workerEngine.ProgressChanged += OnWorkerProgressChanged;
+    }
+
+    private void OnWorkerProgressChanged(object? sender, DHSIntegrationAgent.Contracts.Workers.WorkerProgressReport report)
+    {
+        if (report.BatchId.HasValue && report.WorkerId == "StreamB")
+        {
+            var batchId = report.BatchId.Value;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    string? bcrId = null;
+                    await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+                    {
+                        var localBatch = await uow.Batches.GetByIdAsync(batchId, default);
+                        if (localBatch != null)
+                        {
+                            bcrId = localBatch.BcrId;
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(bcrId))
+                    {
+                        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                        {
+                            var batchRow = Batches.FirstOrDefault(b => b.BcrId.ToString() == bcrId);
+                            if (batchRow != null)
+                            {
+                                if (report.Percentage < 100 && batchRow.BatchStatus != "Sending" && batchRow.BatchStatus != "Completed")
+                                {
+                                    batchRow.BatchStatus = "Sending";
+                                }
+                                else if (report.Percentage >= 100 || report.IsError)
+                                {
+                                    _ = LoadBatchesAsync();
+                                }
+                            }
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error handling StreamB progress for batch UI update: {ex.Message}");
+                }
+            });
+        }
     }
 
     public async Task InitializeAsync()
@@ -801,28 +853,65 @@ public sealed class BatchesViewModel : ViewModelBase
         }
     }
 
-public sealed class BatchRow
+public sealed class BatchRow : ViewModelBase
     {
-        public int BcrId { get; set; }
-        public DateTime BcrCreatedOn { get; set; }
-        public int BcrMonth { get; set; }
-        public int BcrYear { get; set; }
-        public string? UserName { get; set; }
-        public string? PayerNameEn { get; set; }
-        public string? PayerNameAr { get; set; }
-        public string CompanyCode { get; set; } = "";
-        public int MidTableTotalClaim { get; set; }
-        public string BatchStatus { get; set; } = "";
+        private int _bcrId;
+        private DateTime _bcrCreatedOn;
+        private int _bcrMonth;
+        private int _bcrYear;
+        private string? _userName;
+        private string? _payerNameEn;
+        private string? _payerNameAr;
+        private string _companyCode = "";
+        private int _midTableTotalClaim;
+        private string _batchStatus = "";
+        private bool _hasResume;
+        private bool _resumeBatch;
+        private bool _hasFailedClaims;
+        private bool _hasAttachments;
+        private bool _hasFailedDispatches;
+
+        public int BcrId { get => _bcrId; set => SetProperty(ref _bcrId, value); }
+        public DateTime BcrCreatedOn { get => _bcrCreatedOn; set => SetProperty(ref _bcrCreatedOn, value); }
+        public int BcrMonth { get => _bcrMonth; set => SetProperty(ref _bcrMonth, value); }
+        public int BcrYear { get => _bcrYear; set => SetProperty(ref _bcrYear, value); }
+        public string? UserName { get => _userName; set => SetProperty(ref _userName, value); }
+        public string? PayerNameEn { get => _payerNameEn; set => SetProperty(ref _payerNameEn, value); }
+        public string? PayerNameAr { get => _payerNameAr; set => SetProperty(ref _payerNameAr, value); }
+        public string CompanyCode { get => _companyCode; set => SetProperty(ref _companyCode, value); }
+        public int MidTableTotalClaim { get => _midTableTotalClaim; set => SetProperty(ref _midTableTotalClaim, value); }
+        public string BatchStatus
+        {
+            get => _batchStatus;
+            set
+            {
+                if (SetProperty(ref _batchStatus, value))
+                {
+                    OnPropertyChanged(nameof(Status));
+                    OnPropertyChanged(nameof(CanUploadAttachments));
+                }
+            }
+        }
 
         // Legacy properties for existing UI bindings
         public string Status => BatchStatus;
-        public bool HasResume { get; set; }
-        public bool ResumeBatch { get; set; }
+        public bool HasResume { get => _hasResume; set => SetProperty(ref _hasResume, value); }
+        public bool ResumeBatch
+        {
+            get => _resumeBatch;
+            set
+            {
+                if (SetProperty(ref _resumeBatch, value))
+                {
+                    OnPropertyChanged(nameof(CanResume));
+                }
+            }
+        }
         public bool CanResume => ResumeBatch;
         public bool CanUploadAttachments => BatchStatus == "Completed";
-        public bool HasFailedClaims { get; set; }
-        public bool HasAttachments { get; set; }
-        public bool HasFailedDispatches { get; set; }
+        public bool HasFailedClaims { get => _hasFailedClaims; set => SetProperty(ref _hasFailedClaims, value); }
+        public bool HasAttachments { get => _hasAttachments; set => SetProperty(ref _hasAttachments, value); }
+        public bool HasFailedDispatches { get => _hasFailedDispatches; set => SetProperty(ref _hasFailedDispatches, value); }
     }
 
     public sealed class DispatchRow
