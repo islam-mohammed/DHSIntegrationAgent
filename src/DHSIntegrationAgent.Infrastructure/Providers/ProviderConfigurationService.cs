@@ -424,6 +424,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                     GetString(item, "parentPayerNameEn");
 
                 rows.Add(new PayerProfileRow(
+                    PayerId: 0,
                     ProviderDhsCode: providerDhsCode,
                     CompanyCode: companyCode,
                     PayerCode: payerCode,
