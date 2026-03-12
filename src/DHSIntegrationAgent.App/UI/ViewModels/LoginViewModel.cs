@@ -25,7 +25,7 @@ public sealed class LoginViewModel : ViewModelBase
 
     private string _email = "";
     private string _password = "";
-    private bool _isBusy;
+    private bool _isLoading;
     private string? _error;
 
     public LoginViewModel(
@@ -59,10 +59,10 @@ public sealed class LoginViewModel : ViewModelBase
         set => SetProperty(ref _password, value);
     }
 
-    public bool IsBusy
+    public bool IsLoading
     {
-        get => _isBusy;
-        private set => SetProperty(ref _isBusy, value);
+        get => _isLoading;
+        private set => SetProperty(ref _isLoading, value);
     }
 
     public string? Error
@@ -94,10 +94,10 @@ public sealed class LoginViewModel : ViewModelBase
 
     private async Task LoginAsync()
     {
-        if (IsBusy) return;
+        if (IsLoading) return;
         if (!ValidateInputs()) return;
 
-        IsBusy = true;
+        IsLoading = true;
         Error = null;
 
         try
@@ -133,7 +133,7 @@ public sealed class LoginViewModel : ViewModelBase
         }
         finally
         {
-            IsBusy = false;
+            IsLoading = false;
             // Clear password even on failure (prevents it sitting in memory + UI).
             Password = "";
         }
