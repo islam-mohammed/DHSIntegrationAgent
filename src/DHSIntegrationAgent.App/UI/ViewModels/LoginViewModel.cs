@@ -100,17 +100,18 @@ public sealed class LoginViewModel : ViewModelBase
         IsLoading = true;
         Error = null;
 
-        // Yield momentarily so the WPF UI thread can render the LoadingOverlay
-        await Task.Delay(50);
-
         try
         {
+            var emailStr = Email.Trim();
+            var passwordStr = Password;
+
             // Important: We do NOT persist sessions.
             // LoginService must read GroupID from SQLite AppSettings and call the backend.
-            var outcome = await _loginService.LoginAsync(
-                email: Email.Trim(),
-                password: Password,
-                ct: CancellationToken.None);
+            // Wrap in Task.Run so synchronous IO (like SQLite) doesn't freeze the WPF UI thread spinner.
+            var outcome = await Task.Run(() => _loginService.LoginAsync(
+                emailStr,
+                passwordStr,
+                CancellationToken.None));
 
             if (!outcome.Succeeded)
             {
@@ -121,11 +122,11 @@ public sealed class LoginViewModel : ViewModelBase
             // Clear password as soon as we no longer need it.
             Password = "";
 
-            await _providerConfigurationService.LoadAsync(ct: CancellationToken.None);
+            await Task.Run(() => _providerConfigurationService.LoadAsync(CancellationToken.None));
 
             // Start worker engine after login (WBS 5.3 deliverable).
             if (!_workerEngine.IsRunning)
-                await _workerEngine.StartAsync(CancellationToken.None);
+                await Task.Run(() => _workerEngine.StartAsync(CancellationToken.None));
 
             _navigation.NavigateTo<DashboardViewModel>();
         }
