@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
 
-public sealed class BatchesViewModel : ViewModelBase
+public sealed class BatchesViewModel : ViewModelBase, IDisposable
 {
     private readonly ISqliteUnitOfWorkFactory _unitOfWorkFactory;
     private readonly IBatchClient _batchClient;
@@ -191,6 +191,14 @@ public sealed class BatchesViewModel : ViewModelBase
                     System.Diagnostics.Debug.WriteLine($"Error handling StreamB progress for batch UI update: {ex.Message}");
                 }
             });
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_workerEngine != null)
+        {
+            _workerEngine.ProgressChanged -= OnWorkerProgressChanged;
         }
     }
 
