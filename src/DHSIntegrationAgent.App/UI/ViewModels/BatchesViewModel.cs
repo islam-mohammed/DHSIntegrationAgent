@@ -721,7 +721,8 @@ public sealed class BatchRow
         public string Status => BatchStatus;
         public bool HasResume { get; set; }
         public bool ResumeBatch { get; set; }
-        public bool CanResume => ResumeBatch && BcrId > 0;
+        public bool CanResume => ResumeBatch;
+        public bool CanUploadAttachments => BatchStatus == "Completed";
         public bool HasFailedClaims { get; set; }
         public bool HasAttachments { get; set; }
         public bool HasFailedDispatches { get; set; }

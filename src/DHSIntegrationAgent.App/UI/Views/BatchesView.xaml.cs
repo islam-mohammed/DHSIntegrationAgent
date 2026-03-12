@@ -34,7 +34,7 @@ namespace DHSIntegrationAgent.App.UI.Views
             }
         }
 
-        private void CreateBatch_Click(object sender, RoutedEventArgs e)
+        private async void CreateBatch_Click(object sender, RoutedEventArgs e)
         {
             // Get the service provider from Application
             var app = (App)System.Windows.Application.Current;
@@ -71,6 +71,12 @@ namespace DHSIntegrationAgent.App.UI.Views
 
             // Show the window as a modal dialog
             createBatchWindow.ShowDialog();
+
+            // Auto-refresh the grid if a new batch was created
+            if (DataContext is BatchesViewModel viewModel)
+            {
+                await viewModel.LoadBatchesAsync();
+            }
         }
     }
 }
