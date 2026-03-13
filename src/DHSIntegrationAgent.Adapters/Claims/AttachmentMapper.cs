@@ -32,6 +32,19 @@ public static class AttachmentMapper
         string? fileName = null;
         if (attObj.TryGetPropertyValue("FileName", out var fnNode) && fnNode != null) fileName = fnNode.ToString().Trim('"');
 
+        if (string.IsNullOrWhiteSpace(fileName) && !string.IsNullOrWhiteSpace(location))
+        {
+            try
+            {
+                fileName = System.IO.Path.GetFileName(location);
+            }
+            catch
+            {
+                // Fallback if location is not a valid path
+                fileName = "Unknown";
+            }
+        }
+
         string? contentType = null;
         if (attObj.TryGetPropertyValue("AttachmentType", out var typeNode) && typeNode != null) contentType = typeNode.ToString().Trim('"');
 

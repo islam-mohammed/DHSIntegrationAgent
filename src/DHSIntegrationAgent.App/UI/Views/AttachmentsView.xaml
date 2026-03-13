@@ -21,7 +21,7 @@
                     <TextBlock Text="Attachments" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding BatchInfo}" FontSize="14" Foreground="#32729B" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,0,0"/>
                 </StackPanel>
-                <TextBlock Text="Upload queue, failures, retries, OnlineURL (screen-only)." Foreground="{StaticResource BrushMuted}" Margin="0,4,0,0"/>
+                <TextBlock Text="Upload queue, failures, and retries." Foreground="{StaticResource BrushMuted}" Margin="0,4,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                 <Button   FontSize="13.5" Height="33" Margin="5,0" BorderBrush="#32729B"  Foreground="#32729B"
@@ -102,7 +102,6 @@
                     
                     
                     <DataGridTextColumn Header="FailCount" Binding="{Binding FailCount}" Width="*"/>
-                    <DataGridTextColumn Header="OnlineURL" Binding="{Binding OnlineUrl}" Width="3*"/>
                 </DataGrid.Columns>
             </DataGrid>
         </Border>
