@@ -43,6 +43,19 @@ public static class AttachmentMapper
         else if (!string.IsNullOrWhiteSpace(location) && (location.Contains("/") || location.Contains("\\"))) sourceType = AttachmentSourceType.FilePath;
         else if (!string.IsNullOrWhiteSpace(location)) sourceType = AttachmentSourceType.RawBytesInLocation;
 
+        if (string.IsNullOrWhiteSpace(fileName) && sourceType == AttachmentSourceType.FilePath && !string.IsNullOrWhiteSpace(location))
+        {
+            try
+            {
+                fileName = System.IO.Path.GetFileName(location);
+            }
+            catch
+            {
+                // Fallback if location is not a valid path
+                fileName = "Unknown";
+            }
+        }
+
         return new AttachmentRow(
             AttachmentId: compositeId,
             ProviderDhsCode: providerDhsCode,

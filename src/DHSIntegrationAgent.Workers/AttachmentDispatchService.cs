@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using DHSIntegrationAgent.Adapters.Tables;
 using DHSIntegrationAgent.Application.Abstractions;
+using System.Collections.Concurrent;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Security;
 using DHSIntegrationAgent.Contracts.Persistence;
@@ -87,12 +88,18 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
             _logger.LogInformation("Processing {AttachmentCount} attachments for {ClaimCount} claims in batch {BatchId}", totalAttachments, totalClaimsWithAttachments, batchId);
 
             // Stage 1: Upload & Update Payload (0% -> 70%)
-            var claimAttachmentDetails = new Dictionary<int, List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>>();
+            var claimAttachmentDetails = new ConcurrentDictionary<int, List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>>();
+            int processedAttachmentsCount = 0;
+            int failedAttachmentsCount = 0;
 
-            foreach (var group in claimGroups)
+            var parallelOptions = new ParallelOptions
             {
-                if (ct.IsCancellationRequested) break;
+                MaxDegreeOfParallelism = 10,
+                CancellationToken = ct
+            };
 
+            await Parallel.ForEachAsync(claimGroups, parallelOptions, async (group, cancellationToken) =>
+            {
                 var proIdClaim = group.Key;
                 var attachmentInfos = new List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>();
 
@@ -101,25 +108,25 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                     var row = initialRow;
 
                     // Upsert Staged
-                    await using (var uow = await _uowFactory.CreateAsync(ct))
+                    await using (var uow = await _uowFactory.CreateAsync(cancellationToken))
                     {
-                        await uow.Attachments.UpsertAsync(row!, ct);
-                        await uow.CommitAsync(ct);
+                        await uow.Attachments.UpsertAsync(row!, cancellationToken);
+                        await uow.CommitAsync(cancellationToken);
                     }
 
                     try
                     {
                         // Upload
-                        (var onlineUrl, var sizeBytes) = await _attachmentService.UploadAsync(row!, ct);
+                        (var onlineUrl, var sizeBytes) = await _attachmentService.UploadAsync(row!, cancellationToken);
 
                         // Update local row with new size
                         row = row! with { SizeBytes = sizeBytes };
 
                         // Update Uploaded
-                        await using (var uow = await _uowFactory.CreateAsync(ct))
+                        await using (var uow = await _uowFactory.CreateAsync(cancellationToken))
                         {
-                            await uow.Attachments.UpdateStatusAsync(row!.AttachmentId, UploadStatus.Uploaded, onlineUrl, null, _clock.UtcNow, null, ct, sizeBytes);
-                            await uow.CommitAsync(ct);
+                            await uow.Attachments.UpdateStatusAsync(row!.AttachmentId, UploadStatus.Uploaded, onlineUrl, null, _clock.UtcNow, null, cancellationToken, sizeBytes);
+                            await uow.CommitAsync(cancellationToken);
                         }
 
                         // Extract remarks
@@ -130,40 +137,43 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                         }
 
                         attachmentInfos.Add((row!, remarks, onlineUrl));
-                        uploadedCount++;
-
-                        // Report Progress (0-70%)
-                        double percentage = (double)uploadedCount / totalAttachments * 70.0;
-                        progress.Report(new WorkerProgressReport("StreamC",
-                            $"Uploading {uploadedCount} of {totalAttachments}",
-                            BatchId: batchId,
-                            Percentage: percentage,
-                            ProcessedCount: uploadedCount,
-                            TotalCount: totalAttachments));
+                        Interlocked.Increment(ref uploadedCount);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to upload attachment {AttachmentId}", row!.AttachmentId);
-                        await using (var uow = await _uowFactory.CreateAsync(ct))
+                        Interlocked.Increment(ref failedAttachmentsCount);
+                        await using (var uow = await _uowFactory.CreateAsync(cancellationToken))
                         {
-                            await uow.Attachments.UpdateStatusAsync(row!.AttachmentId, UploadStatus.Failed, null, ex.Message, _clock.UtcNow, TimeSpan.FromMinutes(5), ct);
-                            await uow.CommitAsync(ct);
+                            await uow.Attachments.UpdateStatusAsync(row!.AttachmentId, UploadStatus.Failed, null, ex.Message, _clock.UtcNow, TimeSpan.FromMinutes(5), cancellationToken);
+                            await uow.CommitAsync(cancellationToken);
                         }
+                    }
+                    finally
+                    {
+                        int processed = Interlocked.Increment(ref processedAttachmentsCount);
+                        int failed = Volatile.Read(ref failedAttachmentsCount);
+                        // Report Progress (0-70%)
+                        double percentage = (double)processed / totalAttachments * 70.0;
+                        progress.Report(new WorkerProgressReport("StreamC",
+                            $"Uploading attachments: {processed} of {totalAttachments}" + (failed > 0 ? $" ({failed} failed)" : ""),
+                            BatchId: batchId,
+                            Percentage: percentage,
+                            ProcessedCount: processed,
+                            TotalCount: totalAttachments));
                     }
                 }
 
                 if (attachmentInfos.Count > 0)
                 {
                     claimAttachmentDetails[proIdClaim] = attachmentInfos;
-                    await UpdateClaimPayloadAsync(new ClaimKey(batch.ProviderDhsCode, proIdClaim), attachmentInfos, ct);
+                    await UpdateClaimPayloadAsync(new ClaimKey(batch.ProviderDhsCode, proIdClaim), attachmentInfos, cancellationToken);
                 }
-            }
+            });
 
             // Stage 2: Send Notification (70% -> 100%)
-            foreach (var group in claimGroups)
+            await Parallel.ForEachAsync(claimGroups, parallelOptions, async (group, cancellationToken) =>
             {
-                if (ct.IsCancellationRequested) break;
-
                 var proIdClaim = group.Key;
 
                 if (claimAttachmentDetails.TryGetValue(proIdClaim, out var attachmentInfos))
@@ -182,24 +192,24 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
 
                     // Notify Backend
                     var request = new UploadAttachmentRequest(proIdClaim, attachmentDtos);
-                    var result = await _attachmentClient.SendAttachmentAsync(request, ct);
+                    var result = await _attachmentClient.SendAttachmentAsync(request, cancellationToken);
                     if (!result.Succeeded)
                     {
                         _logger.LogWarning("Failed to notify backend about attachments for claim {ProIdClaim}: {Error}", proIdClaim, result.ErrorMessage);
                     }
                 }
 
-                notifiedClaimsCount++;
+                int notified = Interlocked.Increment(ref notifiedClaimsCount);
 
                 // Report Progress (70% -> 100%)
-                double percentage = 70.0 + ((double)notifiedClaimsCount / totalClaimsWithAttachments * 30.0);
+                double percentage = 70.0 + ((double)notified / totalClaimsWithAttachments * 30.0);
                 progress.Report(new WorkerProgressReport("StreamC",
-                    $"Sending {notifiedClaimsCount} of {totalClaimsWithAttachments}",
+                    $"Sending attachment notifications: {notified} of {totalClaimsWithAttachments}",
                     BatchId: batchId,
                     Percentage: percentage,
-                    ProcessedCount: notifiedClaimsCount,
+                    ProcessedCount: notified,
                     TotalCount: totalClaimsWithAttachments));
-            }
+            });
 
             progress.Report(new WorkerProgressReport("StreamC", "Attachment processing complete", BatchId: batchId, Percentage: 100));
         }
