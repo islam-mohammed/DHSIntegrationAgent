@@ -32,7 +32,18 @@ public static class AttachmentMapper
         string? fileName = null;
         if (attObj.TryGetPropertyValue("FileName", out var fnNode) && fnNode != null) fileName = fnNode.ToString().Trim('"');
 
-        if (string.IsNullOrWhiteSpace(fileName) && !string.IsNullOrWhiteSpace(location))
+        string? contentType = null;
+        if (attObj.TryGetPropertyValue("AttachmentType", out var typeNode) && typeNode != null) contentType = typeNode.ToString().Trim('"');
+
+        long? size = null;
+        if (attObj.TryGetPropertyValue("FileSizeInByte", out var sizeNode) && sizeNode != null && long.TryParse(sizeNode.ToString(), out var s)) size = s;
+
+        var sourceType = AttachmentSourceType.FilePath;
+        if (attachBit != null) sourceType = AttachmentSourceType.Base64InAttachBit;
+        else if (!string.IsNullOrWhiteSpace(location) && (location.Contains("/") || location.Contains("\\"))) sourceType = AttachmentSourceType.FilePath;
+        else if (!string.IsNullOrWhiteSpace(location)) sourceType = AttachmentSourceType.RawBytesInLocation;
+
+        if (string.IsNullOrWhiteSpace(fileName) && sourceType == AttachmentSourceType.FilePath && !string.IsNullOrWhiteSpace(location))
         {
             try
             {
@@ -44,17 +55,6 @@ public static class AttachmentMapper
                 fileName = "Unknown";
             }
         }
-
-        string? contentType = null;
-        if (attObj.TryGetPropertyValue("AttachmentType", out var typeNode) && typeNode != null) contentType = typeNode.ToString().Trim('"');
-
-        long? size = null;
-        if (attObj.TryGetPropertyValue("FileSizeInByte", out var sizeNode) && sizeNode != null && long.TryParse(sizeNode.ToString(), out var s)) size = s;
-
-        var sourceType = AttachmentSourceType.FilePath;
-        if (attachBit != null) sourceType = AttachmentSourceType.Base64InAttachBit;
-        else if (!string.IsNullOrWhiteSpace(location) && (location.Contains("/") || location.Contains("\\"))) sourceType = AttachmentSourceType.FilePath;
-        else if (!string.IsNullOrWhiteSpace(location)) sourceType = AttachmentSourceType.RawBytesInLocation;
 
         return new AttachmentRow(
             AttachmentId: compositeId,
