@@ -153,13 +153,14 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                     {
                         int processed = Interlocked.Increment(ref processedAttachmentsCount);
                         int failed = Volatile.Read(ref failedAttachmentsCount);
+                        int succeeded = Volatile.Read(ref uploadedCount);
                         // Report Progress (0-70%)
                         double percentage = (double)processed / totalAttachments * 70.0;
                         progress.Report(new WorkerProgressReport("StreamC",
                             $"Uploading attachments: {processed} of {totalAttachments}" + (failed > 0 ? $" ({failed} failed)" : ""),
                             BatchId: batchId,
                             Percentage: percentage,
-                            ProcessedCount: processed - failed,
+                            ProcessedCount: succeeded,
                             TotalCount: totalAttachments,
                             FailedCount: failed));
                     }
