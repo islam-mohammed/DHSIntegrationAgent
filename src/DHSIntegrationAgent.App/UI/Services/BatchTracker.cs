@@ -64,19 +64,22 @@ public sealed class BatchTracker : IBatchTracker
                 // UI Update
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    if (report.WorkerId == "StreamB") progressViewModel.IsSending = true;
-                    if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
-                    if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
-                    if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
-                    if (report.Message != null) progressViewModel.StatusMessage = report.Message;
-                    if (report.IsError) progressViewModel.IsError = true;
-
-                    if (report.Percentage >= 100)
+                    if (!progressViewModel.IsCompleted)
                     {
-                        progressViewModel.IsCompleted = true;
+                        if (report.WorkerId == "StreamB") progressViewModel.IsSending = true;
+                        if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
+                        if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
+                        if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
+                        if (report.Message != null) progressViewModel.StatusMessage = report.Message;
+                        if (report.IsError) progressViewModel.IsError = true;
+
+                        if (report.Percentage >= 100)
+                        {
+                            progressViewModel.IsCompleted = true;
+                        }
                     }
 
-                    // Capture state safely on UI thread
+                    // Capture state safely on UI thread (always captures, preventing zeros on completion)
                     processed = progressViewModel.ProcessedClaims;
                     total = progressViewModel.TotalClaims;
                     percentage = (int)(progressViewModel.PercentageOverride ?? 0);
@@ -201,6 +204,7 @@ public sealed class BatchTracker : IBatchTracker
                     {
                         System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                         {
+                            if (progressViewModel.IsCompleted) return;
                             if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
                             if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
                             if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
@@ -217,6 +221,7 @@ public sealed class BatchTracker : IBatchTracker
 
                     System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
+                        progressViewModel.PercentageOverride = 100;
                         progressViewModel.StatusMessage = "Attachments uploaded successfully.";
                         progressViewModel.IsCompleted = true;
                     });
@@ -227,6 +232,7 @@ public sealed class BatchTracker : IBatchTracker
                     {
                         progressViewModel.StatusMessage = $"Attachment Error: {ex.Message}";
                         progressViewModel.IsError = true;
+                        progressViewModel.IsCompleted = true;
                     });
                 }
                 finally
@@ -267,6 +273,7 @@ public sealed class BatchTracker : IBatchTracker
                 {
                     System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
+                        if (progressViewModel.IsCompleted) return;
                         if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
                         if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
                         if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
@@ -279,6 +286,7 @@ public sealed class BatchTracker : IBatchTracker
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
                     progressViewModel.PercentageOverride = 100;
+                    progressViewModel.IsCompleted = true;
                     progressViewModel.StatusMessage = result.Succeeded
                         ? $"Resume Complete. Succeeded: {result.SuccessCount}, Failed: {result.FailedCount}."
                         : $"Resume Failed: {result.ErrorMessage}";
@@ -290,6 +298,7 @@ public sealed class BatchTracker : IBatchTracker
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
                     progressViewModel.IsError = true;
+                    progressViewModel.IsCompleted = true;
                     progressViewModel.StatusMessage = $"Error: {ex.Message}";
                 });
                 result = new ManualRetryResult(false, ex.Message, 0, 0, 0);
@@ -332,6 +341,7 @@ public sealed class BatchTracker : IBatchTracker
                 {
                     System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
+                        if (progressViewModel.IsCompleted) return;
                         if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
                         if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
                         if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
@@ -343,6 +353,7 @@ public sealed class BatchTracker : IBatchTracker
 
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
+                    progressViewModel.PercentageOverride = 100;
                     progressViewModel.StatusMessage = "Retry complete.";
                     progressViewModel.IsCompleted = true;
                 });
@@ -353,6 +364,7 @@ public sealed class BatchTracker : IBatchTracker
                 {
                     progressViewModel.StatusMessage = $"Retry Error: {ex.Message}";
                     progressViewModel.IsError = true;
+                    progressViewModel.IsCompleted = true;
                 });
             }
             finally
@@ -408,6 +420,7 @@ public sealed class BatchTracker : IBatchTracker
                     // Update progressViewModel on UI thread
                     System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                     {
+                        if (progressViewModel.IsCompleted) return;
                         if (report.BcrId != null) progressViewModel.BatchNumber = report.BcrId;
                         if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
                         if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
@@ -440,6 +453,7 @@ public sealed class BatchTracker : IBatchTracker
                 {
                     progressViewModel.StatusMessage = $"Error: {ex.Message}";
                     progressViewModel.IsError = true;
+                    progressViewModel.IsCompleted = true;
                 });
             }
             finally
