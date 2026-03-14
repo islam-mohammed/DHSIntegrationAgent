@@ -174,50 +174,69 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
             });
 
             // Stage 2: Send Notification (70% -> 100%)
-            await Parallel.ForEachAsync(claimGroups, parallelOptions, async (group, cancellationToken) =>
+            int claimsToNotify = claimAttachmentDetails.Count;
+            int notifiedAttachmentsCount = uploadedCount;
+
+            if (claimsToNotify == 0)
             {
-                var proIdClaim = group.Key;
-
-                if (claimAttachmentDetails.TryGetValue(proIdClaim, out var attachmentInfos))
-                {
-                    var attachmentDtos = new List<AttachmentDto>();
-                    foreach(var info in attachmentInfos)
-                    {
-                         attachmentDtos.Add(new AttachmentDto(
-                            AttachmentType: info.Row.ContentType ?? "application/octet-stream",
-                            FileSizeInByte: info.Row.SizeBytes ?? 0,
-                            OnlineURL: info.OnlineUrl,
-                            Remarks: info.Remarks,
-                            Location: info.Row.LocationPathPlaintext
-                        ));
-                    }
-
-                    // Notify Backend
-                    var request = new UploadAttachmentRequest(proIdClaim, attachmentDtos);
-                    var result = await _attachmentClient.SendAttachmentAsync(request, cancellationToken);
-                    if (!result.Succeeded)
-                    {
-                        _logger.LogWarning("Failed to notify backend about attachments for claim {ProIdClaim}: {Error}", proIdClaim, result.ErrorMessage);
-                    }
-                }
-
-                int notified = Interlocked.Increment(ref notifiedClaimsCount);
-
-                // Report Progress (70% -> 100%)
-                double percentage = 70.0 + ((double)notified / totalClaimsWithAttachments * 30.0);
-                progress.Report(new WorkerProgressReport("StreamC",
-                    $"Sending attachment notifications: {notified} of {totalClaimsWithAttachments}",
+                progress.Report(new WorkerProgressReport("StreamC", "Attachment processing complete. No successful uploads to notify.",
                     BatchId: batchId,
-                    Percentage: percentage,
+                    Percentage: 100,
                     ProcessedCount: uploadedCount,
                     TotalCount: totalAttachments,
                     FailedCount: failedAttachmentsCount));
+                return;
+            }
+
+            await Parallel.ForEachAsync(claimAttachmentDetails, parallelOptions, async (kvp, cancellationToken) =>
+            {
+                var proIdClaim = kvp.Key;
+                var attachmentInfos = kvp.Value;
+
+                var attachmentDtos = new List<AttachmentDto>();
+                foreach(var info in attachmentInfos)
+                {
+                     attachmentDtos.Add(new AttachmentDto(
+                        AttachmentType: info.Row.ContentType ?? "application/octet-stream",
+                        FileSizeInByte: info.Row.SizeBytes ?? 0,
+                        OnlineURL: info.OnlineUrl,
+                        Remarks: info.Remarks,
+                        Location: info.Row.LocationPathPlaintext
+                    ));
+                }
+
+                // Notify Backend
+                var request = new UploadAttachmentRequest(proIdClaim, attachmentDtos);
+                var result = await _attachmentClient.SendAttachmentAsync(request, cancellationToken);
+
+                if (!result.Succeeded)
+                {
+                    Interlocked.Add(ref failedAttachmentsCount, attachmentInfos.Count);
+                    Interlocked.Add(ref notifiedAttachmentsCount, -attachmentInfos.Count);
+                    _logger.LogWarning("Failed to notify backend about attachments for claim {ProIdClaim}: {Error}", proIdClaim, result.ErrorMessage);
+                }
+
+                int notified = Interlocked.Increment(ref notifiedClaimsCount);
+                int currentFailedAttachments = Volatile.Read(ref failedAttachmentsCount);
+                int currentNotifiedAttachments = Volatile.Read(ref notifiedAttachmentsCount);
+
+                // Report Progress (70% -> 100%)
+                double percentage = 70.0 + ((double)notified / claimsToNotify * 30.0);
+
+                // We report attachment counts so the UI denominator (Total Attachments) remains consistent
+                progress.Report(new WorkerProgressReport("StreamC",
+                    $"Sending attachment notifications: {notified} of {claimsToNotify}",
+                    BatchId: batchId,
+                    Percentage: percentage,
+                    ProcessedCount: currentNotifiedAttachments,
+                    TotalCount: totalAttachments,
+                    FailedCount: currentFailedAttachments));
             });
 
             progress.Report(new WorkerProgressReport("StreamC", "Attachment processing complete",
                 BatchId: batchId,
                 Percentage: 100,
-                ProcessedCount: uploadedCount,
+                ProcessedCount: notifiedAttachmentsCount,
                 TotalCount: totalAttachments,
                 FailedCount: failedAttachmentsCount));
         }
