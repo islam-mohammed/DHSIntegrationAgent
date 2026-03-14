@@ -73,6 +73,17 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                 return;
             }
 
+            // Fetch existing attachments for the batch to detect already uploaded ones
+            IReadOnlyList<AttachmentRow> existingAttachments;
+            await using (var uow = await _uowFactory.CreateAsync(ct))
+            {
+                existingAttachments = await uow.Attachments.GetByBatchAsync(batchId, ct);
+            }
+
+            var uploadedAttachments = existingAttachments
+                .Where(a => a.UploadStatus == UploadStatus.Uploaded && !string.IsNullOrWhiteSpace(a.OnlineUrlPlaintext))
+                .ToDictionary(a => a.AttachmentId, a => a);
+
             // Map and Group by ProIdClaim
             var claimGroups = rawAttachments
                 .Select(att => (Att: att, Row: AttachmentMapper.MapToAttachmentRow(batch.ProviderDhsCode, GetProIdClaim(att), att, _clock.UtcNow)))
@@ -80,15 +91,28 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                 .GroupBy(x => x.Row!.ProIdClaim)
                 .ToList();
 
-            int totalAttachments = claimGroups.Sum(g => g.Count());
-            int uploadedCount = 0;
+            int allMappedAttachments = claimGroups.Sum(g => g.Count());
             int totalClaimsWithAttachments = claimGroups.Count;
+
+            // Calculate how many need to actually be uploaded
+            int alreadyUploadedCount = claimGroups.SelectMany(g => g).Count(x => uploadedAttachments.ContainsKey(x.Row!.AttachmentId));
+            int totalAttachmentsToUpload = allMappedAttachments - alreadyUploadedCount;
+
+            int uploadedCount = alreadyUploadedCount;
             int notifiedClaimsCount = 0;
 
-            _logger.LogInformation("Processing {AttachmentCount} attachments for {ClaimCount} claims in batch {BatchId}", totalAttachments, totalClaimsWithAttachments, batchId);
+            if (totalAttachmentsToUpload == 0)
+            {
+                _logger.LogInformation("All {AttachmentCount} attachments for {ClaimCount} claims in batch {BatchId} are already uploaded.", allMappedAttachments, totalClaimsWithAttachments, batchId);
+                // We'll skip reporting the "0 of 0" uploading progress.
+            }
+            else
+            {
+                _logger.LogInformation("Processing {AttachmentCount} remaining attachments for {ClaimCount} claims in batch {BatchId} ({AlreadyUploaded} already uploaded)", totalAttachmentsToUpload, totalClaimsWithAttachments, batchId, alreadyUploadedCount);
+            }
 
             // Stage 1: Upload & Update Payload (0% -> 70%)
-            var claimAttachmentDetails = new ConcurrentDictionary<int, List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>>();
+            var claimAttachmentDetails = new ConcurrentDictionary<int, List<(AttachmentRow Row, string? Remarks, string OnlineUrl, bool IsNew)>>();
             int processedAttachmentsCount = 0;
             int failedAttachmentsCount = 0;
 
@@ -101,11 +125,25 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
             await Parallel.ForEachAsync(claimGroups, parallelOptions, async (group, cancellationToken) =>
             {
                 var proIdClaim = group.Key;
-                var attachmentInfos = new List<(AttachmentRow Row, string? Remarks, string OnlineUrl)>();
+                var attachmentInfos = new List<(AttachmentRow Row, string? Remarks, string OnlineUrl, bool IsNew)>();
 
                 foreach (var (att, initialRow) in group)
                 {
                     var row = initialRow;
+
+                    // Extract remarks
+                    string? remarks = null;
+                    if (att.TryGetPropertyValue("remarks", out var remNode) && remNode != null)
+                    {
+                        remarks = remNode.ToString().Trim('"');
+                    }
+
+                    if (uploadedAttachments.TryGetValue(row!.AttachmentId, out var existingUploadedRow))
+                    {
+                        // Already uploaded, skip uploading and just add to infos
+                        attachmentInfos.Add((existingUploadedRow, remarks, existingUploadedRow.OnlineUrlPlaintext!, false));
+                        continue; // go to next attachment
+                    }
 
                     // Upsert Staged
                     await using (var uow = await _uowFactory.CreateAsync(cancellationToken))
@@ -129,14 +167,7 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                             await uow.CommitAsync(cancellationToken);
                         }
 
-                        // Extract remarks
-                        string? remarks = null;
-                        if (att.TryGetPropertyValue("remarks", out var remNode) && remNode != null)
-                        {
-                            remarks = remNode.ToString().Trim('"');
-                        }
-
-                        attachmentInfos.Add((row!, remarks, onlineUrl));
+                        attachmentInfos.Add((row!, remarks, onlineUrl, true));
                         Interlocked.Increment(ref uploadedCount);
                     }
                     catch (Exception ex)
@@ -153,23 +184,28 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                     {
                         int processed = Interlocked.Increment(ref processedAttachmentsCount);
                         int failed = Volatile.Read(ref failedAttachmentsCount);
-                        int succeeded = Volatile.Read(ref uploadedCount);
-                        // Report Progress (0-70%)
-                        double percentage = (double)processed / totalAttachments * 70.0;
-                        progress.Report(new WorkerProgressReport("StreamC",
-                            $"Uploading attachments: {processed} of {totalAttachments}" + (failed > 0 ? $" ({failed} failed)" : ""),
-                            BatchId: batchId,
-                            Percentage: percentage,
-                            ProcessedCount: succeeded,
-                            TotalCount: totalAttachments,
-                            FailedCount: failed));
+                        int succeeded = Volatile.Read(ref uploadedCount) - alreadyUploadedCount; // Current actual success
+
+                        // Report Progress (0-70%) based ONLY on the items we are actually uploading
+                        if (totalAttachmentsToUpload > 0)
+                        {
+                            double percentage = (double)processed / totalAttachmentsToUpload * 70.0;
+                            progress.Report(new WorkerProgressReport("StreamC",
+                                $"Uploading attachments: {processed} of {totalAttachmentsToUpload}" + (failed > 0 ? $" ({failed} failed)" : ""),
+                                BatchId: batchId,
+                                Percentage: percentage,
+                                ProcessedCount: succeeded,
+                                TotalCount: totalAttachmentsToUpload,
+                                FailedCount: failed));
+                        }
                     }
                 }
 
                 if (attachmentInfos.Count > 0)
                 {
                     claimAttachmentDetails[proIdClaim] = attachmentInfos;
-                    await UpdateClaimPayloadAsync(new ClaimKey(batch.ProviderDhsCode, proIdClaim), attachmentInfos, cancellationToken);
+                    var uploadInfos = attachmentInfos.Select(x => (x.Row, x.Remarks, x.OnlineUrl)).ToList();
+                    await UpdateClaimPayloadAsync(new ClaimKey(batch.ProviderDhsCode, proIdClaim), uploadInfos, cancellationToken);
                 }
             });
 
@@ -183,7 +219,7 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                     BatchId: batchId,
                     Percentage: 100,
                     ProcessedCount: uploadedCount,
-                    TotalCount: totalAttachments,
+                    TotalCount: totalAttachmentsToUpload > 0 ? totalAttachmentsToUpload : allMappedAttachments,
                     FailedCount: failedAttachmentsCount));
                 return;
             }
@@ -211,8 +247,8 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
 
                 if (!result.Succeeded)
                 {
-                    Interlocked.Add(ref failedAttachmentsCount, attachmentInfos.Count);
-                    Interlocked.Add(ref notifiedAttachmentsCount, -attachmentInfos.Count);
+                    Interlocked.Add(ref failedAttachmentsCount, attachmentInfos.Count(x => x.IsNew));
+                    Interlocked.Add(ref notifiedAttachmentsCount, -attachmentInfos.Count(x => x.IsNew));
                     _logger.LogWarning("Failed to notify backend about attachments for claim {ProIdClaim}: {Error}", proIdClaim, result.ErrorMessage);
                 }
 
@@ -223,21 +259,27 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                 // Report Progress (70% -> 100%)
                 double percentage = 70.0 + ((double)notified / claimsToNotify * 30.0);
 
+                int reportedTotalCount = totalAttachmentsToUpload > 0 ? totalAttachmentsToUpload : allMappedAttachments;
+                // If we are showing remaining attachments, we should also calculate currentNotifiedAttachments correctly.
+                // We'll show the actual success count of *newly* processed items.
+                int reportedProcessedCount = totalAttachmentsToUpload > 0 ? currentNotifiedAttachments - alreadyUploadedCount : currentNotifiedAttachments;
+                if (reportedProcessedCount < 0) reportedProcessedCount = 0;
+
                 // We report attachment counts so the UI denominator (Total Attachments) remains consistent
                 progress.Report(new WorkerProgressReport("StreamC",
                     $"Sending attachment notifications: {notified} of {claimsToNotify}",
                     BatchId: batchId,
                     Percentage: percentage,
-                    ProcessedCount: currentNotifiedAttachments,
-                    TotalCount: totalAttachments,
+                    ProcessedCount: reportedProcessedCount,
+                    TotalCount: reportedTotalCount,
                     FailedCount: currentFailedAttachments));
             });
 
             progress.Report(new WorkerProgressReport("StreamC", "Attachment processing complete",
                 BatchId: batchId,
                 Percentage: 100,
-                ProcessedCount: notifiedAttachmentsCount,
-                TotalCount: totalAttachments,
+                ProcessedCount: totalAttachmentsToUpload > 0 ? notifiedAttachmentsCount - alreadyUploadedCount : notifiedAttachmentsCount,
+                TotalCount: totalAttachmentsToUpload > 0 ? totalAttachmentsToUpload : allMappedAttachments,
                 FailedCount: failedAttachmentsCount));
         }
         catch (Exception ex)
