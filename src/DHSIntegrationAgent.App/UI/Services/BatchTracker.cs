@@ -64,20 +64,22 @@ public sealed class BatchTracker : IBatchTracker
                 // UI Update
                 System.Windows.Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    if (progressViewModel.IsCompleted) return;
-                    if (report.WorkerId == "StreamB") progressViewModel.IsSending = true;
-                    if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
-                    if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
-                    if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
-                    if (report.Message != null) progressViewModel.StatusMessage = report.Message;
-                    if (report.IsError) progressViewModel.IsError = true;
-
-                    if (report.Percentage >= 100)
+                    if (!progressViewModel.IsCompleted)
                     {
-                        progressViewModel.IsCompleted = true;
+                        if (report.WorkerId == "StreamB") progressViewModel.IsSending = true;
+                        if (report.Percentage.HasValue) progressViewModel.PercentageOverride = report.Percentage.Value;
+                        if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
+                        if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
+                        if (report.Message != null) progressViewModel.StatusMessage = report.Message;
+                        if (report.IsError) progressViewModel.IsError = true;
+
+                        if (report.Percentage >= 100)
+                        {
+                            progressViewModel.IsCompleted = true;
+                        }
                     }
 
-                    // Capture state safely on UI thread
+                    // Capture state safely on UI thread (always captures, preventing zeros on completion)
                     processed = progressViewModel.ProcessedClaims;
                     total = progressViewModel.TotalClaims;
                     percentage = (int)(progressViewModel.PercentageOverride ?? 0);
