@@ -80,7 +80,13 @@ public sealed class BatchProgressViewModel : ViewModelBase
     public string TotalLabel
     {
         get => _totalLabel;
-        set => SetProperty(ref _totalLabel, value);
+        set
+        {
+            if (SetProperty(ref _totalLabel, value))
+            {
+                OnPropertyChanged(nameof(ProcessedLabel));
+            }
+        }
     }
 
     public bool HasFailedClaims
@@ -125,7 +131,14 @@ public sealed class BatchProgressViewModel : ViewModelBase
         }
     }
 
-    public string ProcessedLabel => IsSending ? "Sent" : "Fetched";
+    public string ProcessedLabel
+    {
+        get
+        {
+            if (TotalLabel == "Total Attachments") return "Uploaded";
+            return IsSending ? "Sent" : "Fetched";
+        }
+    }
 
     public int RemainingClaims => Math.Max(0, TotalClaims - ProcessedClaims - FailedClaims);
 
