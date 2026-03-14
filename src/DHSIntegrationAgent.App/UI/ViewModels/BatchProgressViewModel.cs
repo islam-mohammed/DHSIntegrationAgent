@@ -12,6 +12,9 @@ public sealed class BatchProgressViewModel : ViewModelBase
     private string _statusMessage = "Initializing...";
     private int _totalClaims;
     private int _processedClaims;
+    private int _failedClaims;
+    private string _totalLabel = "Total Claims";
+    private bool _hasFailedClaims;
     private double? _percentageOverride;
     private bool _isCompleted;
     private bool _isError;
@@ -61,6 +64,31 @@ public sealed class BatchProgressViewModel : ViewModelBase
         }
     }
 
+    public int FailedClaims
+    {
+        get => _failedClaims;
+        set
+        {
+            if (SetProperty(ref _failedClaims, value))
+            {
+                OnPropertyChanged(nameof(RemainingClaims));
+                OnPropertyChanged(nameof(ProgressPercentage));
+            }
+        }
+    }
+
+    public string TotalLabel
+    {
+        get => _totalLabel;
+        set => SetProperty(ref _totalLabel, value);
+    }
+
+    public bool HasFailedClaims
+    {
+        get => _hasFailedClaims;
+        set => SetProperty(ref _hasFailedClaims, value);
+    }
+
     public double? PercentageOverride
     {
         get => _percentageOverride;
@@ -99,7 +127,7 @@ public sealed class BatchProgressViewModel : ViewModelBase
 
     public string ProcessedLabel => IsSending ? "Sent" : "Fetched";
 
-    public int RemainingClaims => Math.Max(0, TotalClaims - ProcessedClaims);
+    public int RemainingClaims => Math.Max(0, TotalClaims - ProcessedClaims - FailedClaims);
 
     public double ProgressPercentage
     {
@@ -108,7 +136,7 @@ public sealed class BatchProgressViewModel : ViewModelBase
             if (PercentageOverride.HasValue) return PercentageOverride.Value;
 
             return TotalClaims > 0
-                ? Math.Min(100.0, (double)ProcessedClaims / TotalClaims * 100.0)
+                ? Math.Min(100.0, (double)(ProcessedClaims + FailedClaims) / TotalClaims * 100.0)
                 : 0;
         }
     }

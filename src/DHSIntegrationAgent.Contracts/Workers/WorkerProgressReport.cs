@@ -12,4 +12,5 @@ public record WorkerProgressReport(
     int? ProcessedCount = null,
     int? TotalCount = null,
     string? BcrId = null,
-    string? FinancialMessage = null);
+    string? FinancialMessage = null,
+    int? FailedCount = null);

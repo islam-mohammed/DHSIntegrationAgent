@@ -159,8 +159,9 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                             $"Uploading attachments: {processed} of {totalAttachments}" + (failed > 0 ? $" ({failed} failed)" : ""),
                             BatchId: batchId,
                             Percentage: percentage,
-                            ProcessedCount: processed,
-                            TotalCount: totalAttachments));
+                            ProcessedCount: processed - failed,
+                            TotalCount: totalAttachments,
+                            FailedCount: failed));
                     }
                 }
 
@@ -207,11 +208,17 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                     $"Sending attachment notifications: {notified} of {totalClaimsWithAttachments}",
                     BatchId: batchId,
                     Percentage: percentage,
-                    ProcessedCount: notified,
-                    TotalCount: totalClaimsWithAttachments));
+                    ProcessedCount: uploadedCount,
+                    TotalCount: totalAttachments,
+                    FailedCount: failedAttachmentsCount));
             });
 
-            progress.Report(new WorkerProgressReport("StreamC", "Attachment processing complete", BatchId: batchId, Percentage: 100));
+            progress.Report(new WorkerProgressReport("StreamC", "Attachment processing complete",
+                BatchId: batchId,
+                Percentage: 100,
+                ProcessedCount: uploadedCount,
+                TotalCount: totalAttachments,
+                FailedCount: failedAttachmentsCount));
         }
         catch (Exception ex)
         {

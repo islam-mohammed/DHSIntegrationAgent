@@ -184,6 +184,7 @@ public sealed class BatchTracker : IBatchTracker
                 BatchNumber = batch.BcrId ?? $"Batch {batch.BatchId}",
                 StatusMessage = "Initializing Attachment Upload...",
                 TotalClaims = 0, // Will be updated during process
+                TotalLabel = "Total Attachments"
             };
 
             // Ensure we add to collection on UI thread
@@ -204,6 +205,11 @@ public sealed class BatchTracker : IBatchTracker
                             if (report.ProcessedCount.HasValue) progressViewModel.ProcessedClaims = report.ProcessedCount.Value;
                             if (report.TotalCount.HasValue) progressViewModel.TotalClaims = report.TotalCount.Value;
                             if (report.Message != null) progressViewModel.StatusMessage = report.Message;
+                            if (report.FailedCount.HasValue)
+                            {
+                                progressViewModel.FailedClaims = report.FailedCount.Value;
+                                progressViewModel.HasFailedClaims = report.FailedCount.Value > 0;
+                            }
                         });
                     });
 
