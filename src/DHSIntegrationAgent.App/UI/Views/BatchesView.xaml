@@ -382,7 +382,7 @@
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="Total Claims" FontSize="12"/>
+                                                <TextBlock Text="{Binding TotalLabel}" FontSize="12"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding TotalClaims}" FontWeight="SemiBold"/>
                                             </Grid>
 
@@ -393,6 +393,25 @@
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="{Binding ProcessedLabel, Mode=OneWay}" FontSize="12"/>
                                                 <TextBlock Grid.Column="1" Text="{Binding ProcessedClaims}" FontWeight="SemiBold" Foreground="#FF10B981"/>
+                                            </Grid>
+
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding HasFailedClaims}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="Failed" FontSize="12"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding FailedClaims}" FontWeight="SemiBold" Foreground="#FFEF4444"/>
                                             </Grid>
 
                                             <Grid Margin="0,0,0,8">

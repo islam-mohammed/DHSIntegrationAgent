@@ -153,14 +153,16 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                     {
                         int processed = Interlocked.Increment(ref processedAttachmentsCount);
                         int failed = Volatile.Read(ref failedAttachmentsCount);
+                        int succeeded = Volatile.Read(ref uploadedCount);
                         // Report Progress (0-70%)
                         double percentage = (double)processed / totalAttachments * 70.0;
                         progress.Report(new WorkerProgressReport("StreamC",
                             $"Uploading attachments: {processed} of {totalAttachments}" + (failed > 0 ? $" ({failed} failed)" : ""),
                             BatchId: batchId,
                             Percentage: percentage,
-                            ProcessedCount: processed,
-                            TotalCount: totalAttachments));
+                            ProcessedCount: succeeded,
+                            TotalCount: totalAttachments,
+                            FailedCount: failed));
                     }
                 }
 
@@ -207,11 +209,17 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                     $"Sending attachment notifications: {notified} of {totalClaimsWithAttachments}",
                     BatchId: batchId,
                     Percentage: percentage,
-                    ProcessedCount: notified,
-                    TotalCount: totalClaimsWithAttachments));
+                    ProcessedCount: uploadedCount,
+                    TotalCount: totalAttachments,
+                    FailedCount: failedAttachmentsCount));
             });
 
-            progress.Report(new WorkerProgressReport("StreamC", "Attachment processing complete", BatchId: batchId, Percentage: 100));
+            progress.Report(new WorkerProgressReport("StreamC", "Attachment processing complete",
+                BatchId: batchId,
+                Percentage: 100,
+                ProcessedCount: uploadedCount,
+                TotalCount: totalAttachments,
+                FailedCount: failedAttachmentsCount));
         }
         catch (Exception ex)
         {
