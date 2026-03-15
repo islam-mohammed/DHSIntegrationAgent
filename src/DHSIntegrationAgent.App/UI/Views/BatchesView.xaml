@@ -276,6 +276,7 @@
                                     <DataTemplate>
                                         <Button Content="⋮"
                                                 Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                Visibility="{Binding HasActions, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                 FontSize="20"
                                                 FontWeight="Bold"
                                                 Foreground="{StaticResource BrushPrimary}"

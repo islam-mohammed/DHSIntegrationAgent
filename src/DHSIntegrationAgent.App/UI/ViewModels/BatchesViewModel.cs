@@ -417,8 +417,8 @@ public sealed class BatchesViewModel : ViewModelBase
                 return;
             }
 
-            // Remove from UI
-            Batches.Remove(batch);
+            // Update UI status to Deleted instead of removing
+            batch.BatchStatus = "Deleted";
 
             MessageBox.Show("Batch deleted successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -955,6 +955,7 @@ public sealed class BatchRow : ViewModelBase
                     OnPropertyChanged(nameof(Status));
                     OnPropertyChanged(nameof(CanUploadAttachments));
                     OnPropertyChanged(nameof(CanDelete));
+                    OnPropertyChanged(nameof(HasActions));
                 }
             }
         }
@@ -970,6 +971,7 @@ public sealed class BatchRow : ViewModelBase
                 if (SetProperty(ref _resumeBatch, value))
                 {
                     OnPropertyChanged(nameof(CanResume));
+                    OnPropertyChanged(nameof(HasActions));
                 }
             }
         }
@@ -977,8 +979,30 @@ public sealed class BatchRow : ViewModelBase
         public bool CanUploadAttachments => BatchStatus == "Completed";
         public bool CanDelete => BatchStatus == "Completed";
         public bool HasFailedClaims { get => _hasFailedClaims; set => SetProperty(ref _hasFailedClaims, value); }
-        public bool HasAttachments { get => _hasAttachments; set => SetProperty(ref _hasAttachments, value); }
-        public bool HasFailedDispatches { get => _hasFailedDispatches; set => SetProperty(ref _hasFailedDispatches, value); }
+        public bool HasAttachments
+        {
+            get => _hasAttachments;
+            set
+            {
+                if (SetProperty(ref _hasAttachments, value))
+                {
+                    OnPropertyChanged(nameof(HasActions));
+                }
+            }
+        }
+        public bool HasFailedDispatches
+        {
+            get => _hasFailedDispatches;
+            set
+            {
+                if (SetProperty(ref _hasFailedDispatches, value))
+                {
+                    OnPropertyChanged(nameof(HasActions));
+                }
+            }
+        }
+
+        public bool HasActions => HasAttachments || CanResume || CanUploadAttachments || HasFailedDispatches || CanDelete;
     }
 
     public sealed class DispatchRow
