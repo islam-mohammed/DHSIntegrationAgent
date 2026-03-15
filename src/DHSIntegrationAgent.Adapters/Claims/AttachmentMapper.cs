@@ -40,7 +40,11 @@ public static class AttachmentMapper
         if (attObj.TryGetPropertyValue("FileName", out var fnNode) && fnNode != null) fileName = fnNode.ToString().Trim('"');
 
         string? contentType = null;
-        if (attObj.TryGetPropertyValue("AttachmentType", out var typeNode) && typeNode != null) contentType = typeNode.ToString().Trim('"');
+        if (attObj.TryGetPropertyValue("ContentType", out var typeNode) && typeNode != null) contentType = typeNode.ToString().Trim('"');
+
+        string? attachmentType = null;
+        if (attObj.TryGetPropertyValue("AttachmentType", out var aTypeNode) && aTypeNode != null) attachmentType = aTypeNode.ToString().Trim('"');
+
 
         long? size = null;
         if (attObj.TryGetPropertyValue("FileSizeInByte", out var sizeNode) && sizeNode != null && long.TryParse(sizeNode.ToString(), out var s)) size = s;
@@ -73,6 +77,7 @@ public static class AttachmentMapper
             AttachBitBase64Plaintext: attachBit,
             FileName: fileName,
             ContentType: contentType,
+            AttachemntType: attachmentType,
             SizeBytes: size,
             Sha256: null,
             OnlineUrlPlaintext: null,

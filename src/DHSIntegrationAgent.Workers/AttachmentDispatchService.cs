@@ -233,12 +233,12 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                 foreach(var info in attachmentInfos)
                 {
                      attachmentDtos.Add(new AttachmentDto(
-                        AttachmentType: info.Row.ContentType ?? "application/octet-stream",
+                        AttachmentType: info.Row.AttachemntType ?? "application/octet-stream",
                         FileSizeInByte: info.Row.SizeBytes ?? 0,
                         OnlineURL: info.OnlineUrl,
                         Remarks: info.Remarks,
                         Location: info.Row.LocationPathPlaintext,
-                        ContentType: info.Row.ContentType
+                        ContentType: info.Row.ContentType ?? "pdf"
                     ));
                 }
 

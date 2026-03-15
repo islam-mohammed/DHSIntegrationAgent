@@ -3,7 +3,7 @@ using DHSIntegrationAgent.Domain.WorkStates;
 namespace DHSIntegrationAgent.Contracts.Persistence;
 
 public sealed record AttachmentRow(
-     string AttachmentId,
+    string AttachmentId,
     string ProviderDhsCode,
     int ProIdClaim,
     AttachmentSourceType SourceType,
@@ -12,6 +12,7 @@ public sealed record AttachmentRow(
     byte[]? AttachBitBase64Plaintext,         // repo encrypts into AttachBitBase64Encrypted
     string? FileName,
     string? ContentType,
+    string? AttachemntType,
     long? SizeBytes,
     string? Sha256,
     string? OnlineUrlPlaintext,               // repo encrypts into OnlineUrlEncrypted
