@@ -238,7 +238,7 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                         OnlineURL: info.OnlineUrl,
                         Remarks: info.Remarks,
                         Location: info.Row.LocationPathPlaintext,
-                        ContentType: info.Row.ContentType
+                        ContentType: info.Row.ContentType ?? "application/octet-stream"
                     ));
                 }
 
