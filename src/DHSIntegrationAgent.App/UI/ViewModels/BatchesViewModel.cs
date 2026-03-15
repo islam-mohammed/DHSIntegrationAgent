@@ -954,6 +954,7 @@ public sealed class BatchRow : ViewModelBase
                 {
                     OnPropertyChanged(nameof(Status));
                     OnPropertyChanged(nameof(CanUploadAttachments));
+                    OnPropertyChanged(nameof(CanDelete));
                 }
             }
         }
@@ -974,6 +975,7 @@ public sealed class BatchRow : ViewModelBase
         }
         public bool CanResume => ResumeBatch;
         public bool CanUploadAttachments => BatchStatus == "Completed";
+        public bool CanDelete => BatchStatus == "Completed";
         public bool HasFailedClaims { get => _hasFailedClaims; set => SetProperty(ref _hasFailedClaims, value); }
         public bool HasAttachments { get => _hasAttachments; set => SetProperty(ref _hasAttachments, value); }
         public bool HasFailedDispatches { get => _hasFailedDispatches; set => SetProperty(ref _hasFailedDispatches, value); }
