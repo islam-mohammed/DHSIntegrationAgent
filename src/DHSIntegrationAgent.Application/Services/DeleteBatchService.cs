@@ -48,7 +48,13 @@ public sealed class DeleteBatchService : IDeleteBatchService
             if (localBatchId.HasValue)
             {
                 await using var uow = await _unitOfWorkFactory.CreateAsync(ct);
-                await uow.Batches.DeleteAsync(localBatchId.Value, ct);
+                await uow.Batches.UpdateStatusAsync(
+                    localBatchId.Value,
+                    DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Deleted,
+                    null,
+                    null,
+                    DateTimeOffset.UtcNow,
+                    ct);
                 await uow.CommitAsync(ct);
             }
 

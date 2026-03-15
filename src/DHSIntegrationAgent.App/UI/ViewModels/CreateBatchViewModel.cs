@@ -159,6 +159,11 @@ public sealed class CreateBatchViewModel : ViewModelBase
                                 return;
                             }
                         }
+                        else if (status == BatchStatus.Deleted)
+                        {
+                            batchToDelete = existingBatch;
+                            shouldReplace = true;
+                        }
                         else
                         {
                             MessageBox.Show("An in-progress batch already exists for this Payer and Period.", "Cannot Create Batch", MessageBoxButton.OK, MessageBoxImage.Error);

@@ -9,5 +9,6 @@ public enum BatchStatus
     HasResume = 4,
     Completed = 5,
     Failed = 6,
-    Fetching = 7
+    Fetching = 7,
+    Deleted = 8
 }
