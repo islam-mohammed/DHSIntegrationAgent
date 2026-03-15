@@ -54,7 +54,7 @@ public class DeleteBatchServiceTests
 
         // Ensure no API or DB calls were made
         _batchClientMock.Verify(c => c.DeleteBatchAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
-        _batchRepoMock.Verify(r => r.DeleteAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+        _batchRepoMock.Verify(r => r.UpdateStatusAsync(It.IsAny<long>(), It.IsAny<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(), It.IsAny<bool?>(), It.IsAny<string?>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Never);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class DeleteBatchServiceTests
         result.ErrorMessage.Should().BeNull();
 
         _batchClientMock.Verify(c => c.DeleteBatchAsync(456, It.IsAny<CancellationToken>()), Times.Once);
-        _batchRepoMock.Verify(r => r.DeleteAsync(localBatchId, It.IsAny<CancellationToken>()), Times.Once);
+        _batchRepoMock.Verify(r => r.UpdateStatusAsync(localBatchId, DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Deleted, null, null, It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>(), null), Times.Once);
         _uowMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
 
         // Ensure registry tracking logic ran
@@ -101,7 +101,7 @@ public class DeleteBatchServiceTests
         result.ErrorMessage.Should().Contain("Server Error");
 
         _batchClientMock.Verify(c => c.DeleteBatchAsync(456, It.IsAny<CancellationToken>()), Times.Once);
-        _batchRepoMock.Verify(r => r.DeleteAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+        _batchRepoMock.Verify(r => r.UpdateStatusAsync(It.IsAny<long>(), It.IsAny<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(), It.IsAny<bool?>(), It.IsAny<string?>(), It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Never);
         _uowMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -121,7 +121,7 @@ public class DeleteBatchServiceTests
         result.ErrorMessage.Should().BeNull();
 
         _batchClientMock.Verify(c => c.DeleteBatchAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
-        _batchRepoMock.Verify(r => r.DeleteAsync(localBatchId, It.IsAny<CancellationToken>()), Times.Once);
+        _batchRepoMock.Verify(r => r.UpdateStatusAsync(localBatchId, DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Deleted, null, null, It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>(), null), Times.Once);
         _uowMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }

@@ -166,7 +166,8 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
                    ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
             FROM Batch
-            WHERE EXISTS (
+            WHERE BatchStatus != $deleted
+              AND EXISTS (
                 SELECT 1 FROM Claim c
                 WHERE c.BatchId = Batch.BatchId
                   AND c.EnqueueStatus = $failed
@@ -177,6 +178,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             """);
 
         SqliteSqlBuilder.AddParam(cmd, "$failed", (int)EnqueueStatus.Failed);
+        SqliteSqlBuilder.AddParam(cmd, "$deleted", (int)BatchStatus.Deleted);
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
         SqliteSqlBuilder.AddParam(cmd, "$maxAttempt", maxAttemptCount);
 
