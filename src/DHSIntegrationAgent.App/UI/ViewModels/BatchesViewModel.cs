@@ -18,6 +18,7 @@ public sealed class BatchesViewModel : ViewModelBase
     private readonly IAttachmentDispatchService _attachmentDispatchService;
     private readonly INavigationService _navigation;
     private readonly IWorkerEngine _workerEngine;
+    private readonly IDeleteBatchService _deleteBatchService;
 
     public ObservableCollection<BatchRow> Batches { get; } = new();
     public object ActiveBatches => _batchTracker.ActiveBatches;
@@ -112,6 +113,7 @@ public sealed class BatchesViewModel : ViewModelBase
     public AsyncRelayCommand SearchCommand { get; }
     public AsyncRelayCommand UploadAttachmentsCommand { get; }
     public AsyncRelayCommand<BatchRow> ResumeSelectedBatchCommand { get; }
+    public AsyncRelayCommand<BatchRow> DeleteSelectedBatchCommand { get; }
     public RelayCommand<BatchRow> ShowAttachmentsCommand { get; }
     public RelayCommand<BatchRow> ShowDispatchHistoryCommand { get; }
 
@@ -121,7 +123,8 @@ public sealed class BatchesViewModel : ViewModelBase
         IBatchTracker batchTracker,
         IAttachmentDispatchService attachmentDispatchService,
         INavigationService navigation,
-        IWorkerEngine workerEngine)
+        IWorkerEngine workerEngine,
+        IDeleteBatchService deleteBatchService)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
@@ -129,6 +132,7 @@ public sealed class BatchesViewModel : ViewModelBase
         _attachmentDispatchService = attachmentDispatchService ?? throw new ArgumentNullException(nameof(attachmentDispatchService));
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
+        _deleteBatchService = deleteBatchService ?? throw new ArgumentNullException(nameof(deleteBatchService));
         ShowAttachmentsCommand = new RelayCommand<BatchRow>(OnShowAttachments);
         ShowDispatchHistoryCommand = new RelayCommand<BatchRow>(OnShowDispatchHistory);
 
@@ -138,6 +142,7 @@ public sealed class BatchesViewModel : ViewModelBase
         SearchCommand = new AsyncRelayCommand(LoadBatchesAsync);
         UploadAttachmentsCommand = new AsyncRelayCommand(OnUploadAttachmentsAsync);
         ResumeSelectedBatchCommand = new AsyncRelayCommand<BatchRow>(OnResumeSelectedBatchAsync);
+        DeleteSelectedBatchCommand = new AsyncRelayCommand<BatchRow>(OnDeleteSelectedBatchAsync);
 
         // Initialize with default "All" option synchronously to prevent type name display in ComboBox
         var allPayer = new PayerItem { PayerId = null, PayerName = "All" };
@@ -386,6 +391,41 @@ public sealed class BatchesViewModel : ViewModelBase
                 });
             }
         });
+    }
+
+    private async Task OnDeleteSelectedBatchAsync(BatchRow? batch)
+    {
+        if (batch == null) return;
+
+        var message = $"Are you sure you want to delete batch {batch.BcrId} (Company: {batch.CompanyCode})?\nThis will remove it from the server and local storage permanently.";
+        if (batch.BcrId <= 0 && batch.LocalBatchId.HasValue)
+        {
+            message = $"Are you sure you want to delete this pending local batch (Company: {batch.CompanyCode})?\nThis will remove it from local storage permanently.";
+        }
+
+        var result = MessageBox.Show(message, "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes) return;
+
+        IsLoading = true;
+        try
+        {
+            var bcrIdStr = batch.BcrId > 0 ? batch.BcrId.ToString() : null;
+            var delResult = await _deleteBatchService.DeleteBatchAsync(batch.LocalBatchId, bcrIdStr, default);
+            if (!delResult.Succeeded)
+            {
+                MessageBox.Show(delResult.ErrorMessage ?? "Failed to delete batch.", "Delete Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            // Remove from UI
+            Batches.Remove(batch);
+
+            MessageBox.Show("Batch deleted successfully.", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private async Task OnResumeSelectedBatchAsync(BatchRow? batch)

@@ -17,6 +17,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddSingleton<IBatchRegistry, BatchRegistry>();
 
         services.AddTransient<IDashboardService, DHSIntegrationAgent.Application.Dashboard.DashboardService>();
+        services.AddScoped<IDeleteBatchService, DeleteBatchService>();
 
         // Provider Context
         services.AddSingleton<IProviderContext, ProviderContext>();
