@@ -126,7 +126,7 @@ public sealed class BatchClient : IBatchClient
 
             var body = await response.Content.ReadAsStringAsync(ct);
 
-            if (!response.IsSuccessStatusCode)
+            if (response.StatusCode != HttpStatusCode.OK)
             {
                 return new DeleteBatchResult(
                     Succeeded: false,
