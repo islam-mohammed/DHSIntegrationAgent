@@ -157,6 +157,6 @@ public sealed class BatchClient_Wbs2_4_Tests
         Assert.False(result.Succeeded);
         Assert.Equal(204, result.StatusCode);
         Assert.False(result.Data);
-        Assert.Contains("Batch not found or deletion failed on server", result.Message);
+        Assert.Contains("DeleteBatch failed with status 204", result.Message);
     }
 }

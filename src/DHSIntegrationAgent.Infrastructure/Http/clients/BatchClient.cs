@@ -126,18 +126,7 @@ public sealed class BatchClient : IBatchClient
 
             var body = await response.Content.ReadAsStringAsync(ct);
 
-            if (response.StatusCode == HttpStatusCode.NoContent)
-            {
-                return new DeleteBatchResult(
-                    Succeeded: false,
-                    StatusCode: (int)response.StatusCode,
-                    Message: "DeleteBatch failed: Batch not found or deletion failed on server (204 No Content)",
-                    Errors: new[] { "HTTP 204 No Content" },
-                    Data: false
-                );
-            }
-
-            if (!response.IsSuccessStatusCode)
+            if (response.StatusCode != HttpStatusCode.OK)
             {
                 return new DeleteBatchResult(
                     Succeeded: false,
