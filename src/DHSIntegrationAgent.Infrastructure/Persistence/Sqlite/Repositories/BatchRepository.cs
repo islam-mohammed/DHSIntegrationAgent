@@ -9,6 +9,28 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
 {
     public BatchRepository(DbConnection conn, DbTransaction tx) : base(conn, tx) { }
 
+    public async Task<IReadOnlyList<BatchRow>> GetBatchesByKeyAsync(BatchKey key, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
+            FROM Batch
+            WHERE ProviderDhsCode = $p
+              AND CompanyCode = $c
+              AND MonthKey = $m
+              AND (StartDateUtc = $s OR (StartDateUtc IS NULL AND $s IS NULL))
+              AND (EndDateUtc = $e OR (EndDateUtc IS NULL AND $e IS NULL));
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$p", key.ProviderDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$c", key.CompanyCode);
+        SqliteSqlBuilder.AddParam(cmd, "$m", key.MonthKey);
+        SqliteSqlBuilder.AddParam(cmd, "$s", SqliteUtc.ToIso(key.StartDateUtc));
+        SqliteSqlBuilder.AddParam(cmd, "$e", SqliteUtc.ToIso(key.EndDateUtc));
+
+        return await ListInternalAsync(cmd, cancellationToken);
+    }
+
     public async Task<long?> TryGetBatchIdAsync(BatchKey key, CancellationToken cancellationToken)
     {
         await using var cmd = CreateCommand(

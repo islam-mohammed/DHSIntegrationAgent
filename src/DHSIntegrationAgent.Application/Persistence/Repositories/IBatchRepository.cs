@@ -7,6 +7,8 @@ public interface IBatchRepository
 {
     Task<long?> TryGetBatchIdAsync(BatchKey key, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<BatchRow>> GetBatchesByKeyAsync(BatchKey key, CancellationToken cancellationToken);
+
     Task<BatchRow?> GetByIdAsync(long batchId, CancellationToken cancellationToken);
 
     Task<BatchRow?> GetByBcrIdAsync(string bcrId, CancellationToken cancellationToken);
