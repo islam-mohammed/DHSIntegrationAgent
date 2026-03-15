@@ -247,8 +247,9 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
 
                 if (!result.Succeeded)
                 {
-                    Interlocked.Add(ref failedAttachmentsCount, attachmentInfos.Count(x => x.IsNew));
-                    Interlocked.Add(ref notifiedAttachmentsCount, -attachmentInfos.Count(x => x.IsNew));
+                    int affectedCount = totalAttachmentsToUpload > 0 ? attachmentInfos.Count(x => x.IsNew) : attachmentInfos.Count;
+                    Interlocked.Add(ref failedAttachmentsCount, affectedCount);
+                    Interlocked.Add(ref notifiedAttachmentsCount, -affectedCount);
                     _logger.LogWarning("Failed to notify backend about attachments for claim {ProIdClaim}: {Error}", proIdClaim, result.ErrorMessage);
                 }
 
