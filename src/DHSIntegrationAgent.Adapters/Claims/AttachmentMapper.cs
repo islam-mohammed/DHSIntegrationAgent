@@ -12,7 +12,14 @@ public static class AttachmentMapper
         if (attObj.TryGetPropertyValue("AttachmentID", out var idNode) && idNode != null) attId = idNode.ToString();
         else if (attObj.TryGetPropertyValue("attachmentID", out idNode) && idNode != null) attId = idNode.ToString();
 
-        if (string.IsNullOrWhiteSpace(attId)) attId = Guid.NewGuid().ToString();
+        if (string.IsNullOrWhiteSpace(attId))
+        {
+            // Use deterministic hash based on the entire JSON payload for stability
+            var payloadString = attObj.ToJsonString();
+            var payloadBytes = System.Text.Encoding.UTF8.GetBytes(payloadString);
+            using var md5 = System.Security.Cryptography.MD5.Create();
+            attId = Convert.ToHexString(md5.ComputeHash(payloadBytes)).ToLowerInvariant();
+        }
 
         var compositeId = $"{providerDhsCode}_{proIdClaim}_{attId}";
 
