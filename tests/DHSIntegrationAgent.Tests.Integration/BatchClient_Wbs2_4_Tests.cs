@@ -135,4 +135,28 @@ public sealed class BatchClient_Wbs2_4_Tests
         Assert.Equal(500, result.StatusCode);
         Assert.Equal("Server error", result.ErrorMessage);
     }
+
+    [Fact]
+    public async Task DeleteBatchAsync_WhenApiReturns204NoContent_TreatsAsFailure()
+    {
+        var handler = new CapturingHttpMessageHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.NoContent));
+
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://example.invalid/") };
+        var factory = new NamedClientFactory(httpClient);
+
+        var opts = Options.Create(new ApiOptions
+        {
+            BaseUrl = "https://example.invalid/"
+        });
+
+        var sut = new BatchClient(factory, opts);
+
+        var result = await sut.DeleteBatchAsync(123, CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(204, result.StatusCode);
+        Assert.False(result.Data);
+        Assert.Contains("Batch not found or deletion failed on server", result.Message);
+    }
 }
