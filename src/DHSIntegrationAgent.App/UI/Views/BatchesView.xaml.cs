@@ -26,6 +26,16 @@ namespace DHSIntegrationAgent.App.UI.Views
             Loaded += BatchesView_Loaded;
         }
 
+        private void ActionButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.ContextMenu != null)
+            {
+                button.ContextMenu.DataContext = button.DataContext;
+                button.ContextMenu.PlacementTarget = button;
+                button.ContextMenu.IsOpen = true;
+            }
+        }
+
         private async void BatchesView_Loaded(object sender, RoutedEventArgs e)
         {
             if (DataContext is BatchesViewModel viewModel)
