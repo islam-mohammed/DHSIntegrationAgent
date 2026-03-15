@@ -237,7 +237,8 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                         FileSizeInByte: info.Row.SizeBytes ?? 0,
                         OnlineURL: info.OnlineUrl,
                         Remarks: info.Remarks,
-                        Location: info.Row.LocationPathPlaintext
+                        Location: info.Row.LocationPathPlaintext,
+                        ContentType: info.Row.ContentType
                     ));
                 }
 

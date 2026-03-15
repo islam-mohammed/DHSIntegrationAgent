@@ -18,4 +18,5 @@ public sealed record AttachmentDto(
     [property: JsonPropertyName("fileSizeInByte")] long FileSizeInByte,
     [property: JsonPropertyName("onlineURL")] string OnlineURL,
     [property: JsonPropertyName("remarks")] string? Remarks,
-    [property: JsonPropertyName("location")] string? Location);
+    [property: JsonPropertyName("location")] string? Location,
+    [property: JsonPropertyName("contentType")] string? ContentType);
