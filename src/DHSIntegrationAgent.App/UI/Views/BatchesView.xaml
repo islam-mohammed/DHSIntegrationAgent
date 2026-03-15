@@ -290,6 +290,17 @@
                                                                          Height="16"
                                                                          Foreground="#2E7D32"/>
                                             </Button>
+                                            <Button ToolTip="Delete Batch"
+                                                    Cursor="Hand"
+                                                    Style="{StaticResource GreenActionBtn}"
+                                                    Command="{Binding DataContext.DeleteSelectedBatchCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}"
+                                                    Margin="0,0,5,0">
+                                                <materialDesign:PackIcon Kind="DeleteOutline"
+                                                                         Width="16"
+                                                                         Height="16"
+                                                                         Foreground="#D32F2F"/>
+                                            </Button>
                                             <Button ToolTip="Upload Attachments"
                                                     Cursor="Hand"
                                                     Style="{StaticResource GreenActionBtn}"
