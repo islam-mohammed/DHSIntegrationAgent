@@ -706,6 +706,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         if (localBatches.Count > 0)
                         {
                             var updatedLocalBatches = new List<DHSIntegrationAgent.Contracts.Persistence.BatchRow>();
+                            bool hasAnyUpdates = false;
 
                             foreach (var lb in localBatches)
                             {
@@ -740,6 +741,7 @@ public sealed class BatchesViewModel : ViewModelBase
                                             DateTimeOffset.UtcNow,
                                             default
                                         );
+                                        hasAnyUpdates = true;
 
                                         updatedLocalBatches.Add(lb with { BatchStatus = targetStatus, HasResume = apiHasResume });
                                     }
@@ -755,6 +757,11 @@ public sealed class BatchesViewModel : ViewModelBase
                             }
 
                             localBatches = updatedLocalBatches;
+
+                            if (hasAnyUpdates)
+                            {
+                                await uow.CommitAsync(default);
+                            }
 
                             var batchIds = localBatches.Select(b => b.BatchId).ToList();
                             var countsMap = await uow.Claims.GetBatchCountsForBatchesAsync(batchIds, default);
