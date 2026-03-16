@@ -212,6 +212,23 @@ public sealed class BatchClient : IBatchClient
             using var response = await client.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, ct);
             var body = await response.Content.ReadAsStringAsync(ct);
 
+            if (response.StatusCode == HttpStatusCode.NoContent)
+            {
+                return new GetBatchRequestResult(
+                    Succeeded: true,
+                    StatusCode: (int)response.StatusCode,
+                    Message: "No Content",
+                    Errors: null,
+                    Data: new List<BatchRequestItem>(),
+                    PageNumber: 1,
+                    PageSize: 10,
+                    TotalCount: 0,
+                    TotalPages: 0,
+                    HasPreviousPage: false,
+                    HasNextPage: false
+                );
+            }
+
             if (!response.IsSuccessStatusCode)
             {
                 if (response.StatusCode == HttpStatusCode.NotFound)
