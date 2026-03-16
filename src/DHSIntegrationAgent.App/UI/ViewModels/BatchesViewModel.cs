@@ -702,67 +702,111 @@ public sealed class BatchesViewModel : ViewModelBase
                     {
                         await using var uow = await _unitOfWorkFactory.CreateAsync(default);
 
-                        var localBatches = await uow.Batches.GetByBcrIdsAsync(bcrIds, default);
-                        if (localBatches.Count > 0)
+                        var localBatches = (await uow.Batches.GetByBcrIdsAsync(bcrIds, default)).ToList();
+                        var updatedLocalBatches = new List<DHSIntegrationAgent.Contracts.Persistence.BatchRow>();
+                        bool hasAnyUpdates = false;
+
+                        foreach (var apiItem in result.Data)
                         {
-                            var updatedLocalBatches = new List<DHSIntegrationAgent.Contracts.Persistence.BatchRow>();
-                            bool hasAnyUpdates = false;
+                            var bcrIdStr = apiItem.BcrId.ToString();
+                            var lb = localBatches.FirstOrDefault(x => x.BcrId == bcrIdStr);
 
-                            foreach (var lb in localBatches)
+                            if (lb != null)
                             {
-                                var apiItem = result.Data.FirstOrDefault(x => x.BcrId.ToString() == lb.BcrId);
-                                if (apiItem != null)
+                                bool needsUpdate = false;
+                                var targetStatus = lb.BatchStatus;
+
+                                if (!string.IsNullOrEmpty(apiItem.BatchStatus) && Enum.TryParse<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(apiItem.BatchStatus, true, out var apiStatus))
                                 {
-                                    bool needsUpdate = false;
-                                    var targetStatus = lb.BatchStatus;
-
-                                    if (!string.IsNullOrEmpty(apiItem.BatchStatus) && Enum.TryParse<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(apiItem.BatchStatus, true, out var apiStatus))
+                                    if (lb.BatchStatus != apiStatus)
                                     {
-                                        if (lb.BatchStatus != apiStatus)
-                                        {
-                                            targetStatus = apiStatus;
-                                            needsUpdate = true;
-                                        }
-                                    }
-
-                                    bool apiHasResume = apiItem.ResumeBatch ?? false;
-                                    if (lb.HasResume != apiHasResume)
-                                    {
+                                        targetStatus = apiStatus;
                                         needsUpdate = true;
                                     }
+                                }
 
-                                    if (needsUpdate)
-                                    {
-                                        await uow.Batches.UpdateStatusAsync(
-                                            lb.BatchId,
-                                            targetStatus,
-                                            apiHasResume,
-                                            lb.LastError,
-                                            DateTimeOffset.UtcNow,
-                                            default
-                                        );
-                                        hasAnyUpdates = true;
+                                bool apiHasResume = apiItem.ResumeBatch ?? false;
+                                if (lb.HasResume != apiHasResume)
+                                {
+                                    needsUpdate = true;
+                                }
 
-                                        updatedLocalBatches.Add(lb with { BatchStatus = targetStatus, HasResume = apiHasResume });
-                                    }
-                                    else
-                                    {
-                                        updatedLocalBatches.Add(lb);
-                                    }
+                                if (needsUpdate)
+                                {
+                                    await uow.Batches.UpdateStatusAsync(
+                                        lb.BatchId,
+                                        targetStatus,
+                                        apiHasResume,
+                                        lb.LastError,
+                                        DateTimeOffset.UtcNow,
+                                        default
+                                    );
+                                    hasAnyUpdates = true;
+
+                                    updatedLocalBatches.Add(lb with { BatchStatus = targetStatus, HasResume = apiHasResume });
                                 }
                                 else
                                 {
                                     updatedLocalBatches.Add(lb);
                                 }
                             }
-
-                            localBatches = updatedLocalBatches;
-
-                            if (hasAnyUpdates)
+                            else
                             {
-                                await uow.CommitAsync(default);
-                            }
+                                var monthKey = $"{apiItem.BcrYear}{apiItem.BcrMonth:D2}";
+                                var startDateUtc = new DateTimeOffset(apiItem.BcrYear, apiItem.BcrMonth, 1, 0, 0, 0, TimeSpan.Zero);
+                                var endDateUtc = startDateUtc.AddMonths(1).AddTicks(-1);
 
+                                var key = new DHSIntegrationAgent.Contracts.Persistence.BatchKey(
+                                    providerDhsCode,
+                                    apiItem.CompanyCode ?? "",
+                                    monthKey,
+                                    startDateUtc,
+                                    endDateUtc);
+
+                                var targetStatus = DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Completed;
+                                if (!string.IsNullOrEmpty(apiItem.BatchStatus) && Enum.TryParse<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(apiItem.BatchStatus, true, out var parsedStatus))
+                                {
+                                    targetStatus = parsedStatus;
+                                }
+
+                                bool apiHasResume = apiItem.ResumeBatch ?? false;
+
+                                long newBatchId = await uow.Batches.EnsureBatchAsync(
+                                    key,
+                                    targetStatus,
+                                    apiItem.MidTableTotalClaim,
+                                    DateTimeOffset.UtcNow,
+                                    default);
+
+                                await uow.Batches.SetBcrIdAsync(newBatchId, bcrIdStr, DateTimeOffset.UtcNow, default);
+
+                                await uow.Batches.UpdateStatusAsync(
+                                    newBatchId,
+                                    targetStatus,
+                                    apiHasResume,
+                                    null,
+                                    DateTimeOffset.UtcNow,
+                                    default);
+
+                                hasAnyUpdates = true;
+
+                                var newRow = await uow.Batches.GetByIdAsync(newBatchId, default);
+                                if (newRow != null)
+                                {
+                                    updatedLocalBatches.Add(newRow);
+                                }
+                            }
+                        }
+
+                        localBatches = updatedLocalBatches;
+
+                        if (hasAnyUpdates)
+                        {
+                            await uow.CommitAsync(default);
+                        }
+
+                        if (localBatches.Count > 0)
+                        {
                             var batchIds = localBatches.Select(b => b.BatchId).ToList();
                             var countsMap = await uow.Claims.GetBatchCountsForBatchesAsync(batchIds, default);
                             var dispatchCountsMap = await uow.Dispatches.GetFailedDispatchCountsForBatchesAsync(batchIds, default);
