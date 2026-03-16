@@ -16,7 +16,14 @@ internal static class SqliteMigrations
         new Migration(1, "001_InitialSchema_v1", BuildV1()),
         new Migration(2, "002_AddNetworkCredentials", BuildV2()),
         new Migration(3, "003_AddBatchProgress", BuildV3()),
-        new Migration(4, "004_AddExtractionConfigOverrides", BuildV4())
+        new Migration(4, "004_AddExtractionConfigOverrides", BuildV4()),
+        new Migration(5, "005_AddBlobStorageConfig", BuildV5())
+    };
+
+    private static IReadOnlyList<string> BuildV5() => new List<string>
+    {
+        "ALTER TABLE ProviderProfile ADD COLUMN EncryptedBlobStorageConnectionString BLOB NULL;",
+        "ALTER TABLE ProviderProfile ADD COLUMN BlobStorageContainerName TEXT NULL;"
     };
 
     private static IReadOnlyList<string> BuildV4() => new List<string>

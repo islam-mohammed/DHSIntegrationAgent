@@ -13,9 +13,9 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
         await using var cmd = CreateCommand(
             """
             INSERT INTO ProviderProfile
-            (ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc)
+            (ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName)
             VALUES
-            ($pc, $pd, $db, $it, $cs, $kid, $a, $c, $u)
+            ($pc, $pd, $db, $it, $cs, $kid, $a, $c, $u, $ebs, $bsc)
             ON CONFLICT(ProviderCode)
             DO UPDATE SET
                 ProviderDhsCode = excluded.ProviderDhsCode,
@@ -24,7 +24,9 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
                 EncryptedConnectionString = excluded.EncryptedConnectionString,
                 EncryptionKeyId = excluded.EncryptionKeyId,
                 IsActive = excluded.IsActive,
-                UpdatedUtc = excluded.UpdatedUtc;
+                UpdatedUtc = excluded.UpdatedUtc,
+                EncryptedBlobStorageConnectionString = excluded.EncryptedBlobStorageConnectionString,
+                BlobStorageContainerName = excluded.BlobStorageContainerName;
             """);
         SqliteSqlBuilder.AddParam(cmd, "$pc", row.ProviderCode);
         SqliteSqlBuilder.AddParam(cmd, "$pd", row.ProviderDhsCode);
@@ -35,6 +37,8 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
         SqliteSqlBuilder.AddParam(cmd, "$a", row.IsActive ? 1 : 0);
         SqliteSqlBuilder.AddParam(cmd, "$c", SqliteUtc.ToIso(row.CreatedUtc));
         SqliteSqlBuilder.AddParam(cmd, "$u", SqliteUtc.ToIso(row.UpdatedUtc));
+        SqliteSqlBuilder.AddParam(cmd, "$ebs", row.EncryptedBlobStorageConnectionString);
+        SqliteSqlBuilder.AddParam(cmd, "$bsc", row.BlobStorageContainerName);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -43,7 +47,7 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
     {
         await using var cmd = CreateCommand(
             """
-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc
+            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName
             FROM ProviderProfile
             WHERE ProviderCode = $pc
             LIMIT 1;
@@ -60,7 +64,7 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
     {
         await using var cmd = CreateCommand(
             """
-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc
+            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName
             FROM ProviderProfile
             WHERE ProviderDhsCode = $pd AND IsActive = 1
             LIMIT 1;
@@ -98,5 +102,7 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
             EncryptionKeyId: r.IsDBNull(5) ? null : r.GetString(5),
             IsActive: r.GetInt32(6) == 1,
             CreatedUtc: SqliteUtc.FromIso(r.GetString(7)),
-            UpdatedUtc: SqliteUtc.FromIso(r.GetString(8)));
+            UpdatedUtc: SqliteUtc.FromIso(r.GetString(8)),
+            EncryptedBlobStorageConnectionString: r.IsDBNull(9) ? null : (byte[])r["EncryptedBlobStorageConnectionString"],
+            BlobStorageContainerName: r.IsDBNull(10) ? null : r.GetString(10));
 }
