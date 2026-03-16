@@ -357,6 +357,15 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
 
             var encrypted = await _encryptor.EncryptAsync(Encoding.UTF8.GetBytes(connectionString!), ct);
 
+            var blobStorageConnectionString = GetString(providerInfo, "blobStorageConnectionString");
+            byte[]? encryptedBlobStorageConnectionString = null;
+            if (!string.IsNullOrWhiteSpace(blobStorageConnectionString))
+            {
+                encryptedBlobStorageConnectionString = await _encryptor.EncryptAsync(Encoding.UTF8.GetBytes(blobStorageConnectionString!), ct);
+            }
+
+            var blobStorageContainerName = GetString(providerInfo, "containerName");
+
             var row = new ProviderProfileRow(
                 ProviderCode: SingleProviderCode,
                 ProviderDhsCode: providerDhsCode,
@@ -366,7 +375,9 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 EncryptionKeyId: null,
                 IsActive: true,
                 CreatedUtc: now,
-                UpdatedUtc: now);
+                UpdatedUtc: now,
+                EncryptedBlobStorageConnectionString: encryptedBlobStorageConnectionString,
+                BlobStorageContainerName: blobStorageContainerName);
 
             await uow.ProviderProfiles.UpsertAsync(row, ct);
         }
@@ -646,6 +657,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
     {
         RemoveCaseInsensitive(payload, "connectionString");
         RemoveCaseInsensitive(payload, "dbConnectionString");
+        RemoveCaseInsensitive(payload, "blobStorageConnectionString");
         RemoveCaseInsensitive(payload, "password");
         RemoveCaseInsensitive(payload, "apiKey");
 

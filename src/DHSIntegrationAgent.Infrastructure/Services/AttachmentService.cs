@@ -18,6 +18,7 @@ public sealed class AttachmentService : IAttachmentService
     private readonly IKeyProtector _protector;
     private readonly ILogger<AttachmentService> _logger;
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
+    private readonly IColumnEncryptor _encryptor;
     private string? _cachedSasUrl;
 
     private static readonly Dictionary<string, string> _mimeTypeExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -44,19 +45,32 @@ public sealed class AttachmentService : IAttachmentService
         IOptions<AzureBlobOptions> options,
         IKeyProtector protector,
         ILogger<AttachmentService> logger,
-        ISqliteUnitOfWorkFactory uowFactory)
+        ISqliteUnitOfWorkFactory uowFactory,
+        IColumnEncryptor encryptor)
     {
         _options = options.Value;
         _protector = protector;
         _logger = logger;
         _uowFactory = uowFactory;
+        _encryptor = encryptor;
     }
 
     public async Task<(string Url, long SizeBytes)> UploadAsync(AttachmentRow attachment, CancellationToken ct)
     {
         BlobContainerClient containerClient;
 
-        if (!string.IsNullOrWhiteSpace(_options.AttachmentBlobStorageCon))
+        await using var uowProfile = await _uowFactory.CreateAsync(ct);
+        var profile = await uowProfile.ProviderProfiles.GetActiveByProviderDhsCodeAsync(attachment.ProviderDhsCode, ct);
+
+        if (profile?.EncryptedBlobStorageConnectionString != null && !string.IsNullOrWhiteSpace(profile.BlobStorageContainerName))
+        {
+            var plaintextBytes = await _encryptor.DecryptAsync(profile.EncryptedBlobStorageConnectionString, ct);
+            var connectionString = Encoding.UTF8.GetString(plaintextBytes);
+
+            var serviceClient = new BlobServiceClient(connectionString);
+            containerClient = serviceClient.GetBlobContainerClient(profile.BlobStorageContainerName);
+        }
+        else if (!string.IsNullOrWhiteSpace(_options.AttachmentBlobStorageCon))
         {
             var serviceClient = new BlobServiceClient(_options.AttachmentBlobStorageCon);
             containerClient = serviceClient.GetBlobContainerClient(_options.AttachmentBlobStorageContainer);

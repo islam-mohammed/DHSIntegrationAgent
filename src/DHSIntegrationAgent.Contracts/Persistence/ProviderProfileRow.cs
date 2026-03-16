@@ -9,4 +9,6 @@ public sealed record ProviderProfileRow(
     string? EncryptionKeyId,
     bool IsActive,
     DateTimeOffset CreatedUtc,
-    DateTimeOffset UpdatedUtc);
+    DateTimeOffset UpdatedUtc,
+    byte[]? EncryptedBlobStorageConnectionString = null,
+    string? BlobStorageContainerName = null);
