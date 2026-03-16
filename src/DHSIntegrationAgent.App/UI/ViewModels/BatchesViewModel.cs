@@ -705,6 +705,57 @@ public sealed class BatchesViewModel : ViewModelBase
                         var localBatches = await uow.Batches.GetByBcrIdsAsync(bcrIds, default);
                         if (localBatches.Count > 0)
                         {
+                            var updatedLocalBatches = new List<DHSIntegrationAgent.Contracts.Persistence.BatchRow>();
+
+                            foreach (var lb in localBatches)
+                            {
+                                var apiItem = result.Data.FirstOrDefault(x => x.BcrId.ToString() == lb.BcrId);
+                                if (apiItem != null)
+                                {
+                                    bool needsUpdate = false;
+                                    var targetStatus = lb.BatchStatus;
+
+                                    if (!string.IsNullOrEmpty(apiItem.BatchStatus) && Enum.TryParse<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(apiItem.BatchStatus, true, out var apiStatus))
+                                    {
+                                        if (lb.BatchStatus != apiStatus)
+                                        {
+                                            targetStatus = apiStatus;
+                                            needsUpdate = true;
+                                        }
+                                    }
+
+                                    bool apiHasResume = apiItem.ResumeBatch ?? false;
+                                    if (lb.HasResume != apiHasResume)
+                                    {
+                                        needsUpdate = true;
+                                    }
+
+                                    if (needsUpdate)
+                                    {
+                                        await uow.Batches.UpdateStatusAsync(
+                                            lb.BatchId,
+                                            targetStatus,
+                                            apiHasResume,
+                                            lb.LastError,
+                                            DateTimeOffset.UtcNow,
+                                            default
+                                        );
+
+                                        updatedLocalBatches.Add(lb with { BatchStatus = targetStatus, HasResume = apiHasResume });
+                                    }
+                                    else
+                                    {
+                                        updatedLocalBatches.Add(lb);
+                                    }
+                                }
+                                else
+                                {
+                                    updatedLocalBatches.Add(lb);
+                                }
+                            }
+
+                            localBatches = updatedLocalBatches;
+
                             var batchIds = localBatches.Select(b => b.BatchId).ToList();
                             var countsMap = await uow.Claims.GetBatchCountsForBatchesAsync(batchIds, default);
                             var dispatchCountsMap = await uow.Dispatches.GetFailedDispatchCountsForBatchesAsync(batchIds, default);
