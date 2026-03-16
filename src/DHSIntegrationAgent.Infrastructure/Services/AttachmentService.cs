@@ -20,6 +20,7 @@ public sealed class AttachmentService : IAttachmentService
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly IColumnEncryptor _encryptor;
     private string? _cachedSasUrl;
+    private static readonly SemaphoreSlim _dbLock = new(1, 1);
 
     private static readonly Dictionary<string, string> _mimeTypeExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -58,9 +59,18 @@ public sealed class AttachmentService : IAttachmentService
     public async Task<(string Url, long SizeBytes)> UploadAsync(AttachmentRow attachment, CancellationToken ct)
     {
         BlobContainerClient containerClient;
+        ProviderProfileRow? profile = null;
 
-        await using var uowProfile = await _uowFactory.CreateAsync(ct);
-        var profile = await uowProfile.ProviderProfiles.GetActiveByProviderDhsCodeAsync(attachment.ProviderDhsCode, ct);
+        await _dbLock.WaitAsync(ct);
+        try
+        {
+            await using var uowProfile = await _uowFactory.CreateAsync(ct);
+            profile = await uowProfile.ProviderProfiles.GetActiveByProviderDhsCodeAsync(attachment.ProviderDhsCode, ct);
+        }
+        finally
+        {
+            _dbLock.Release();
+        }
 
         if (profile?.EncryptedBlobStorageConnectionString != null && !string.IsNullOrWhiteSpace(profile.BlobStorageContainerName))
         {
@@ -109,10 +119,19 @@ public sealed class AttachmentService : IAttachmentService
                 // Try to authenticate if it's a network path
                 try
                 {
-                    await using var uow = await _uowFactory.CreateAsync(ct);
-                    var settings = await uow.AppSettings.GetAsync(ct);
+                    AppSettingsRow? settings = null;
+                    await _dbLock.WaitAsync(ct);
+                    try
+                    {
+                        await using var uow = await _uowFactory.CreateAsync(ct);
+                        settings = await uow.AppSettings.GetAsync(ct);
+                    }
+                    finally
+                    {
+                        _dbLock.Release();
+                    }
 
-                    if (!string.IsNullOrWhiteSpace(settings.NetworkUsername))
+                    if (settings != null && !string.IsNullOrWhiteSpace(settings.NetworkUsername))
                     {
                         var root = Path.GetPathRoot(attachment.LocationPathPlaintext);
                         if (!string.IsNullOrEmpty(root) && root.StartsWith(@"\\"))
