@@ -308,6 +308,15 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 var payerNameEn = GetString(item, "payerNameEn");
                 var parentPayerNameEn = GetString(item, "parentPayerNameEn");
 
+                if (!string.IsNullOrWhiteSpace(parentPayerNameEn) && !string.IsNullOrWhiteSpace(payerNameEn))
+                {
+                    payerNameEn = $"{parentPayerNameEn} - {payerNameEn}";
+                }
+                else if (string.IsNullOrWhiteSpace(payerNameEn) && !string.IsNullOrWhiteSpace(parentPayerNameEn))
+                {
+                    payerNameEn = parentPayerNameEn;
+                }
+
                 providerPayers.Add(new ProviderPayerDto(companyCode, payerCode, payerNameEn, parentPayerNameEn));
             }
         }
@@ -429,10 +438,19 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                     continue;
 
                 var payerCode = GetString(item, "payerCode") ?? (GetInt(item, "payerId")?.ToString());
-                var payerName =
-                    GetString(item, "payerName") ??
-                    GetString(item, "payerNameEn") ??
-                    GetString(item, "parentPayerNameEn");
+
+                var baseName = GetString(item, "payerNameEn") ?? GetString(item, "payerName");
+                var parentPayerNameEn = GetString(item, "parentPayerNameEn");
+
+                var payerName = baseName;
+                if (!string.IsNullOrWhiteSpace(parentPayerNameEn) && !string.IsNullOrWhiteSpace(baseName))
+                {
+                    payerName = $"{parentPayerNameEn} - {baseName}";
+                }
+                else if (string.IsNullOrWhiteSpace(baseName) && !string.IsNullOrWhiteSpace(parentPayerNameEn))
+                {
+                    payerName = parentPayerNameEn;
+                }
 
                 rows.Add(new PayerProfileRow(
                     PayerId: 0,
