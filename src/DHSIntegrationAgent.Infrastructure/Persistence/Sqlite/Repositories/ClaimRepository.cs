@@ -38,9 +38,9 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
             ON CONFLICT(ProviderDhsCode, ProIdClaim)
             DO UPDATE SET
                 CompanyCode = excluded.CompanyCode,
-                MonthKey = COALESCE(Claim.MonthKey, excluded.MonthKey),
-                BatchId = COALESCE(Claim.BatchId, excluded.BatchId),
-                BcrId = COALESCE(Claim.BcrId, excluded.BcrId),
+                MonthKey = excluded.MonthKey,
+                BatchId = excluded.BatchId,
+                BcrId = excluded.BcrId,
                 EnqueueStatus = CASE
                     WHEN Claim.EnqueueStatus = $enqueued THEN Claim.EnqueueStatus
                     ELSE $notsent
