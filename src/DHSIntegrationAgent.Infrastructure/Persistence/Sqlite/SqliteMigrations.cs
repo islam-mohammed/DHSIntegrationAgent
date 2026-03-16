@@ -9,51 +9,11 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 4;
+    public static readonly int CurrentSchemaVersion = 1;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
-        new Migration(1, "001_InitialSchema_v1", BuildV1()),
-        new Migration(2, "002_AddNetworkCredentials", BuildV2()),
-        new Migration(3, "003_AddBatchProgress", BuildV3()),
-        new Migration(4, "004_AddExtractionConfigOverrides", BuildV4()),
-        new Migration(5, "005_AddBlobStorageConfig", BuildV5())
-    };
-
-    private static IReadOnlyList<string> BuildV5() => new List<string>
-    {
-        "ALTER TABLE ProviderProfile ADD COLUMN EncryptedBlobStorageConnectionString BLOB NULL;",
-        "ALTER TABLE ProviderProfile ADD COLUMN BlobStorageContainerName TEXT NULL;"
-    };
-
-    private static IReadOnlyList<string> BuildV4() => new List<string>
-    {
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN DoctorSourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN ServiceSourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN DiagnosisSourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN LabSourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN RadiologySourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN AttachmentSourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN OpticalSourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN ItemDetailsSourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN AchiSourceName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN DateColumnName TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN CustomItemSql TEXT NULL;",
-        "ALTER TABLE ProviderExtractionConfig ADD COLUMN CustomAchiSql TEXT NULL;"
-    };
-
-    private static IReadOnlyList<string> BuildV3() => new List<string>
-    {
-        "ALTER TABLE Batch ADD COLUMN ProcessedClaims INTEGER NOT NULL DEFAULT 0;",
-        "ALTER TABLE Batch ADD COLUMN TotalClaims INTEGER NOT NULL DEFAULT 0;",
-        "ALTER TABLE Batch ADD COLUMN CurrentStageMessage TEXT NULL;",
-        "ALTER TABLE Batch ADD COLUMN Percentage INTEGER NOT NULL DEFAULT 0;"
-    };
-
-    private static IReadOnlyList<string> BuildV2() => new List<string>
-    {
-        "ALTER TABLE AppSettings ADD COLUMN NetworkUsername TEXT NULL;",
-        "ALTER TABLE AppSettings ADD COLUMN NetworkPasswordEncrypted BLOB NULL;"
+        new Migration(1, "001_InitialSchema_v1", BuildV1())
     };
 
     /// <summary>
@@ -85,9 +45,9 @@ internal static class SqliteMigrations
         // ----------------------------
         """
         CREATE TABLE AppSettings (
-            Id                        INTEGER PRIMARY KEY CHECK (Id = 1),
-            GroupID                   TEXT NULL,
-            ProviderDhsCode           TEXT NULL,
+            Id                         INTEGER PRIMARY KEY CHECK (Id = 1),
+            GroupID                    TEXT NULL,
+            ProviderDhsCode            TEXT NULL,
             ConfigCacheTtlMinutes      INTEGER NOT NULL DEFAULT 1440,
             FetchIntervalMinutes       INTEGER NOT NULL DEFAULT 5,
             ManualRetryCooldownMinutes INTEGER NOT NULL DEFAULT 10,
@@ -95,6 +55,8 @@ internal static class SqliteMigrations
             StreamAIntervalSeconds     INTEGER NOT NULL DEFAULT 900,
             ResumePollIntervalSeconds  INTEGER NOT NULL DEFAULT 300,
             ApiTimeoutSeconds          INTEGER NOT NULL DEFAULT 60,
+            NetworkUsername            TEXT NULL,
+            NetworkPasswordEncrypted   BLOB NULL,
             CreatedUtc                 TEXT NOT NULL,
             UpdatedUtc                 TEXT NOT NULL
         );
@@ -105,15 +67,17 @@ internal static class SqliteMigrations
         // -----------------------
         """
         CREATE TABLE ProviderProfile (
-            ProviderCode              TEXT NOT NULL,
-            ProviderDhsCode           TEXT NOT NULL,
-            DbEngine                  TEXT NOT NULL,
-            IntegrationType           TEXT NOT NULL,
-            EncryptedConnectionString BLOB NOT NULL,
-            EncryptionKeyId           TEXT NULL,
-            IsActive                  INTEGER NOT NULL DEFAULT 1,
-            CreatedUtc                TEXT NOT NULL,
-            UpdatedUtc                TEXT NOT NULL,
+            ProviderCode                         TEXT NOT NULL,
+            ProviderDhsCode                      TEXT NOT NULL,
+            DbEngine                             TEXT NOT NULL,
+            IntegrationType                      TEXT NOT NULL,
+            EncryptedConnectionString            BLOB NOT NULL,
+            EncryptionKeyId                      TEXT NULL,
+            IsActive                             INTEGER NOT NULL DEFAULT 1,
+            EncryptedBlobStorageConnectionString BLOB NULL,
+            BlobStorageContainerName             TEXT NULL,
+            CreatedUtc                           TEXT NOT NULL,
+            UpdatedUtc                           TEXT NOT NULL,
             PRIMARY KEY (ProviderCode)
         );
         """,
@@ -127,6 +91,16 @@ internal static class SqliteMigrations
             ClaimKeyColumnName     TEXT NULL,
             HeaderSourceName       TEXT NULL,
             DetailsSourceName      TEXT NULL,
+            DoctorSourceName       TEXT NULL,
+            ServiceSourceName      TEXT NULL,
+            DiagnosisSourceName    TEXT NULL,
+            LabSourceName          TEXT NULL,
+            RadiologySourceName    TEXT NULL,
+            AttachmentSourceName   TEXT NULL,
+            OpticalSourceName      TEXT NULL,
+            ItemDetailsSourceName  TEXT NULL,
+            AchiSourceName         TEXT NULL,
+            DateColumnName         TEXT NULL,
             CustomHeaderSql        TEXT NULL,
             CustomServiceSql       TEXT NULL,
             CustomDiagnosisSql     TEXT NULL,
@@ -161,13 +135,13 @@ internal static class SqliteMigrations
         """
         CREATE TABLE PayerProfile (
             PayerId         INTEGER PRIMARY KEY AUTOINCREMENT,
-            ProviderDhsCode  TEXT NOT NULL,
-            CompanyCode      TEXT NOT NULL,
-            PayerCode        TEXT NULL,
-            PayerName        TEXT NULL,
-            IsActive         INTEGER NOT NULL DEFAULT 1,
-            CreatedUtc       TEXT NOT NULL,
-            UpdatedUtc       TEXT NOT NULL
+            ProviderDhsCode TEXT NOT NULL,
+            CompanyCode     TEXT NOT NULL,
+            PayerCode       TEXT NULL,
+            PayerName       TEXT NULL,
+            IsActive        INTEGER NOT NULL DEFAULT 1,
+            CreatedUtc      TEXT NOT NULL,
+            UpdatedUtc      TEXT NOT NULL
         );
         """,
         "CREATE UNIQUE INDEX UX_PayerProfile_Provider_Company ON PayerProfile(ProviderDhsCode, CompanyCode);",
@@ -178,19 +152,23 @@ internal static class SqliteMigrations
         // -----------------------
         """
         CREATE TABLE Batch (
-            BatchId        INTEGER PRIMARY KEY AUTOINCREMENT,
-            ProviderDhsCode TEXT NOT NULL,
-            CompanyCode     TEXT NOT NULL,
-            PayerCode       TEXT NULL,
-            MonthKey        TEXT NOT NULL, -- YYYYMM
-            StartDateUtc    TEXT NULL,
-            EndDateUtc      TEXT NULL,
-            BcrId           TEXT NULL,
-            BatchStatus     INTEGER NOT NULL,
-            HasResume       INTEGER NOT NULL DEFAULT 0,
-            CreatedUtc      TEXT NOT NULL,
-            UpdatedUtc      TEXT NOT NULL,
-            LastError       TEXT NULL
+            BatchId             INTEGER PRIMARY KEY AUTOINCREMENT,
+            ProviderDhsCode     TEXT NOT NULL,
+            CompanyCode         TEXT NOT NULL,
+            PayerCode           TEXT NULL,
+            MonthKey            TEXT NOT NULL, -- YYYYMM
+            StartDateUtc        TEXT NULL,
+            EndDateUtc          TEXT NULL,
+            BcrId               TEXT NULL,
+            BatchStatus         INTEGER NOT NULL,
+            HasResume           INTEGER NOT NULL DEFAULT 0,
+            ProcessedClaims     INTEGER NOT NULL DEFAULT 0,
+            TotalClaims         INTEGER NOT NULL DEFAULT 0,
+            CurrentStageMessage TEXT NULL,
+            Percentage          INTEGER NOT NULL DEFAULT 0,
+            CreatedUtc          TEXT NOT NULL,
+            UpdatedUtc          TEXT  NOT NULL,
+            LastError           TEXT NULL
         );
         """,
         "CREATE UNIQUE INDEX UX_Batch_Provider_Company_Month ON Batch(ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc);",
@@ -202,26 +180,26 @@ internal static class SqliteMigrations
         // -----------------------
         """
         CREATE TABLE Claim (
-            ProviderDhsCode        TEXT NOT NULL,
-            ProIdClaim             INTEGER NOT NULL,
-            CompanyCode            TEXT NOT NULL,
-            MonthKey               TEXT NOT NULL, -- YYYYMM
-            BatchId                INTEGER NULL,
-            BcrId                  TEXT NULL, -- cached
-            EnqueueStatus          INTEGER NOT NULL,
-            CompletionStatus       INTEGER NOT NULL,
-            LockedBy               TEXT NULL,
-            InFlightUntilUtc       TEXT NULL,
-            AttemptCount           INTEGER NOT NULL DEFAULT 0,
-            NextRetryUtc           TEXT NULL,
-            LastError              TEXT NULL,
-            LastResumeCheckUtc     TEXT NULL,
-            RequeueAttemptCount    INTEGER NOT NULL DEFAULT 0,
-            NextRequeueUtc         TEXT NULL,
-            LastRequeueError       TEXT NULL,
-            LastEnqueuedUtc        TEXT NULL,
-            FirstSeenUtc           TEXT NOT NULL,
-            LastUpdatedUtc         TEXT NOT NULL,
+            ProviderDhsCode      TEXT NOT NULL,
+            ProIdClaim           INTEGER NOT NULL,
+            CompanyCode          TEXT NOT NULL,
+            MonthKey             TEXT NOT NULL, -- YYYYMM
+            BatchId              INTEGER NULL,
+            BcrId                TEXT NULL, -- cached
+            EnqueueStatus        INTEGER NOT NULL,
+            CompletionStatus     INTEGER NOT NULL,
+            LockedBy             TEXT NULL,
+            InFlightUntilUtc     TEXT NULL,
+            AttemptCount         INTEGER NOT NULL DEFAULT 0,
+            NextRetryUtc         TEXT NULL,
+            LastError            TEXT NULL,
+            LastResumeCheckUtc   TEXT NULL,
+            RequeueAttemptCount  INTEGER NOT NULL DEFAULT 0,
+            NextRequeueUtc       TEXT NULL,
+            LastRequeueError     TEXT NULL,
+            LastEnqueuedUtc      TEXT NULL,
+            FirstSeenUtc         TEXT NOT NULL,
+            LastUpdatedUtc       TEXT NOT NULL,
             PRIMARY KEY (ProviderDhsCode, ProIdClaim),
             FOREIGN KEY (BatchId) REFERENCES Batch(BatchId) ON DELETE SET NULL
         );
@@ -256,7 +234,7 @@ internal static class SqliteMigrations
         // -----------------------
         """
         CREATE TABLE Dispatch (
-            DispatchId       TEXT PRIMARY KEY, -- UUID
+            DispatchId        TEXT PRIMARY KEY, -- UUID
             ProviderDhsCode   TEXT NOT NULL,
             BatchId           INTEGER NOT NULL,
             BcrId             TEXT NULL,
@@ -335,7 +313,7 @@ internal static class SqliteMigrations
         // -----------------------
         """
         CREATE TABLE ApiCallLog (
-            ApiCallLogId   INTEGER PRIMARY KEY AUTOINCREMENT,
+            ApiCallLogId    INTEGER PRIMARY KEY AUTOINCREMENT,
             ProviderDhsCode TEXT NULL,
             EndpointName    TEXT NOT NULL,
             CorrelationId   TEXT NULL,
@@ -357,20 +335,20 @@ internal static class SqliteMigrations
         // -----------------------
         """
         CREATE TABLE ApprovedDomainMapping (
-            DomainMappingId INTEGER PRIMARY KEY AUTOINCREMENT,
-            ProviderDhsCode  TEXT NOT NULL,
-            DomainName       TEXT NOT NULL,
-            DomainTableId    INTEGER NOT NULL,
-            SourceValue      TEXT NOT NULL,
-            TargetValue      TEXT NOT NULL,
-            DiscoveredUtc    TEXT NOT NULL,
-            LastPostedUtc    TEXT NULL,
-            LastUpdatedUtc   TEXT NOT NULL,
-            Notes            TEXT NULL,
+            DomainMappingId    INTEGER PRIMARY KEY AUTOINCREMENT,
+            ProviderDhsCode    TEXT NOT NULL,
+            DomainName         TEXT NOT NULL,
+            DomainTableId      INTEGER NOT NULL,
+            SourceValue        TEXT NOT NULL,
+            TargetValue        TEXT NOT NULL,
+            DiscoveredUtc      TEXT NOT NULL,
+            LastPostedUtc      TEXT NULL,
+            LastUpdatedUtc     TEXT NOT NULL,
+            Notes              TEXT NULL,
             ProviderDomainCode TEXT NULL,
-            IsDefault INTEGER NULL,
-            CodeValue TEXT NULL,
-            DisplayValue TEXT NULL
+            IsDefault          INTEGER NULL,
+            CodeValue          TEXT NULL,
+            DisplayValue       TEXT NULL
         );
         """,
         "CREATE UNIQUE INDEX UX_ApprovedDomainMapping_Key ON ApprovedDomainMapping(ProviderDhsCode, DomainTableId, SourceValue);",
@@ -392,9 +370,9 @@ internal static class SqliteMigrations
             LastUpdatedUtc   TEXT NOT NULL,
             Notes            TEXT NULL,
             ProviderNameValue TEXT NULL,
-            DomainTableName TEXT NULL
+            DomainTableName  TEXT NULL
         );
         """,
-        "CREATE UNIQUE INDEX UX_MissingDomainMapping_Key ON MissingDomainMapping(ProviderDhsCode, DomainTableId, SourceValue);",
+        "CREATE UNIQUE INDEX UX_MissingDomainMapping_Key ON MissingDomainMapping(ProviderDhsCode, DomainTableId, SourceValue);"
     };
 }
