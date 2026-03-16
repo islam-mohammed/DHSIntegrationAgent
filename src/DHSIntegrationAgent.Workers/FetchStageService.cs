@@ -209,7 +209,16 @@ public sealed class FetchStageService : IFetchStageService
                     DiscoverDomainValues(buildResult.Bundle, domainLookup, discoveredValues);
 
                     // Injected fields per your request
-                    buildResult.Bundle.ClaimHeader.Remove("provider_dhsCode");
+                    var keysToRemove = buildResult.Bundle.ClaimHeader.Select(k => k.Key)
+                        .Where(k => string.Equals(k, "provider_dhsCode", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(k, "providerCode", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(k, "bCR_Id", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    foreach (var k in keysToRemove)
+                    {
+                        buildResult.Bundle.ClaimHeader.Remove(k);
+                    }
+
                     buildResult.Bundle.ClaimHeader["providerCode"] = batch.ProviderDhsCode;
                     if (long.TryParse(bcrId, out var bcrIdLong))
                         buildResult.Bundle.ClaimHeader["bCR_Id"] = bcrIdLong;

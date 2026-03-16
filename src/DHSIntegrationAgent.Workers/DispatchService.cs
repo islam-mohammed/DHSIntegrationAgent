@@ -197,7 +197,16 @@ public sealed class DispatchService : IDispatchService
                             var header = bundleObj["claimHeader"]?.AsObject();
                             if (header != null)
                             {
-                                header.Remove("provider_dhsCode");
+                                var keysToRemove = header.Select(k => k.Key)
+                                    .Where(k => string.Equals(k, "provider_dhsCode", StringComparison.OrdinalIgnoreCase) ||
+                                                string.Equals(k, "providerCode", StringComparison.OrdinalIgnoreCase) ||
+                                                string.Equals(k, "bCR_Id", StringComparison.OrdinalIgnoreCase))
+                                    .ToList();
+                                foreach (var k in keysToRemove)
+                                {
+                                    header.Remove(k);
+                                }
+
                                 header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
@@ -449,7 +458,16 @@ public sealed class DispatchService : IDispatchService
                             var header = bundleObj["claimHeader"]?.AsObject();
                             if (header != null)
                             {
-                                header.Remove("provider_dhsCode");
+                                var keysToRemove = header.Select(k => k.Key)
+                                    .Where(k => string.Equals(k, "provider_dhsCode", StringComparison.OrdinalIgnoreCase) ||
+                                                string.Equals(k, "providerCode", StringComparison.OrdinalIgnoreCase) ||
+                                                string.Equals(k, "bCR_Id", StringComparison.OrdinalIgnoreCase))
+                                    .ToList();
+                                foreach (var k in keysToRemove)
+                                {
+                                    header.Remove(k);
+                                }
+
                                 header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
@@ -734,7 +752,16 @@ public sealed class DispatchService : IDispatchService
                         var header = bundleObj["claimHeader"]?.AsObject();
                         if (header != null)
                         {
-                            header.Remove("provider_dhsCode");
+                            var keysToRemove = header.Select(k => k.Key)
+                                .Where(k => string.Equals(k, "provider_dhsCode", StringComparison.OrdinalIgnoreCase) ||
+                                            string.Equals(k, "providerCode", StringComparison.OrdinalIgnoreCase) ||
+                                            string.Equals(k, "bCR_Id", StringComparison.OrdinalIgnoreCase))
+                                .ToList();
+                            foreach (var k in keysToRemove)
+                            {
+                                header.Remove(k);
+                            }
+
                             header["providerCode"] = originalDispatch.ProviderDhsCode;
                             if (!string.IsNullOrEmpty(originalDispatch.BcrId) && long.TryParse(originalDispatch.BcrId, out var bcrIdLong))
                                 header["bCR_Id"] = bcrIdLong;
@@ -957,7 +984,16 @@ public sealed class DispatchService : IDispatchService
                             var header = bundleObj["claimHeader"]?.AsObject();
                             if (header != null)
                             {
-                                header.Remove("provider_dhsCode");
+                                var keysToRemove = header.Select(k => k.Key)
+                                    .Where(k => string.Equals(k, "provider_dhsCode", StringComparison.OrdinalIgnoreCase) ||
+                                                string.Equals(k, "providerCode", StringComparison.OrdinalIgnoreCase) ||
+                                                string.Equals(k, "bCR_Id", StringComparison.OrdinalIgnoreCase))
+                                    .ToList();
+                                foreach (var k in keysToRemove)
+                                {
+                                    header.Remove(k);
+                                }
+
                                 header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
@@ -1263,7 +1299,16 @@ public sealed class DispatchService : IDispatchService
                             var header = bundleObj["claimHeader"]?.AsObject();
                             if (header != null)
                             {
-                                header.Remove("provider_dhsCode");
+                                var keysToRemove = header.Select(k => k.Key)
+                                    .Where(k => string.Equals(k, "provider_dhsCode", StringComparison.OrdinalIgnoreCase) ||
+                                                string.Equals(k, "providerCode", StringComparison.OrdinalIgnoreCase) ||
+                                                string.Equals(k, "bCR_Id", StringComparison.OrdinalIgnoreCase))
+                                    .ToList();
+                                foreach (var k in keysToRemove)
+                                {
+                                    header.Remove(k);
+                                }
+
                                 header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
