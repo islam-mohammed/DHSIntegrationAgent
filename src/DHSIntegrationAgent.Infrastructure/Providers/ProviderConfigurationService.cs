@@ -189,6 +189,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                         configCacheTtlMinutes: gc.ConfigCacheTtlMinutes,
                         fetchIntervalMinutes: gc.FetchIntervalMinutes,
                         manualRetryCooldownMinutes: gc.ManualRetryCooldownMinutes,
+                        fetchClaimCountPerThread: gc.FetchClaimCountPerThread,
                         utcNow: now,
                         cancellationToken: ct);
                 }
@@ -641,7 +642,8 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         int ApiTimeoutSeconds,
         int ConfigCacheTtlMinutes,
         int FetchIntervalMinutes,
-        int ManualRetryCooldownMinutes);
+        int ManualRetryCooldownMinutes,
+        int FetchClaimCountPerThread);
 
     private static bool TryReadGeneralConfiguration(JsonObject payload, out GeneralConfiguration gc)
     {
@@ -658,6 +660,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         var configCacheTtlMinutes = GetInt(general, "configCacheTtlMinutes") ?? 0;
         var fetchIntervalMinutes = GetInt(general, "fetchIntervalMinutes") ?? 0;
         var manualRetryCooldownMinutes = GetInt(general, "manualRetryCooldownMinutes") ?? 0;
+        var fetchClaimCountPerThread = GetInt(general, "fetchClaimCountPerThread") ?? 300;
 
         gc = new GeneralConfiguration(
             leaseDurationSeconds,
@@ -666,7 +669,8 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             apiTimeoutSeconds,
             configCacheTtlMinutes,
             fetchIntervalMinutes,
-            manualRetryCooldownMinutes);
+            manualRetryCooldownMinutes,
+            fetchClaimCountPerThread);
 
         return true;
     }

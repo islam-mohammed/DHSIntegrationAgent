@@ -30,6 +30,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private int _resumePollIntervalSeconds = 60;
     private int _apiTimeoutSeconds = 60;
     private int _manualRetryCooldownMinutes = 10;
+    private int _fetchClaimCountPerThread = 300;
 
     private bool _isLoading;
     private string? _saveError;
@@ -66,6 +67,7 @@ public sealed class SettingsViewModel : ViewModelBase
     public int ResumePollIntervalSeconds { get => _resumePollIntervalSeconds; set => SetProperty(ref _resumePollIntervalSeconds, value); }
     public int ApiTimeoutSeconds { get => _apiTimeoutSeconds; set => SetProperty(ref _apiTimeoutSeconds, value); }
     public int ManualRetryCooldownMinutes { get => _manualRetryCooldownMinutes; set => SetProperty(ref _manualRetryCooldownMinutes, value); }
+    public int FetchClaimCountPerThread { get => _fetchClaimCountPerThread; set => SetProperty(ref _fetchClaimCountPerThread, value); }
 
     public AsyncRelayCommand SaveCommand { get; }
     public AsyncRelayCommand ReloadProviderConfigCommand { get; }
@@ -134,6 +136,7 @@ public sealed class SettingsViewModel : ViewModelBase
             ResumePollIntervalSeconds = settings.ResumePollIntervalSeconds;
             ApiTimeoutSeconds = settings.ApiTimeoutSeconds;
             ManualRetryCooldownMinutes = settings.ManualRetryCooldownMinutes;
+            FetchClaimCountPerThread = settings.FetchClaimCountPerThread;
         }
         finally
         {
@@ -200,6 +203,7 @@ public sealed class SettingsViewModel : ViewModelBase
                 ConfigCacheTtlMinutes,
                 FetchIntervalMinutes,
                 ManualRetryCooldownMinutes,
+                FetchClaimCountPerThread,
                 _clock.UtcNow,
                 CancellationToken.None);
 

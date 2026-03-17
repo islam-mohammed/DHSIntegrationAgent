@@ -26,6 +26,7 @@ public interface IAppSettingsRepository
         int configCacheTtlMinutes,
         int fetchIntervalMinutes,
         int manualRetryCooldownMinutes,
+        int fetchClaimCountPerThread,
         DateTimeOffset utcNow,
         CancellationToken cancellationToken);
 }

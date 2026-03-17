@@ -32,7 +32,8 @@ internal sealed class AppSettingsRepository : IAppSettingsRepository
                 LeaseDurationSeconds,
                 StreamAIntervalSeconds,
                 ResumePollIntervalSeconds,
-                ApiTimeoutSeconds
+                ApiTimeoutSeconds,
+                FetchClaimCountPerThread
             FROM AppSettings
             WHERE Id = 1;
             """;
@@ -52,7 +53,8 @@ internal sealed class AppSettingsRepository : IAppSettingsRepository
             LeaseDurationSeconds: r.GetInt32(7),
             StreamAIntervalSeconds: r.GetInt32(8),
             ResumePollIntervalSeconds: r.GetInt32(9),
-            ApiTimeoutSeconds: r.GetInt32(10));
+            ApiTimeoutSeconds: r.GetInt32(10),
+            FetchClaimCountPerThread: r.GetInt32(11));
     }
 
     public async Task UpdateSetupAsync(
@@ -94,6 +96,7 @@ internal sealed class AppSettingsRepository : IAppSettingsRepository
         int configCacheTtlMinutes,
         int fetchIntervalMinutes,
         int manualRetryCooldownMinutes,
+        int fetchClaimCountPerThread,
         DateTimeOffset utcNow,
         CancellationToken cancellationToken)
     {
@@ -107,6 +110,7 @@ internal sealed class AppSettingsRepository : IAppSettingsRepository
                 StreamAIntervalSeconds = $streamA,
                 ResumePollIntervalSeconds = $resume,
                 ApiTimeoutSeconds = $apiTimeout,
+                FetchClaimCountPerThread = $fetchClaimCount,
                 ConfigCacheTtlMinutes = $ttl,
                 FetchIntervalMinutes = $fetch,
                 ManualRetryCooldownMinutes = $cooldown,
@@ -118,6 +122,7 @@ internal sealed class AppSettingsRepository : IAppSettingsRepository
         SqliteSqlBuilder.AddParam(cmd, "$streamA", streamAIntervalSeconds);
         SqliteSqlBuilder.AddParam(cmd, "$resume", resumePollIntervalSeconds);
         SqliteSqlBuilder.AddParam(cmd, "$apiTimeout", apiTimeoutSeconds);
+        SqliteSqlBuilder.AddParam(cmd, "$fetchClaimCount", fetchClaimCountPerThread);
         SqliteSqlBuilder.AddParam(cmd, "$ttl", configCacheTtlMinutes);
         SqliteSqlBuilder.AddParam(cmd, "$fetch", fetchIntervalMinutes);
         SqliteSqlBuilder.AddParam(cmd, "$cooldown", manualRetryCooldownMinutes);

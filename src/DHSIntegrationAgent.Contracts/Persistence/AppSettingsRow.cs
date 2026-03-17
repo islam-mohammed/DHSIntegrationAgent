@@ -11,4 +11,5 @@ public sealed record AppSettingsRow(
     int LeaseDurationSeconds,
     int StreamAIntervalSeconds,
     int ResumePollIntervalSeconds,
-    int ApiTimeoutSeconds);
+    int ApiTimeoutSeconds,
+    int FetchClaimCountPerThread);
