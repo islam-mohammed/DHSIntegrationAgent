@@ -61,7 +61,6 @@ internal static class SqliteMigrations
             StreamAIntervalSeconds     INTEGER NOT NULL DEFAULT 900,
             ResumePollIntervalSeconds  INTEGER NOT NULL DEFAULT 300,
             ApiTimeoutSeconds          INTEGER NOT NULL DEFAULT 60,
-            FetchClaimCountPerThread   INTEGER NOT NULL DEFAULT 300,
             NetworkUsername            TEXT NULL,
             NetworkPasswordEncrypted   BLOB NULL,
             CreatedUtc                 TEXT NOT NULL,
