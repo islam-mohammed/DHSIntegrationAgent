@@ -100,9 +100,16 @@ public sealed class FetchStageService : IFetchStageService
 
         int processedCount = 0;
         int? lastSeen = null;
+        int pageSize = 300;
 
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
+            var appSettings = await uow.AppSettings.GetAsync(ct);
+            if (appSettings.FetchClaimCountPerThread > 0)
+            {
+                pageSize = appSettings.FetchClaimCountPerThread;
+            }
+
             var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, ct);
             processedCount = counts.Total;
             lastSeen = await uow.Claims.GetMaxProIdClaimAsync(batch.BatchId, ct);
@@ -114,8 +121,6 @@ public sealed class FetchStageService : IFetchStageService
         }
 
         progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaims} from HIS system", BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims, BcrId: bcrId));
-
-        const int PageSize = 300;
 
         // SQLite "database is locked" mitigation:
         // - Never hold a SQLite transaction open across awaited I/O (provider DB reads, CPU build, etc.)
@@ -173,7 +178,7 @@ public sealed class FetchStageService : IFetchStageService
                 batch.CompanyCode,
                 batchStartDate,
                 batchEndDate,
-                PageSize,
+                pageSize,
                 lastSeen,
                 ct);
 
@@ -239,7 +244,7 @@ public sealed class FetchStageService : IFetchStageService
                 processedCount++;
                 lastSeen = rawBundle.ProIdClaim;
 
-                if (processedCount % 100 == 0 || processedCount == totalClaims)
+                if (processedCount % pageSize == 0 || processedCount == totalClaims)
                 {
                     double fetchPercentage = ((double)processedCount / totalClaims) * 30;
                     progress.Report(new WorkerProgressReport("StreamA", $"Fetching {processedCount} of {totalClaims} from HIS system", Percentage: fetchPercentage, BatchId: batch.BatchId, ProcessedCount: processedCount, TotalCount: totalClaims));
@@ -291,7 +296,7 @@ public sealed class FetchStageService : IFetchStageService
                 await uow.CommitAsync(ct);
             }
 
-            if (keys.Count < PageSize)
+            if (keys.Count < pageSize)
                 break;
         }
 

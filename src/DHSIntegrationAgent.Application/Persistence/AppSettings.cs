@@ -10,5 +10,6 @@ public sealed record AppSettings(
     int FetchIntervalMinutes,
     int ManualRetryCooldownMinutes,
     int LeaseDurationSeconds,
+    int FetchClaimCountPerThread,
     DateTimeOffset CreatedUtc,
     DateTimeOffset UpdatedUtc);

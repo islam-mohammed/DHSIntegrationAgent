@@ -9,11 +9,17 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 1;
+    public static readonly int CurrentSchemaVersion = 2;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
-        new Migration(1, "001_InitialSchema_v1", BuildV1())
+        new Migration(1, "001_InitialSchema_v1", BuildV1()),
+        new Migration(2, "002_AddFetchClaimCountPerThread", BuildV2())
+    };
+
+    private static IReadOnlyList<string> BuildV2() => new List<string>
+    {
+        "ALTER TABLE AppSettings ADD COLUMN FetchClaimCountPerThread INTEGER NOT NULL DEFAULT 300;"
     };
 
     /// <summary>
@@ -55,6 +61,7 @@ internal static class SqliteMigrations
             StreamAIntervalSeconds     INTEGER NOT NULL DEFAULT 900,
             ResumePollIntervalSeconds  INTEGER NOT NULL DEFAULT 300,
             ApiTimeoutSeconds          INTEGER NOT NULL DEFAULT 60,
+            FetchClaimCountPerThread   INTEGER NOT NULL DEFAULT 300,
             NetworkUsername            TEXT NULL,
             NetworkPasswordEncrypted   BLOB NULL,
             CreatedUtc                 TEXT NOT NULL,
