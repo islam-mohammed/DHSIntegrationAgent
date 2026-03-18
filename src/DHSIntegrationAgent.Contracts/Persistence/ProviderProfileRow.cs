@@ -11,4 +11,5 @@ public sealed record ProviderProfileRow(
     DateTimeOffset CreatedUtc,
     DateTimeOffset UpdatedUtc,
     byte[]? EncryptedBlobStorageConnectionString = null,
-    string? BlobStorageContainerName = null);
+    string? BlobStorageContainerName = null,
+    int FetchClaimCountPerThread = 300);

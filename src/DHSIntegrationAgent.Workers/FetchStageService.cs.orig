@@ -104,10 +104,10 @@ public sealed class FetchStageService : IFetchStageService
 
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
-            var providerProfile = await uow.ProviderProfiles.GetActiveByProviderDhsCodeAsync(batch.ProviderDhsCode, ct);
-            if (providerProfile?.FetchClaimCountPerThread > 0)
+            var appSettings = await uow.AppSettings.GetAsync(ct);
+            if (appSettings.FetchClaimCountPerThread > 0)
             {
-                pageSize = providerProfile.FetchClaimCountPerThread;
+                pageSize = appSettings.FetchClaimCountPerThread;
             }
 
             var counts = await uow.Claims.GetBatchCountsAsync(batch.BatchId, ct);
