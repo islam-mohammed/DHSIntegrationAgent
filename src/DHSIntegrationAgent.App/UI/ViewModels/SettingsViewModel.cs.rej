@@ -1,0 +1,17 @@
+--- src/DHSIntegrationAgent.App/UI/ViewModels/SettingsViewModel.cs
++++ src/DHSIntegrationAgent.App/UI/ViewModels/SettingsViewModel.cs
+@@ -58,7 +58,6 @@
+     private int _streamAIntervalSeconds;
+     private int _resumePollIntervalSeconds;
+     private int _apiTimeoutSeconds;
+-    private int _fetchClaimCountPerThread;
+     private int _manualRetryCooldownMinutes;
+
+     public bool HasConnectionSetup => !string.IsNullOrWhiteSpace(ProviderDhsCode);
+@@ -67,7 +66,6 @@
+     public int LeaseDurationSeconds { get => _leaseDurationSeconds; set => SetProperty(ref _leaseDurationSeconds, value); }
+     public int StreamAIntervalSeconds { get => _streamAIntervalSeconds; set => SetProperty(ref _streamAIntervalSeconds, value); }
+     public int ResumePollIntervalSeconds { get => _resumePollIntervalSeconds; set => SetProperty(ref _resumePollIntervalSeconds, value); }
+     public int ApiTimeoutSeconds { get => _apiTimeoutSeconds; set => SetProperty(ref _apiTimeoutSeconds, value); }
+     public int ManualRetryCooldownMinutes { get => _manualRetryCooldownMinutes; set => SetProperty(ref _manualRetryCooldownMinutes, value); }
+-    public int FetchClaimCountPerThread { get => _fetchClaimCountPerThread; set => SetProperty(ref _fetchClaimCountPerThread, value); }

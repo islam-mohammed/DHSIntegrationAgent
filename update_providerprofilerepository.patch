@@ -1,0 +1,58 @@
+--- src/DHSIntegrationAgent.Infrastructure/Persistence/Sqlite/Repositories/ProviderProfileRepository.cs
++++ src/DHSIntegrationAgent.Infrastructure/Persistence/Sqlite/Repositories/ProviderProfileRepository.cs
+@@ -11,9 +11,9 @@
+         await using var cmd = CreateCommand(
+             """
+             INSERT INTO ProviderProfile
+-            (ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName)
++            (ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread)
+             VALUES
+-            ($pc, $pd, $db, $it, $cs, $kid, $a, $c, $u, $ebs, $bsc)
++            ($pc, $pd, $db, $it, $cs, $kid, $a, $c, $u, $ebs, $bsc, $fcc)
+             ON CONFLICT(ProviderCode)
+             DO UPDATE SET
+                 ProviderDhsCode = excluded.ProviderDhsCode,
+@@ -23,7 +23,8 @@
+                 EncryptionKeyId = excluded.EncryptionKeyId,
+                 IsActive = excluded.IsActive,
+                 UpdatedUtc = excluded.UpdatedUtc,
+                 EncryptedBlobStorageConnectionString = excluded.EncryptedBlobStorageConnectionString,
+-                BlobStorageContainerName = excluded.BlobStorageContainerName;
++                BlobStorageContainerName = excluded.BlobStorageContainerName,
++                FetchClaimCountPerThread = excluded.FetchClaimCountPerThread;
+             """);
+         SqliteSqlBuilder.AddParam(cmd, "$pc", row.ProviderCode);
+         SqliteSqlBuilder.AddParam(cmd, "$pd", row.ProviderDhsCode);
+@@ -36,6 +37,7 @@
+         SqliteSqlBuilder.AddParam(cmd, "$u", SqliteUtc.ToIso(row.UpdatedUtc));
+         SqliteSqlBuilder.AddParam(cmd, "$ebs", row.EncryptedBlobStorageConnectionString);
+         SqliteSqlBuilder.AddParam(cmd, "$bsc", row.BlobStorageContainerName);
++        SqliteSqlBuilder.AddParam(cmd, "$fcc", row.FetchClaimCountPerThread);
+
+         await cmd.ExecuteNonQueryAsync(cancellationToken);
+     }
+@@ -45,7 +47,7 @@
+         await using var cmd = CreateCommand(
+             """
+-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName
++            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread
+             FROM ProviderProfile
+             WHERE ProviderCode = $pc
+             LIMIT 1;
+@@ -60,7 +62,7 @@
+     {
+         await using var cmd = CreateCommand(
+             """
+-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName
++            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread
+             FROM ProviderProfile
+             WHERE ProviderDhsCode = $pd AND IsActive = 1
+             LIMIT 1;
+@@ -93,5 +95,6 @@
+             CreatedUtc: SqliteUtc.FromIso(r.GetString(7)),
+             UpdatedUtc: SqliteUtc.FromIso(r.GetString(8)),
+             EncryptedBlobStorageConnectionString: r.IsDBNull(9) ? null : (byte[])r["EncryptedBlobStorageConnectionString"],
+-            BlobStorageContainerName: r.IsDBNull(10) ? null : r.GetString(10));
++            BlobStorageContainerName: r.IsDBNull(10) ? null : r.GetString(10),
++            FetchClaimCountPerThread: r.IsDBNull(11) ? 300 : r.GetInt32(11));
+ }

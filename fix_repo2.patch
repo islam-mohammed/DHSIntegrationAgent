@@ -1,0 +1,28 @@
+--- src/DHSIntegrationAgent.Infrastructure/Persistence/Sqlite/Repositories/ProviderProfileRepository.cs
++++ src/DHSIntegrationAgent.Infrastructure/Persistence/Sqlite/Repositories/ProviderProfileRepository.cs
+@@ -48,7 +48,7 @@
+     {
+         await using var cmd = CreateCommand(
+             """
+-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName
++            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread
+             FROM ProviderProfile
+             WHERE ProviderCode = $pc
+             LIMIT 1;
+@@ -63,7 +63,7 @@
+     {
+         await using var cmd = CreateCommand(
+             """
+-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName
++            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread
+             FROM ProviderProfile
+             WHERE ProviderDhsCode = $pd AND IsActive = 1
+             LIMIT 1;
+@@ -96,5 +96,6 @@
+             CreatedUtc: SqliteUtc.FromIso(r.GetString(7)),
+             UpdatedUtc: SqliteUtc.FromIso(r.GetString(8)),
+             EncryptedBlobStorageConnectionString: r.IsDBNull(9) ? null : (byte[])r["EncryptedBlobStorageConnectionString"],
+-            BlobStorageContainerName: r.IsDBNull(10) ? null : r.GetString(10));
++            BlobStorageContainerName: r.IsDBNull(10) ? null : r.GetString(10),
++            FetchClaimCountPerThread: r.IsDBNull(11) ? 300 : r.GetInt32(11));
+ }

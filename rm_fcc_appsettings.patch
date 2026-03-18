@@ -1,0 +1,73 @@
+--- src/DHSIntegrationAgent.Contracts/Persistence/AppSettingsRow.cs
++++ src/DHSIntegrationAgent.Contracts/Persistence/AppSettingsRow.cs
+@@ -11,5 +11,4 @@
+     int LeaseDurationSeconds,
+     int StreamAIntervalSeconds,
+     int ResumePollIntervalSeconds,
+-    int ApiTimeoutSeconds,
+-    int FetchClaimCountPerThread);
++    int ApiTimeoutSeconds);
+--- src/DHSIntegrationAgent.Application/Persistence/Repositories/IAppSettingsRepository.cs
++++ src/DHSIntegrationAgent.Application/Persistence/Repositories/IAppSettingsRepository.cs
+@@ -25,6 +25,5 @@
+         int configCacheTtlMinutes,
+         int fetchIntervalMinutes,
+         int manualRetryCooldownMinutes,
+-        int fetchClaimCountPerThread,
+         DateTimeOffset utcNow,
+         CancellationToken cancellationToken);
+--- src/DHSIntegrationAgent.Infrastructure/Persistence/Sqlite/Repositories/AppSettingsRepository.cs
++++ src/DHSIntegrationAgent.Infrastructure/Persistence/Sqlite/Repositories/AppSettingsRepository.cs
+@@ -32,8 +32,7 @@
+                 LeaseDurationSeconds,
+                 StreamAIntervalSeconds,
+                 ResumePollIntervalSeconds,
+-                ApiTimeoutSeconds,
+-                FetchClaimCountPerThread
++                ApiTimeoutSeconds
+             FROM AppSettings
+             WHERE Id = 1;
+             """;
+@@ -53,8 +52,7 @@
+             LeaseDurationSeconds: r.GetInt32(7),
+             StreamAIntervalSeconds: r.GetInt32(8),
+             ResumePollIntervalSeconds: r.GetInt32(9),
+-            ApiTimeoutSeconds: r.GetInt32(10),
+-            FetchClaimCountPerThread: r.GetInt32(11));
++            ApiTimeoutSeconds: r.GetInt32(10));
+     }
+
+     public async Task UpdateSetupAsync(
+@@ -95,7 +93,6 @@
+         int configCacheTtlMinutes,
+         int fetchIntervalMinutes,
+         int manualRetryCooldownMinutes,
+-        int fetchClaimCountPerThread,
+         DateTimeOffset utcNow,
+         CancellationToken cancellationToken)
+     {
+@@ -106,7 +103,6 @@
+                 StreamAIntervalSeconds = $streamA,
+                 ResumePollIntervalSeconds = $resume,
+                 ApiTimeoutSeconds = $apiTimeout,
+-                FetchClaimCountPerThread = $fetchClaimCount,
+                 ConfigCacheTtlMinutes = $ttl,
+                 FetchIntervalMinutes = $fetch,
+                 ManualRetryCooldownMinutes = $cooldown,
+@@ -121,7 +117,6 @@
+         SqliteSqlBuilder.AddParam(cmd, "$streamA", streamAIntervalSeconds);
+         SqliteSqlBuilder.AddParam(cmd, "$resume", resumePollIntervalSeconds);
+         SqliteSqlBuilder.AddParam(cmd, "$apiTimeout", apiTimeoutSeconds);
+-        SqliteSqlBuilder.AddParam(cmd, "$fetchClaimCount", fetchClaimCountPerThread);
+         SqliteSqlBuilder.AddParam(cmd, "$ttl", configCacheTtlMinutes);
+         SqliteSqlBuilder.AddParam(cmd, "$fetch", fetchIntervalMinutes);
+         SqliteSqlBuilder.AddParam(cmd, "$cooldown", manualRetryCooldownMinutes);
+--- src/DHSIntegrationAgent.Application/Persistence/AppSettings.cs
++++ src/DHSIntegrationAgent.Application/Persistence/AppSettings.cs
+@@ -9,6 +9,5 @@
+     int FetchIntervalMinutes,
+     int ManualRetryCooldownMinutes,
+     int LeaseDurationSeconds,
+-    int FetchClaimCountPerThread,
+     DateTimeOffset CreatedUtc,
+     DateTimeOffset UpdatedUtc);

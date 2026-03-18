@@ -1,0 +1,10 @@
+--- src/DHSIntegrationAgent.Infrastructure/Persistence/Sqlite/Repositories/ProviderProfileRepository.cs
++++ src/DHSIntegrationAgent.Infrastructure/Persistence/Sqlite/Repositories/ProviderProfileRepository.cs
+@@ -35,6 +35,7 @@
+         SqliteSqlBuilder.AddParam(cmd, "$u", SqliteUtc.ToIso(row.UpdatedUtc));
+         SqliteSqlBuilder.AddParam(cmd, "$ebs", row.EncryptedBlobStorageConnectionString);
+         SqliteSqlBuilder.AddParam(cmd, "$bsc", row.BlobStorageContainerName);
++        SqliteSqlBuilder.AddParam(cmd, "$fcc", row.FetchClaimCountPerThread);
+
+         await cmd.ExecuteNonQueryAsync(cancellationToken);
+     }
