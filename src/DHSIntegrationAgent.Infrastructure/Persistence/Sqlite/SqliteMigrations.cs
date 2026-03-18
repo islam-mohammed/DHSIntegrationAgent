@@ -9,17 +9,24 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 2;
+    public static readonly int CurrentSchemaVersion = 3;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
         new Migration(1, "001_InitialSchema_v1", BuildV1()),
-        new Migration(2, "002_AddFetchClaimCountPerThread", BuildV2())
+        new Migration(2, "002_AddFetchClaimCountPerThread", BuildV2()),
+        new Migration(3, "003_MoveFetchClaimCountToProviderProfile", BuildV3())
     };
 
     private static IReadOnlyList<string> BuildV2() => new List<string>
     {
-        "ALTER TABLE ProviderProfile ADD COLUMN FetchClaimCountPerThread INTEGER NOT NULL DEFAULT 300;"
+        "ALTER TABLE AppSettings ADD COLUMN FetchClaimCountPerThread INTEGER NOT NULL DEFAULT 300;"
+    };
+
+    private static IReadOnlyList<string> BuildV3() => new List<string>
+    {
+        "ALTER TABLE ProviderProfile ADD COLUMN FetchClaimCountPerThread INTEGER NOT NULL DEFAULT 300;",
+        "UPDATE ProviderProfile SET FetchClaimCountPerThread = COALESCE((SELECT FetchClaimCountPerThread FROM AppSettings WHERE Id = 1), 300);"
     };
 
     /// <summary>
