@@ -353,6 +353,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 return;
 
             var connectionString = GetString(providerInfo, "connectionString");
+            // var connectionString = "Server=.\\SQLEXPRESS;Initial Catalog=DHS;User Id=root;Password=root;Encrypt=True;TrustServerCertificate=True;";
             if (string.IsNullOrWhiteSpace(connectionString))
                 return;
 
