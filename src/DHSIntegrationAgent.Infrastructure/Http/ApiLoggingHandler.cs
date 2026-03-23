@@ -81,6 +81,27 @@ public sealed class ApiLoggingHandler : DelegatingHandler
             var providerDhsCode = ExtractProviderDhsCode(url) ?? activeProviderDhsCode;
             var succeeded = error == null && response is { IsSuccessStatusCode: true };
 
+            string? errorMessage = error != null ? SanitizeError(error.Message) : null;
+
+            if (response is { IsSuccessStatusCode: false, Content: not null })
+            {
+                try
+                {
+                    await response.Content.LoadIntoBufferAsync();
+                    var errorBody = await response.Content.ReadAsStringAsync(ct);
+                    if (!string.IsNullOrWhiteSpace(errorBody))
+                    {
+                        errorMessage = string.IsNullOrWhiteSpace(errorMessage)
+                            ? SanitizeError(errorBody)
+                            : SanitizeError($"{errorMessage} | {errorBody}");
+                    }
+                }
+                catch
+                {
+                    // Ignore stream reading errors
+                }
+            }
+
             var record = new ApiCallRecord(
                 CorrelationId: correlationId,
                 HttpMethod: request.Method.Method,
@@ -93,7 +114,7 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                 StatusCode: statusCode,
                 Succeeded: succeeded,
                 ErrorType: error?.GetType().Name,
-                ErrorMessage: error is null ? null : SanitizeError(error.Message),
+                ErrorMessage: errorMessage,
                 RequestBytes: reqBytes,
                 ResponseBytes: respBytes,
                 WasGzipRequest: wasGzip
@@ -101,10 +122,20 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
             await _recorder.RecordAsync(record, ct);
 
-            _logger.LogInformation(
-                "API {EndpointName} ({Method} {Url}) -> {Status} in {Elapsed}ms (corr={CorrelationId}, succeeded={Succeeded})",
-                record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.Succeeded
-            );
+            if (!succeeded)
+            {
+                _logger.LogError(
+                    "API {EndpointName} ({Method} {Url}) -> {Status} failed in {Elapsed}ms (corr={CorrelationId}). Error: {ErrorMessage}",
+                    record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.ErrorMessage
+                );
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "API {EndpointName} ({Method} {Url}) -> {Status} in {Elapsed}ms (corr={CorrelationId}, succeeded={Succeeded})",
+                    record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.Succeeded
+                );
+            }
         }
     }
 
@@ -191,6 +222,6 @@ public sealed class ApiLoggingHandler : DelegatingHandler
         if (string.IsNullOrWhiteSpace(msg)) return "error";
 
         msg = msg.Replace("\r", " ").Replace("\n", " ");
-        return msg.Length <= 300 ? msg : msg[..300];
+        return msg.Length <= 1000 ? msg : msg[..1000];
     }
 }
