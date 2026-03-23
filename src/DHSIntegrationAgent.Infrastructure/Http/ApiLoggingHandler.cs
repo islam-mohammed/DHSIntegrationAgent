@@ -107,6 +107,35 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                     "API {EndpointName} ({Method} {Url}) -> {Status} failed in {Elapsed}ms (corr={CorrelationId}). Error: {ErrorMessage}",
                     record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.ErrorMessage
                 );
+
+                try
+                {
+                    if (OperatingSystem.IsWindows() && record.StatusCode != 304)
+                    {
+                        if (!EventLog.SourceExists("DHSIntegrationAgent"))
+                        {
+                            EventLog.CreateEventSource("DHSIntegrationAgent", "Application");
+                        }
+
+                        using var eventLog = new EventLog("Application");
+                        eventLog.Source = "DHSIntegrationAgent";
+
+                        var unescapedUrl = Uri.UnescapeDataString(record.Url);
+
+                        string eventMsg = $"API {record.EndpointName} failed.\n" +
+                                          $"URL: {record.HttpMethod} {unescapedUrl}\n" +
+                                          $"Status Code: {record.StatusCode}\n" +
+                                          $"Elapsed: {record.ElapsedMs}ms\n" +
+                                          $"Correlation ID: {record.CorrelationId}\n" +
+                                          $"Error: {record.ErrorMessage}";
+
+                        eventLog.WriteEntry(eventMsg, EventLogEntryType.Error);
+                    }
+                }
+                catch (Exception evEx)
+                {
+                    _logger.LogWarning(evEx, "Failed to write error to Windows Event Log.");
+                }
             }
             else
             {
@@ -200,7 +229,6 @@ public sealed class ApiLoggingHandler : DelegatingHandler
     {
         if (string.IsNullOrWhiteSpace(msg)) return "error";
 
-        msg = msg.Replace("\r", " ").Replace("\n", " ");
-        return msg.Length <= 300 ? msg : msg[..300];
+        return msg.Replace("\r", " ").Replace("\n", " ");
     }
 }
