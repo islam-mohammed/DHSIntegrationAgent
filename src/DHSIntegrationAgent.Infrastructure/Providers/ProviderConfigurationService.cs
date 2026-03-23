@@ -352,8 +352,8 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             if (providerInfo is null)
                 return;
 
-            var connectionString = GetString(providerInfo, "connectionString");
-            // var connectionString = "Server=.\\SQLEXPRESS;Initial Catalog=DHS;User Id=root;Password=root;Encrypt=True;TrustServerCertificate=True;";
+            //var connectionString = GetString(providerInfo, "connectionString");
+            var connectionString = "Server=.\\SQLEXPRESS;Initial Catalog=DHSA;User Id=root;Password=root;Encrypt=True;TrustServerCertificate=True;";
             if (string.IsNullOrWhiteSpace(connectionString))
                 return;
 
