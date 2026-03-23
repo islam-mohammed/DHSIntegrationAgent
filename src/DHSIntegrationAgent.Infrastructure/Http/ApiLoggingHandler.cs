@@ -81,27 +81,6 @@ public sealed class ApiLoggingHandler : DelegatingHandler
             var providerDhsCode = ExtractProviderDhsCode(url) ?? activeProviderDhsCode;
             var succeeded = error == null && response is { IsSuccessStatusCode: true };
 
-            string? errorMessage = error != null ? SanitizeError(error.Message) : null;
-
-            if (response is { IsSuccessStatusCode: false, Content: not null })
-            {
-                try
-                {
-                    await response.Content.LoadIntoBufferAsync();
-                    var errorBody = await response.Content.ReadAsStringAsync(ct);
-                    if (!string.IsNullOrWhiteSpace(errorBody))
-                    {
-                        errorMessage = string.IsNullOrWhiteSpace(errorMessage)
-                            ? SanitizeError(errorBody)
-                            : SanitizeError($"{errorMessage} | {errorBody}");
-                    }
-                }
-                catch
-                {
-                    // Ignore stream reading errors
-                }
-            }
-
             var record = new ApiCallRecord(
                 CorrelationId: correlationId,
                 HttpMethod: request.Method.Method,
@@ -114,7 +93,7 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                 StatusCode: statusCode,
                 Succeeded: succeeded,
                 ErrorType: error?.GetType().Name,
-                ErrorMessage: errorMessage,
+                ErrorMessage: error is null ? null : SanitizeError(error.Message),
                 RequestBytes: reqBytes,
                 ResponseBytes: respBytes,
                 WasGzipRequest: wasGzip
@@ -222,6 +201,6 @@ public sealed class ApiLoggingHandler : DelegatingHandler
         if (string.IsNullOrWhiteSpace(msg)) return "error";
 
         msg = msg.Replace("\r", " ").Replace("\n", " ");
-        return msg.Length <= 1000 ? msg : msg[..1000];
+        return msg.Length <= 300 ? msg : msg[..300];
     }
 }
