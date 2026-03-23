@@ -110,13 +110,20 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
                 try
                 {
-                    if (OperatingSystem.IsWindows())
+                    if (OperatingSystem.IsWindows() && record.StatusCode != 304)
                     {
+                        if (!EventLog.SourceExists("DHSIntegrationAgent"))
+                        {
+                            EventLog.CreateEventSource("DHSIntegrationAgent", "Application");
+                        }
+
                         using var eventLog = new EventLog("Application");
                         eventLog.Source = "DHSIntegrationAgent";
 
+                        var unescapedUrl = Uri.UnescapeDataString(record.Url);
+
                         string eventMsg = $"API {record.EndpointName} failed.\n" +
-                                          $"URL: {record.HttpMethod} {record.Url}\n" +
+                                          $"URL: {record.HttpMethod} {unescapedUrl}\n" +
                                           $"Status Code: {record.StatusCode}\n" +
                                           $"Elapsed: {record.ElapsedMs}ms\n" +
                                           $"Correlation ID: {record.CorrelationId}\n" +
