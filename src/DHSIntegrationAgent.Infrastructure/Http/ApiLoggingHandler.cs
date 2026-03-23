@@ -101,10 +101,20 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
             await _recorder.RecordAsync(record, ct);
 
-            _logger.LogInformation(
-                "API {EndpointName} ({Method} {Url}) -> {Status} in {Elapsed}ms (corr={CorrelationId}, succeeded={Succeeded})",
-                record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.Succeeded
-            );
+            if (!succeeded)
+            {
+                _logger.LogError(
+                    "API {EndpointName} ({Method} {Url}) -> {Status} failed in {Elapsed}ms (corr={CorrelationId}). Error: {ErrorMessage}",
+                    record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.ErrorMessage
+                );
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "API {EndpointName} ({Method} {Url}) -> {Status} in {Elapsed}ms (corr={CorrelationId}, succeeded={Succeeded})",
+                    record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.Succeeded
+                );
+            }
         }
     }
 
