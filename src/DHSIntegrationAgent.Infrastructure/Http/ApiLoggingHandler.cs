@@ -83,7 +83,7 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
             string? errorMessage = error is null ? null : SanitizeError(error.Message);
 
-            if (!succeeded && error == null && response?.Content != null)
+            if (error == null && response?.Content != null)
             {
                 try
                 {
@@ -91,11 +91,14 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                     if (!string.IsNullOrWhiteSpace(content))
                     {
                         var parsedErrors = string.Empty;
+                        bool hasErrorsArray = false;
+
                         try
                         {
                             using var doc = System.Text.Json.JsonDocument.Parse(content);
                             if (doc.RootElement.TryGetProperty("errors", out var errorsProp) && errorsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
                             {
+                                hasErrorsArray = true;
                                 var errorList = new List<string>();
                                 foreach (var err in errorsProp.EnumerateArray())
                                 {
@@ -114,10 +117,22 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                         }
                         catch
                         {
-                            // JSON parse error, fall back to plain content
+                            // JSON parse error, keep plain content if status code is not 200
                         }
 
-                        errorMessage = SanitizeError(string.IsNullOrWhiteSpace(parsedErrors) ? content : parsedErrors);
+                        if (!succeeded)
+                        {
+                            errorMessage = SanitizeError(string.IsNullOrWhiteSpace(parsedErrors) ? content : parsedErrors);
+                        }
+                        else if (hasErrorsArray && !string.IsNullOrWhiteSpace(parsedErrors))
+                        {
+                            // If the HTTP status code was success, but there are explicit errors in the JSON body,
+                            // treat it as a failure for the API call log.
+                            succeeded = false;
+                            errorMessage = SanitizeError(parsedErrors);
+                        }
+                        // If it has "succeeded" inside the JSON body, we might want to check it, but the instruction
+                        // specifically targets "errors" array containing items.
                     }
                 }
                 catch
