@@ -43,6 +43,111 @@ public sealed class ClaimBundleBuilder
 
     private readonly Options _options;
 
+    private enum SchemaDataType
+    {
+        String,
+        Integer,
+        Decimal,
+        Boolean,
+        DateTime
+    }
+
+    private static readonly Dictionary<string, SchemaDataType> _schemaDataTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        // Int / BigInt
+        { "DestinationCode", SchemaDataType.Integer },
+        { "provider_dhsCode", SchemaDataType.Integer },
+        { "Age", SchemaDataType.Integer },
+        { "DurationOFIllness", SchemaDataType.Integer },
+        { "UserID", SchemaDataType.Integer },
+        { "RelatedClaim", SchemaDataType.Integer },
+        { "bCR_Id", SchemaDataType.Integer },
+        { "ventilationhours", SchemaDataType.Integer },
+        { "DiagnosisID", SchemaDataType.Integer },
+        { "DHSI", SchemaDataType.Integer },
+        { "diagnosis_Order", SchemaDataType.Integer },
+        { "fK_DiagnosisType_ID", SchemaDataType.Integer },
+        { "fK_ConditionOnset_ID", SchemaDataType.Integer },
+        { "genderID", SchemaDataType.Integer },
+        { "LabID", SchemaDataType.Integer },
+        { "RadiologyID", SchemaDataType.Integer },
+        { "ServiceID", SchemaDataType.Integer },
+        { "SubmissionReasonCode", SchemaDataType.Integer },
+        { "TreatmentTypeIndicator", SchemaDataType.Integer },
+        { "PBMDuration", SchemaDataType.Integer },
+        { "PBMTimes", SchemaDataType.Integer },
+        { "PBMUnit", SchemaDataType.Integer },
+        { "nphiesServiceTypeID", SchemaDataType.Integer },
+        { "daysSupply", SchemaDataType.Integer },
+        { "Doc_ID", SchemaDataType.Integer },
+        { "SerialNo", SchemaDataType.Integer },
+
+        // Decimal
+        { "ClaimedAmount", SchemaDataType.Decimal },
+        { "ClaimedAmountSAR", SchemaDataType.Decimal },
+        { "TotalNetAmount", SchemaDataType.Decimal },
+        { "TotalDiscount", SchemaDataType.Decimal },
+        { "TotalDeductible", SchemaDataType.Decimal },
+        { "NumberOfIncidents", SchemaDataType.Decimal },
+        { "LineClaimedAmount", SchemaDataType.Decimal },
+        { "CoInsurance", SchemaDataType.Decimal },
+        { "CoPay", SchemaDataType.Decimal },
+        { "LineItemDiscount", SchemaDataType.Decimal },
+        { "NetAmount", SchemaDataType.Decimal },
+        { "VatPercentage", SchemaDataType.Decimal },
+        { "PatientVatAmount", SchemaDataType.Decimal },
+        { "NetVatAmount", SchemaDataType.Decimal },
+        { "CashAmount", SchemaDataType.Decimal },
+        { "UnitPrice", SchemaDataType.Decimal },
+        { "DiscPercentage", SchemaDataType.Decimal },
+        { "priceListPrice", SchemaDataType.Decimal },
+        { "priceListDiscount", SchemaDataType.Decimal },
+        { "factor", SchemaDataType.Decimal },
+        { "tax", SchemaDataType.Decimal },
+        { "RightEyePower_Distance", SchemaDataType.Decimal },
+        { "RightEyePower_Near", SchemaDataType.Decimal },
+        { "LeftEyePower_Distance", SchemaDataType.Decimal },
+        { "LeftEyePower_Near", SchemaDataType.Decimal },
+
+        // Bit / Boolean
+        { "ReferInd", SchemaDataType.Boolean },
+        { "EmerInd", SchemaDataType.Boolean },
+        { "DHSM", SchemaDataType.Boolean },
+        { "NewBorn", SchemaDataType.Boolean },
+        { "IsFetched", SchemaDataType.Boolean },
+        { "isSync", SchemaDataType.Boolean },
+        { "isUnacceptPrimaryDiagnosis", SchemaDataType.Boolean },
+        { "isMorphologyRequired", SchemaDataType.Boolean },
+        { "isRTAType", SchemaDataType.Boolean },
+        { "isWPAType", SchemaDataType.Boolean },
+        { "VatIndicator", SchemaDataType.Boolean },
+        { "Maternity", SchemaDataType.Boolean },
+        { "isUnlistedCode", SchemaDataType.Boolean },
+        { "hasResult", SchemaDataType.Boolean },
+        { "Active", SchemaDataType.Boolean },
+
+        // DateTime / Date
+        { "ProRequestDate", SchemaDataType.DateTime },
+        { "InvoiceDate", SchemaDataType.DateTime },
+        { "BatchDate", SchemaDataType.DateTime },
+        { "BatchStartDate", SchemaDataType.DateTime },
+        { "BatchEndDate", SchemaDataType.DateTime },
+        { "DOB", SchemaDataType.DateTime },
+        { "AdmissionDate", SchemaDataType.DateTime },
+        { "DischargeDate", SchemaDataType.DateTime },
+        { "EmergencyStartDate", SchemaDataType.DateTime },
+        { "TriageDate", SchemaDataType.DateTime },
+        { "FetchDate", SchemaDataType.DateTime },
+        { "DiagnosisDate", SchemaDataType.DateTime },
+        { "diagnosis_Date", SchemaDataType.DateTime },
+        { "VisitDate", SchemaDataType.DateTime },
+        { "ResultDate", SchemaDataType.DateTime },
+        { "TreatmentFromDate", SchemaDataType.DateTime },
+        { "TreatmentToDate", SchemaDataType.DateTime },
+        { "WorkOrder", SchemaDataType.DateTime },
+        { "Doc_DOB", SchemaDataType.DateTime }
+    };
+
     public ClaimBundleBuilder(Options? options = null)
     {
         _options = options ?? Options.Default;
@@ -112,18 +217,34 @@ public sealed class ClaimBundleBuilder
         // We keep MonthKey out of payload unless backend expects it.
         // SQLite staging stores MonthKey separately; payload stays canonical.
 
-        // 4) Ensure arrays exist (empty arrays allowed)
+        var serviceDetails = parts.ServiceDetails ?? new JsonArray();
+        var diagnosisDetails = parts.DiagnosisDetails ?? new JsonArray();
+        var labDetails = parts.LabDetails ?? new JsonArray();
+        var radiologyDetails = parts.RadiologyDetails ?? new JsonArray();
+        var opticalVitalSigns = parts.OpticalVitalSigns ?? new JsonArray();
+        var dhsDoctors = parts.DhsDoctors ?? new JsonArray();
+
+        // 4) Convert fields based on dhs_schema.json types
+        ConvertNode(header);
+        ConvertNode(serviceDetails);
+        ConvertNode(diagnosisDetails);
+        ConvertNode(labDetails);
+        ConvertNode(radiologyDetails);
+        ConvertNode(opticalVitalSigns);
+        ConvertNode(dhsDoctors);
+
+        // 5) Ensure arrays exist (empty arrays allowed)
         var bundle = new ClaimBundle(
             claimHeader: header,
-            serviceDetails: parts.ServiceDetails ?? new JsonArray(),
-            diagnosisDetails: parts.DiagnosisDetails ?? new JsonArray(),
-            labDetails: parts.LabDetails ?? new JsonArray(),
-            radiologyDetails: parts.RadiologyDetails ?? new JsonArray(),
-            opticalVitalSigns: parts.OpticalVitalSigns ?? new JsonArray(),
-            dhsDoctors: parts.DhsDoctors ?? new JsonArray()
+            serviceDetails: serviceDetails,
+            diagnosisDetails: diagnosisDetails,
+            labDetails: labDetails,
+            radiologyDetails: radiologyDetails,
+            opticalVitalSigns: opticalVitalSigns,
+            dhsDoctors: dhsDoctors
         );
 
-        // 5) Normalize detail items
+        // 6) Normalize detail items
         // serviceDetails uses all-lowercase 'proidclaim' as STRING per latest requirement (only here).
         EnsureProIdClaimWithoutIssues(bundle.ServiceDetails, proIdClaim.ToString(CultureInfo.InvariantCulture), "proidclaim");
 
@@ -134,7 +255,7 @@ public sealed class ClaimBundleBuilder
         EnsureProIdClaimInt(bundle.OpticalVitalSigns, proIdClaim);
         EnsureProIdClaimInt(bundle.DhsDoctors, proIdClaim);
 
-        // 6) Normalize specific fields
+        // 7) Normalize specific fields
         NormalizeDiagnosisDates(bundle.DiagnosisDetails);
 
         return new ClaimBundleBuildResult(
@@ -150,6 +271,65 @@ public sealed class ClaimBundleBuilder
     // -------------------------
     // Normalization helpers
     // -------------------------
+
+    private static void ConvertNode(JsonNode? node)
+    {
+        if (node is null) return;
+
+        if (node is JsonObject obj)
+        {
+            var keys = obj.Select(k => k.Key).ToList();
+            foreach (var key in keys)
+            {
+                // Preserve existing proclaimid implementation
+                if (key.Equals("proIdClaim", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (obj[key] is JsonValue jVal)
+                {
+                    if (_schemaDataTypes.TryGetValue(key, out var schemaType))
+                    {
+                        obj[key] = ConvertToType(jVal, schemaType);
+                    }
+                    else
+                    {
+                        // Default to string for any other unmapped fields (like varchar/nvarchar)
+                        obj[key] = ConvertToType(jVal, SchemaDataType.String);
+                    }
+                }
+                else if (obj[key] is JsonObject || obj[key] is JsonArray)
+                {
+                    ConvertNode(obj[key]);
+                }
+            }
+        }
+        else if (node is JsonArray arr)
+        {
+            foreach (var item in arr)
+            {
+                ConvertNode(item);
+            }
+        }
+    }
+
+    private static JsonNode? ConvertToType(JsonValue value, SchemaDataType targetType)
+    {
+        if (value == null) return null;
+
+        var strVal = value.ToString().Trim('"');
+        if (string.IsNullOrWhiteSpace(strVal)) return null;
+
+        return targetType switch
+        {
+            SchemaDataType.Integer => (long.TryParse(strVal, out var l) || decimal.TryParse(strVal, out var dec) && (l = (long)dec) == dec) ? JsonValue.Create(l) : null,
+            SchemaDataType.Decimal => decimal.TryParse(strVal, out var dec) ? JsonValue.Create(dec) : null,
+            SchemaDataType.Boolean => (bool.TryParse(strVal, out var b) ? JsonValue.Create(b) : (strVal == "1" || strVal.Equals("true", StringComparison.OrdinalIgnoreCase) ? JsonValue.Create(true) : JsonValue.Create(false))),
+            SchemaDataType.DateTime => DateTimeOffset.TryParse(strVal, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt) ? JsonValue.Create(dt.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")) : JsonValue.Create(strVal),
+            _ => JsonValue.Create(strVal)
+        };
+    }
 
     private static void EnsureProIdClaimWithoutIssues(JsonArray details, string value, string targetFieldName = "proIdClaim")
     {
