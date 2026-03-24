@@ -81,6 +81,24 @@ public sealed class ApiLoggingHandler : DelegatingHandler
             var providerDhsCode = ExtractProviderDhsCode(url) ?? activeProviderDhsCode;
             var succeeded = error == null && response is { IsSuccessStatusCode: true };
 
+            string? errorMessage = error is null ? null : SanitizeError(error.Message);
+
+            if (!succeeded && response?.Content != null && error == null)
+            {
+                try
+                {
+                    var responseString = await response.Content.ReadAsStringAsync(ct);
+                    if (!string.IsNullOrWhiteSpace(responseString))
+                    {
+                        errorMessage = SanitizeError(responseString);
+                    }
+                }
+                catch
+                {
+                    // Ignore body read errors
+                }
+            }
+
             var record = new ApiCallRecord(
                 CorrelationId: correlationId,
                 HttpMethod: request.Method.Method,
@@ -93,7 +111,7 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                 StatusCode: statusCode,
                 Succeeded: succeeded,
                 ErrorType: error?.GetType().Name,
-                ErrorMessage: error is null ? null : SanitizeError(error.Message),
+                ErrorMessage: errorMessage,
                 RequestBytes: reqBytes,
                 ResponseBytes: respBytes,
                 WasGzipRequest: wasGzip
@@ -107,35 +125,6 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                     "API {EndpointName} ({Method} {Url}) -> {Status} failed in {Elapsed}ms (corr={CorrelationId}). Error: {ErrorMessage}",
                     record.EndpointName, record.HttpMethod, record.Url, record.StatusCode, record.ElapsedMs, record.CorrelationId, record.ErrorMessage
                 );
-
-                try
-                {
-                    if (OperatingSystem.IsWindows() && record.StatusCode != 304)
-                    {
-                        if (!EventLog.SourceExists("DHSIntegrationAgent"))
-                        {
-                            EventLog.CreateEventSource("DHSIntegrationAgent", "Application");
-                        }
-
-                        using var eventLog = new EventLog("Application");
-                        eventLog.Source = "DHSIntegrationAgent";
-
-                        var unescapedUrl = Uri.UnescapeDataString(record.Url);
-
-                        string eventMsg = $"API {record.EndpointName} failed.\n" +
-                                          $"URL: {record.HttpMethod} {unescapedUrl}\n" +
-                                          $"Status Code: {record.StatusCode}\n" +
-                                          $"Elapsed: {record.ElapsedMs}ms\n" +
-                                          $"Correlation ID: {record.CorrelationId}\n" +
-                                          $"Error: {record.ErrorMessage}";
-
-                        eventLog.WriteEntry(eventMsg, EventLogEntryType.Error);
-                    }
-                }
-                catch (Exception evEx)
-                {
-                    _logger.LogWarning(evEx, "Failed to write error to Windows Event Log.");
-                }
             }
             else
             {
