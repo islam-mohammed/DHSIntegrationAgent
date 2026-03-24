@@ -37,8 +37,6 @@ public sealed class DiagnosticsViewModel : ViewModelBase
     public RelayCommand ExportSupportBundleCommand { get; }
     public AsyncRelayCommand CheckHealthCommand { get; }
 
-    public LogsViewModel LogsViewModel { get; }
-
     public DiagnosticsViewModel(
         ISqliteUnitOfWorkFactory unitOfWorkFactory,
         IHealthClient healthClient)
@@ -53,8 +51,6 @@ public sealed class DiagnosticsViewModel : ViewModelBase
             // Screen-only: real export is WBS 6.2 + 5.8 wiring
             // Must remain PHI-safe (no payloads/attachments).
         });
-
-        LogsViewModel = new LogsViewModel();
 
         // Load data on initialization
         _ = LoadApiCallsAsync();
