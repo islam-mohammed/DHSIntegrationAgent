@@ -15,29 +15,12 @@
             <TextBlock Text="API Call Log viewer - Recent 100 API calls." Foreground="{StaticResource BrushMuted}" Margin="0,4,0,0"/>
         </StackPanel>
 
-        <TabControl Grid.Row="1"  Style="{StaticResource TabControlStyle}">
-            <TabItem  Style="{StaticResource TabItemStyle}" >
-                <!-- Header    -->
-                <TabItem.HeaderTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal" >
-                            <!-- Tab header icon -->
-                            <materialDesign:PackIcon Kind="ClipboardPulseOutline"
-                                            Style="{StaticResource TabHeaderIcon}" />
-                            <TextBlock Style="{StaticResource TabHeaderTitle}" Padding="0,0,15,4" Text="Diagnostics" FontWeight="SemiBold" FontSize="14"/>
-                        </StackPanel>
-
-                    </DataTemplate>
-                </TabItem.HeaderTemplate>
-                <Grid Margin="15">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="Diagnostics" FontSize="20" FontWeight="SemiBold"/> 
-                    </StackPanel> 
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,12">
+        <Grid Grid.Row="1" Margin="15">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,12">
                         
                         <TextBlock Text="{Binding ApiHealthMessage}"
                                    VerticalAlignment="Center"
@@ -110,7 +93,13 @@
                                         <DataGridTextColumn Header="Duration (ms)" Binding="{Binding DurationMs}" Width="1" MinWidth="100"/>
                                         <DataGridTextColumn Header="HTTP Status" Binding="{Binding HttpStatusCode}" Width="1" MinWidth="100"/>
                                         <DataGridTextColumn Header="Succeeded" Binding="{Binding Succeeded}" Width="0.8" MinWidth="80"/>
-                                        <DataGridTextColumn Header="Error Message" Binding="{Binding ErrorMessage}" Width="2.5" MinWidth="170"/>
+                                        <DataGridTextColumn Header="Error Message" Binding="{Binding ErrorMessage}" Width="2.5" MinWidth="170">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="TextWrapping" Value="Wrap"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
                                         <DataGridTextColumn Header="Request Bytes" Binding="{Binding RequestBytes}" Width="1" MinWidth="100"/>
                                         <DataGridTextColumn Header="Response Bytes" Binding="{Binding ResponseBytes}" Width="1" MinWidth="100"/>
                                         <DataGridTextColumn Header="Was Gzip" Binding="{Binding WasGzipRequest}" Width="0.8" MinWidth="70"/>
@@ -122,23 +111,6 @@
                             <controls:LoadingOverlay DataContext="{Binding}"/>
                         </Grid>
                     </Border>
-                </Grid>
-            </TabItem>
-            <TabItem  Style="{StaticResource TabItemStyle}">
-                <!-- Header    -->
-                <TabItem.HeaderTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal" >
-                            <!-- Tab header icon -->
-                            <materialDesign:PackIcon Kind="ServerOutline"
-                                            Style="{StaticResource TabHeaderIcon}" />
-                            <TextBlock Style="{StaticResource TabHeaderTitle}" Padding="0,0,15,4" Text="Log" FontWeight="SemiBold" FontSize="14"/>
-                        </StackPanel>
-
-                    </DataTemplate>
-                </TabItem.HeaderTemplate>
-                <views:LogsView DataContext="{Binding LogsViewModel}"/>
-            </TabItem>
-        </TabControl>
+        </Grid>
     </Grid>
 </UserControl>
