@@ -38,21 +38,22 @@ internal sealed class ApiCallLogRepository : IApiCallLogRepository
             (ProviderDhsCode, EndpointName, CorrelationId, RequestUtc, ResponseUtc, DurationMs, HttpStatusCode,
              Succeeded, ErrorMessage, RequestBytes, ResponseBytes, WasGzipRequest)
             VALUES
-            ($p, $e, $c, $rq, $rs, $d, $h, $s, $err, $qb, $rb, $gz);
+            (@ProviderDhsCode, @EndpointName, @CorrelationId, @RequestUtc, @ResponseUtc, @DurationMs, @HttpStatusCode,
+             @Succeeded, @ErrorMessage, @RequestBytes, @ResponseBytes, @WasGzipRequest);
             """;
 
-        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
-        SqliteSqlBuilder.AddParam(cmd, "$e", endpointName);
-        SqliteSqlBuilder.AddParam(cmd, "$c", correlationId);
-        SqliteSqlBuilder.AddParam(cmd, "$rq", SqliteUtc.ToIso(requestUtc));
-        SqliteSqlBuilder.AddParam(cmd, "$rs", responseUtc is null ? null : SqliteUtc.ToIso(responseUtc.Value));
-        SqliteSqlBuilder.AddParam(cmd, "$d", durationMs);
-        SqliteSqlBuilder.AddParam(cmd, "$h", httpStatusCode);
-        SqliteSqlBuilder.AddParam(cmd, "$s", succeeded ? 1 : 0);
-        SqliteSqlBuilder.AddParam(cmd, "$err", errorMessage);
-        SqliteSqlBuilder.AddParam(cmd, "$qb", requestBytes);
-        SqliteSqlBuilder.AddParam(cmd, "$rb", responseBytes);
-        SqliteSqlBuilder.AddParam(cmd, "$gz", wasGzipRequest ? 1 : 0);
+        SqliteSqlBuilder.AddParam(cmd, "@ProviderDhsCode", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "@EndpointName", endpointName);
+        SqliteSqlBuilder.AddParam(cmd, "@CorrelationId", correlationId);
+        SqliteSqlBuilder.AddParam(cmd, "@RequestUtc", SqliteUtc.ToIso(requestUtc));
+        SqliteSqlBuilder.AddParam(cmd, "@ResponseUtc", responseUtc is null ? null : SqliteUtc.ToIso(responseUtc.Value));
+        SqliteSqlBuilder.AddParam(cmd, "@DurationMs", durationMs);
+        SqliteSqlBuilder.AddParam(cmd, "@HttpStatusCode", httpStatusCode);
+        SqliteSqlBuilder.AddParam(cmd, "@Succeeded", succeeded ? 1 : 0);
+        SqliteSqlBuilder.AddParam(cmd, "@ErrorMessage", errorMessage);
+        SqliteSqlBuilder.AddParam(cmd, "@RequestBytes", requestBytes);
+        SqliteSqlBuilder.AddParam(cmd, "@ResponseBytes", responseBytes);
+        SqliteSqlBuilder.AddParam(cmd, "@WasGzipRequest", wasGzipRequest ? 1 : 0);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
