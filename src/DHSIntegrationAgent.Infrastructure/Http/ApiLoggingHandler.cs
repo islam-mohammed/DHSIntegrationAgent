@@ -90,7 +90,34 @@ public sealed class ApiLoggingHandler : DelegatingHandler
                     var content = await response.Content.ReadAsStringAsync(ct);
                     if (!string.IsNullOrWhiteSpace(content))
                     {
-                        errorMessage = SanitizeError(content);
+                        var parsedErrors = string.Empty;
+                        try
+                        {
+                            using var doc = System.Text.Json.JsonDocument.Parse(content);
+                            if (doc.RootElement.TryGetProperty("errors", out var errorsProp) && errorsProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+                            {
+                                var errorList = new List<string>();
+                                foreach (var err in errorsProp.EnumerateArray())
+                                {
+                                    if (err.ValueKind == System.Text.Json.JsonValueKind.String)
+                                    {
+                                        var errStr = err.GetString();
+                                        if (!string.IsNullOrWhiteSpace(errStr))
+                                            errorList.Add(errStr);
+                                    }
+                                }
+                                if (errorList.Count > 0)
+                                {
+                                    parsedErrors = string.Join(", ", errorList);
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // JSON parse error, fall back to plain content
+                        }
+
+                        errorMessage = SanitizeError(string.IsNullOrWhiteSpace(parsedErrors) ? content : parsedErrors);
                     }
                 }
                 catch
