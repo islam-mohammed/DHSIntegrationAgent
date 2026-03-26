@@ -326,7 +326,7 @@ public sealed class ClaimBundleBuilder
             SchemaDataType.Integer => (long.TryParse(strVal, out var l) || decimal.TryParse(strVal, out var dec) && (l = (long)dec) == dec) ? JsonValue.Create(l) : null,
             SchemaDataType.Decimal => decimal.TryParse(strVal, out var dec) ? JsonValue.Create(dec) : null,
             SchemaDataType.Boolean => (bool.TryParse(strVal, out var b) ? JsonValue.Create(b) : (strVal == "1" || strVal.Equals("true", StringComparison.OrdinalIgnoreCase) ? JsonValue.Create(true) : JsonValue.Create(false))),
-            SchemaDataType.DateTime => DateTimeOffset.TryParse(strVal, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt) ? JsonValue.Create(dt.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")) : JsonValue.Create(strVal),
+            SchemaDataType.DateTime => DateTimeOffset.TryParse(strVal, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var dt) ? JsonValue.Create(dt.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fff")) : JsonValue.Create(strVal),
             _ => JsonValue.Create(strVal)
         };
     }
