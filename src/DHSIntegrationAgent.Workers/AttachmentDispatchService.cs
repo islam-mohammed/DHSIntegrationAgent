@@ -179,6 +179,8 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
                             await uow.Attachments.UpdateStatusAsync(row!.AttachmentId, UploadStatus.Failed, null, ex.Message, _clock.UtcNow, TimeSpan.FromMinutes(5), cancellationToken);
                             await uow.CommitAsync(cancellationToken);
                         }
+
+                        throw new InvalidOperationException($"File could not be accessed or uploaded: {ex.Message}", ex);
                     }
                     finally
                     {
@@ -244,6 +246,10 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
 
                 // Notify Backend
                 var request = new UploadAttachmentRequest(proIdClaim, attachmentDtos);
+
+                var requestJson = System.Text.Json.JsonSerializer.Serialize(request);
+                _logger.LogInformation("Sending attachment payload for claim {ProIdClaim}: {Payload}", proIdClaim, requestJson);
+
                 var result = await _attachmentClient.SendAttachmentAsync(request, cancellationToken);
 
                 if (!result.Succeeded)
@@ -287,7 +293,12 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to process attachments for batch {BatchId}", batchId);
-            progress.Report(new WorkerProgressReport("StreamC", $"Error: {ex.Message}", BatchId: batchId, IsError: true));
+            string message = ex.Message;
+            if (ex is AggregateException aggEx && aggEx.InnerException != null)
+            {
+                message = aggEx.InnerException.Message;
+            }
+            progress.Report(new WorkerProgressReport("StreamC", $"Error: {message}", BatchId: batchId, IsError: true));
         }
     }
 
