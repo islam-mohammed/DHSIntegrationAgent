@@ -6,8 +6,10 @@ using DHSIntegrationAgent.App.DependencyInjection;
 using DHSIntegrationAgent.Bootstrapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.IO;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace DHSIntegrationAgent.App
 {
@@ -56,6 +58,21 @@ namespace DHSIntegrationAgent.App
         private static IHostBuilder CreateHostBuilder()
         {
             return Host.CreateDefaultBuilder()
+                .UseSerilog((context, services, configuration) =>
+                {
+                    var appOptions = context.Configuration.GetSection("App").Get<DHSIntegrationAgent.Application.Configuration.AppOptions>();
+                    var logFolder = string.IsNullOrWhiteSpace(appOptions?.LogFolder)
+                        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DHSIntegrationAgent", "Logs")
+                        : appOptions.LogFolder;
+
+                    configuration
+                        .ReadFrom.Configuration(context.Configuration)
+                        .Enrich.FromLogContext()
+                        .WriteTo.Async(a => a.File(
+                            Path.Combine(logFolder, "log-.txt"),
+                            rollingInterval: RollingInterval.Day,
+                            retainedFileCountLimit: 31));
+                })
                 .ConfigureAppConfiguration((context, config) =>
                 {
                     var basePath = AppContext.BaseDirectory;
@@ -80,11 +97,6 @@ namespace DHSIntegrationAgent.App
                     services.AddDhsWpfUi();
                     services.AddSingleton<MainWindow>();
 
-                    services.AddLogging(logging =>
-                    {
-                        logging.ClearProviders();
-                        logging.AddConsole();
-                    });
                 });
         }
     }

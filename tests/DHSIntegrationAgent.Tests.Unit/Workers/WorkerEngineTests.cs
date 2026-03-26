@@ -74,6 +74,7 @@ public class WorkerEngineTests
     {
         // Act
         await _engine.StartAsync(CancellationToken.None);
+        await Task.Delay(50); // Give the first start a chance to set IsRunning and execute the worker
         await _engine.StartAsync(CancellationToken.None);
 
         await Task.Delay(100);
