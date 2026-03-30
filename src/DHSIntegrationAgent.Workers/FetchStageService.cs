@@ -215,9 +215,12 @@ public sealed class FetchStageService : IFetchStageService
 
                     // Injected fields per your request
                     var keysToRemove = buildResult.Bundle.ClaimHeader.Select(k => k.Key)
-                        .Where(k => string.Equals(k, "provider_dhsCode", StringComparison.OrdinalIgnoreCase) ||
-                                    string.Equals(k, "providerCode", StringComparison.OrdinalIgnoreCase) ||
-                                    string.Equals(k, "bCR_Id", StringComparison.OrdinalIgnoreCase))
+                        .Where(k => {
+                            var cleanKey = k.Replace("_", "").Replace("-", "").Replace(" ", "");
+                            return string.Equals(cleanKey, "providerdhscode", StringComparison.OrdinalIgnoreCase) ||
+                                   string.Equals(cleanKey, "providercode", StringComparison.OrdinalIgnoreCase) ||
+                                   string.Equals(cleanKey, "bcrid", StringComparison.OrdinalIgnoreCase);
+                        })
                         .ToList();
                     foreach (var k in keysToRemove)
                     {
