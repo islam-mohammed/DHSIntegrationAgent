@@ -387,3 +387,4 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         }
     }
 }
+test
