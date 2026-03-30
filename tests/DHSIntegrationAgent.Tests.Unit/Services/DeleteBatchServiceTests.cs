@@ -43,7 +43,7 @@ public class DeleteBatchServiceTests
     {
         // Arrange
         long localBatchId = 123;
-        _batchRegistryMock.Setup(r => r.IsRegistered(localBatchId)).Returns(true);
+        _batchRegistryMock.Setup(r => r.TryRegister(localBatchId)).Returns(false);
 
         // Act
         var result = await _sut.DeleteBatchAsync(localBatchId, null, CancellationToken.None);
@@ -63,7 +63,7 @@ public class DeleteBatchServiceTests
         // Arrange
         long localBatchId = 123;
         string bcrId = "456";
-        _batchRegistryMock.Setup(r => r.IsRegistered(localBatchId)).Returns(false);
+        _batchRegistryMock.Setup(r => r.TryRegister(localBatchId)).Returns(true);
         _batchClientMock.Setup(c => c.DeleteBatchAsync(456, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new DeleteBatchResult(true, 200, "Success", null, true));
 
@@ -79,7 +79,7 @@ public class DeleteBatchServiceTests
         _uowMock.Verify(u => u.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
 
         // Ensure registry tracking logic ran
-        _batchRegistryMock.Verify(r => r.Register(localBatchId), Times.Once);
+        _batchRegistryMock.Verify(r => r.TryRegister(localBatchId), Times.Once);
         _batchRegistryMock.Verify(r => r.Unregister(localBatchId), Times.Once);
     }
 
@@ -89,7 +89,7 @@ public class DeleteBatchServiceTests
         // Arrange
         long localBatchId = 123;
         string bcrId = "456";
-        _batchRegistryMock.Setup(r => r.IsRegistered(localBatchId)).Returns(false);
+        _batchRegistryMock.Setup(r => r.TryRegister(localBatchId)).Returns(true);
         _batchClientMock.Setup(c => c.DeleteBatchAsync(456, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new DeleteBatchResult(false, 500, "Server Error", null, false));
 
@@ -111,7 +111,7 @@ public class DeleteBatchServiceTests
         // Arrange
         long localBatchId = 123;
         string? bcrId = null;
-        _batchRegistryMock.Setup(r => r.IsRegistered(localBatchId)).Returns(false);
+        _batchRegistryMock.Setup(r => r.TryRegister(localBatchId)).Returns(true);
 
         // Act
         var result = await _sut.DeleteBatchAsync(localBatchId, bcrId, CancellationToken.None);

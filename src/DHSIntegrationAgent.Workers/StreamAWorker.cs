@@ -127,25 +127,32 @@ public sealed class StreamAWorker : IWorker
         {
             if (ct.IsCancellationRequested) break;
 
-            // Check if this batch is currently being processed manually by BatchTracker (or another mechanism)
-            if (_batchRegistry.IsRegistered(batch.BatchId))
+            // Atomically check and register to prevent double processing
+            if (!_batchRegistry.TryRegister(batch.BatchId))
             {
                 _logger.LogInformation("Skipping batch {BatchId} as it is currently being processed by another task.", batch.BatchId);
                 continue;
             }
 
-            providerCodes.Add(batch.ProviderDhsCode);
-
             try
             {
-                await _fetchStageService.ProcessBatchAsync(batch, progress, ct);
+                providerCodes.Add(batch.ProviderDhsCode);
+
+                try
+                {
+                    await _fetchStageService.ProcessBatchAsync(batch, progress, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to process batch {BatchId}.", batch.BatchId);
+                    await using var uow = await _uowFactory.CreateAsync(ct);
+                    await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Failed, null, ex.Message, _clock.UtcNow, ct);
+                    await uow.CommitAsync(ct);
+                }
             }
-            catch (Exception ex)
+            finally
             {
-                _logger.LogError(ex, "Failed to process batch {BatchId}.", batch.BatchId);
-                await using var uow = await _uowFactory.CreateAsync(ct);
-                await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Failed, null, ex.Message, _clock.UtcNow, ct);
-                await uow.CommitAsync(ct);
+                _batchRegistry.Unregister(batch.BatchId);
             }
         }
 

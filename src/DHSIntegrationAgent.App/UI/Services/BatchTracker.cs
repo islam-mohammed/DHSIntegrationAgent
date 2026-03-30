@@ -198,7 +198,15 @@ public sealed class BatchTracker : IBatchTracker
             {
                 try
                 {
-                    _batchRegistry.Register(batch.BatchId);
+                    if (!_batchRegistry.TryRegister(batch.BatchId))
+                    {
+                        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                        {
+                            ActiveBatches.Remove(progressViewModel);
+                            MessageBox.Show("This batch is currently being processed by another background task.", "Action aborted", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        });
+                        return;
+                    }
 
                     var progress = new Progress<WorkerProgressReport>(report =>
                     {
@@ -267,7 +275,15 @@ public sealed class BatchTracker : IBatchTracker
             ManualRetryResult result = new ManualRetryResult(false, "Unknown error", 0, 0, 0);
             try
             {
-                _batchRegistry.Register(batchId);
+                if (!_batchRegistry.TryRegister(batchId))
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        ActiveBatches.Remove(progressViewModel);
+                        MessageBox.Show("This batch is currently being processed by another background task.", "Action aborted", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    });
+                    return;
+                }
 
                 var progress = new Progress<WorkerProgressReport>(report =>
                 {
@@ -335,7 +351,15 @@ public sealed class BatchTracker : IBatchTracker
             RetryBatchResult result = new RetryBatchResult(0, 0, 0);
             try
             {
-                _batchRegistry.Register(batch.BatchId);
+                if (!_batchRegistry.TryRegister(batch.BatchId))
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        ActiveBatches.Remove(progressViewModel);
+                        MessageBox.Show("This batch is currently being processed by another background task.", "Action aborted", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    });
+                    return;
+                }
 
                 var progress = new Progress<WorkerProgressReport>(report =>
                 {
@@ -413,7 +437,15 @@ public sealed class BatchTracker : IBatchTracker
         {
             try
             {
-                _batchRegistry.Register(batch.BatchId);
+                if (!_batchRegistry.TryRegister(batch.BatchId))
+                {
+                    System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        ActiveBatches.Remove(progressViewModel);
+                        MessageBox.Show("This batch is currently being processed by another background task.", "Action aborted", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    });
+                    return;
+                }
 
                 var progress = new Progress<WorkerProgressReport>(report =>
                 {

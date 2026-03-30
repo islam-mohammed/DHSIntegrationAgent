@@ -72,7 +72,7 @@ public sealed class StreamCWorker : IWorker
         {
             if (ct.IsCancellationRequested) break;
 
-            if (_batchRegistry.IsRegistered(batch.BatchId))
+            if (!_batchRegistry.TryRegister(batch.BatchId))
             {
                 _logger.LogInformation("Skipping batch {BatchId} as it is currently being processed by another task.", batch.BatchId);
                 continue;
@@ -85,6 +85,10 @@ public sealed class StreamCWorker : IWorker
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to process automatic retry for batch {BatchId}.", batch.BatchId);
+            }
+            finally
+            {
+                _batchRegistry.Unregister(batch.BatchId);
             }
         }
     }

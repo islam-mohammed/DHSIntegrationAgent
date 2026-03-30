@@ -21,17 +21,18 @@ public sealed class DeleteBatchService : IDeleteBatchService
 
     public async Task<DeleteBatchProcessResult> DeleteBatchAsync(long? localBatchId, string? bcrId, CancellationToken ct)
     {
-        if (localBatchId.HasValue && _batchRegistry.IsRegistered(localBatchId.Value))
-        {
-            return new DeleteBatchProcessResult(false, "Cannot delete a batch that is currently being processed.");
-        }
+        bool lockAcquired = false;
 
         try
         {
             // Register batch to prevent concurrent operations
             if (localBatchId.HasValue)
             {
-                _batchRegistry.Register(localBatchId.Value);
+                if (!_batchRegistry.TryRegister(localBatchId.Value))
+                {
+                    return new DeleteBatchProcessResult(false, "Cannot delete a batch that is currently being processed.");
+                }
+                lockAcquired = true;
             }
 
             // 1. Delete from server if BcrId exists
@@ -66,7 +67,7 @@ public sealed class DeleteBatchService : IDeleteBatchService
         }
         finally
         {
-            if (localBatchId.HasValue)
+            if (localBatchId.HasValue && lockAcquired)
             {
                 _batchRegistry.Unregister(localBatchId.Value);
             }
