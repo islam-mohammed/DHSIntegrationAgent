@@ -363,7 +363,12 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         await using (var cmd = CreateCommand(
             """
             DELETE FROM Attachment
-            WHERE BatchId = $bid;
+            WHERE EXISTS (
+                SELECT 1 FROM Claim c
+                WHERE c.ProviderDhsCode = Attachment.ProviderDhsCode
+                  AND c.ProIdClaim = Attachment.ProIdClaim
+                  AND c.BatchId = $bid
+            );
             """))
         {
             SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
