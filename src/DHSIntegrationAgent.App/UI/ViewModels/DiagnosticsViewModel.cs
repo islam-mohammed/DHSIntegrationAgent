@@ -68,7 +68,7 @@ public sealed class DiagnosticsViewModel : ViewModelBase
             var result = await _healthClient.CheckApiHealthAsync(CancellationToken.None);
             if (result.Succeeded)
             {
-                ApiHealthMessage = $"✅ Connection successful ({DateTime.Now:HH:mm:ss})";
+                ApiHealthMessage = $"✅ Connection successful ({DHSIntegrationAgent.Application.Helpers.DateTimeHelper.GetKSADateTime():HH:mm:ss})";
             }
             else
             {
