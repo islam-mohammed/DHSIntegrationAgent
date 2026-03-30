@@ -41,9 +41,9 @@ public sealed class BatchListViewModel : ViewModelBase
             PayerName = "Insurance Company A",
             HISCode = "HIS001",
             TotalClaims = 150,
-            BatchDate = DateTime.Now.AddDays(-5),
+            BatchDate = DHSIntegrationAgent.Application.Helpers.DateTimeHelper.GetKSADateTime().AddDays(-5),
             BatchNumber = "BATCH-2026-001",
-            CreationDate = DateTime.Now.AddDays(-5),
+            CreationDate = DHSIntegrationAgent.Application.Helpers.DateTimeHelper.GetKSADateTime().AddDays(-5),
             Status = "Completed",
             UserName = "John Doe"
         });
@@ -53,9 +53,9 @@ public sealed class BatchListViewModel : ViewModelBase
             PayerName = "Insurance Company B",
             HISCode = "HIS002",
             TotalClaims = 87,
-            BatchDate = DateTime.Now.AddDays(-3),
+            BatchDate = DHSIntegrationAgent.Application.Helpers.DateTimeHelper.GetKSADateTime().AddDays(-3),
             BatchNumber = "BATCH-2026-002",
-            CreationDate = DateTime.Now.AddDays(-3),
+            CreationDate = DHSIntegrationAgent.Application.Helpers.DateTimeHelper.GetKSADateTime().AddDays(-3),
             Status = "Processing",
             UserName = "Jane Smith"
         });
@@ -65,9 +65,9 @@ public sealed class BatchListViewModel : ViewModelBase
             PayerName = "Insurance Company C",
             HISCode = "HIS003",
             TotalClaims = 203,
-            BatchDate = DateTime.Now.AddDays(-1),
+            BatchDate = DHSIntegrationAgent.Application.Helpers.DateTimeHelper.GetKSADateTime().AddDays(-1),
             BatchNumber = "BATCH-2026-003",
-            CreationDate = DateTime.Now.AddDays(-1),
+            CreationDate = DHSIntegrationAgent.Application.Helpers.DateTimeHelper.GetKSADateTime().AddDays(-1),
             Status = "Pending",
             UserName = "Bob Johnson"
         });

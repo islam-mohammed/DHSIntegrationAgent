@@ -878,7 +878,7 @@ public sealed class BatchesViewModel : ViewModelBase
                     {
                         LocalBatchId = localBatchId,
                         BcrId = item.BcrId,
-                        BcrCreatedOn = item.BcrCreatedOn,
+                        BcrCreatedOn = DHSIntegrationAgent.Application.Helpers.DateTimeHelper.ConvertToKsaTime(item.BcrCreatedOn),
                         BcrMonth = item.BcrMonth,
                         BcrYear = item.BcrYear,
                         UserName = item.UserName,
@@ -972,7 +972,7 @@ public sealed class BatchesViewModel : ViewModelBase
                     {
                         LocalBatchId = lb.BatchId,
                         BcrId = batchBcrId,
-                        BcrCreatedOn = lb.CreatedUtc.DateTime,
+                        BcrCreatedOn = DHSIntegrationAgent.Application.Helpers.DateTimeHelper.ConvertToKsaTime(lb.CreatedUtc.DateTime),
                         BcrMonth = bcrMonth,
                         BcrYear = bcrYear,
                         UserName = "Local User",
