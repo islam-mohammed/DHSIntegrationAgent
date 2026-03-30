@@ -133,6 +133,7 @@ public sealed class AttachmentService : IAttachmentService
 
                     if (settings != null && !string.IsNullOrWhiteSpace(settings.NetworkUsername))
                     {
+                        _logger.LogInformation("Attempting to establish network connection for path {Path} with user {User}", attachment.LocationPathPlaintext, settings.NetworkUsername);
                         var root = Path.GetPathRoot(attachment.LocationPathPlaintext);
                         if (!string.IsNullOrEmpty(root) && root.StartsWith(@"\\"))
                         {
@@ -141,17 +142,20 @@ public sealed class AttachmentService : IAttachmentService
                             {
                                 var decrypted = _protector.Unprotect(settings.NetworkPasswordEncrypted);
                                 password = Encoding.UTF8.GetString(decrypted);
+                                _logger.LogInformation("Successfully decrypted network password for user {User}", settings.NetworkUsername);
                             }
 
                             // Remove trailing slash for share root if present, though GetPathRoot typically returns \\server\share
                             var resource = root.TrimEnd('\\');
+                            _logger.LogInformation("Connecting to network resource {Resource}", resource);
                             networkConnection = NetworkShareAccessor.Connect(resource, settings.NetworkUsername, password);
+                            _logger.LogInformation("Network connection established for resource {Resource}", resource);
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to establish network connection for {Path}", attachment.LocationPathPlaintext);
+                    _logger.LogWarning(ex, ex.Message);
                 }
 
                 if (File.Exists(attachment.LocationPathPlaintext))
