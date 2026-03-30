@@ -80,6 +80,7 @@ public sealed class StreamBWorker : IWorker
                 continue;
             }
 
+            _batchRegistry.Register(batch.BatchId);
             try
             {
                 await _dispatchService.ProcessBatchSenderAsync(batch, progress, ct);
@@ -87,6 +88,10 @@ public sealed class StreamBWorker : IWorker
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to process sender for batch {BatchId}.", batch.BatchId);
+            }
+            finally
+            {
+                _batchRegistry.Unregister(batch.BatchId);
             }
         }
     }

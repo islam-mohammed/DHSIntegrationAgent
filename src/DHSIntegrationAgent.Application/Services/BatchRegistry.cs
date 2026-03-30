@@ -24,4 +24,6 @@ public sealed class BatchRegistry : IBatchRegistry
     {
         return _activeBatches.ContainsKey(batchId);
     }
+
+    public bool HasRegisteredBatches => !_activeBatches.IsEmpty;
 }

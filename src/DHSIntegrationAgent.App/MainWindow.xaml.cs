@@ -10,13 +10,15 @@ namespace DHSIntegrationAgent.App
     {
         private readonly ILogger<MainWindow> _logger;
         private readonly IWorkerEngine _workerEngine;
+        private readonly IBatchRegistry _batchRegistry;
 
-        public MainWindow(ILogger<MainWindow> logger, ShellViewModel shellViewModel, IWorkerEngine workerEngine)
+        public MainWindow(ILogger<MainWindow> logger, ShellViewModel shellViewModel, IWorkerEngine workerEngine, IBatchRegistry batchRegistry)
         {
             InitializeComponent();
 
             _logger = logger;
             _workerEngine = workerEngine;
+            _batchRegistry = batchRegistry;
             DataContext = shellViewModel;
 
             _logger.LogInformation("MainWindow created via DI and bound to ShellViewModel.");
@@ -26,7 +28,7 @@ namespace DHSIntegrationAgent.App
 
         private void MainWindow_Closing(object? sender, CancelEventArgs e)
         {
-            if (_workerEngine.IsRunning)
+            if (_workerEngine.IsRunning && _batchRegistry.HasRegisteredBatches)
             {
                 var result = MessageBox.Show(
                     "Background tasks are still running. Are you sure you want to exit?",

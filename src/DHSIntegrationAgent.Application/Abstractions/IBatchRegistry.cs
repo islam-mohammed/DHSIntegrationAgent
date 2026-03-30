@@ -19,4 +19,9 @@ public interface IBatchRegistry
     /// Checks if a batch is currently registered as active.
     /// </summary>
     bool IsRegistered(long batchId);
+
+    /// <summary>
+    /// Checks if there are any actively registered batches.
+    /// </summary>
+    bool HasRegisteredBatches { get; }
 }

@@ -78,6 +78,7 @@ public sealed class StreamCWorker : IWorker
                 continue;
             }
 
+            _batchRegistry.Register(batch.BatchId);
             try
             {
                 await _dispatchService.AutomaticRetryBatchAsync(batch, progress, ct);
@@ -85,6 +86,10 @@ public sealed class StreamCWorker : IWorker
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to process automatic retry for batch {BatchId}.", batch.BatchId);
+            }
+            finally
+            {
+                _batchRegistry.Unregister(batch.BatchId);
             }
         }
     }

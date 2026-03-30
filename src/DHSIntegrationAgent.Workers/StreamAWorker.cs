@@ -134,18 +134,26 @@ public sealed class StreamAWorker : IWorker
                 continue;
             }
 
-            providerCodes.Add(batch.ProviderDhsCode);
-
+            _batchRegistry.Register(batch.BatchId);
             try
             {
-                await _fetchStageService.ProcessBatchAsync(batch, progress, ct);
+                providerCodes.Add(batch.ProviderDhsCode);
+
+                try
+                {
+                    await _fetchStageService.ProcessBatchAsync(batch, progress, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to process batch {BatchId}.", batch.BatchId);
+                    await using var uow = await _uowFactory.CreateAsync(ct);
+                    await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Failed, null, ex.Message, _clock.UtcNow, ct);
+                    await uow.CommitAsync(ct);
+                }
             }
-            catch (Exception ex)
+            finally
             {
-                _logger.LogError(ex, "Failed to process batch {BatchId}.", batch.BatchId);
-                await using var uow = await _uowFactory.CreateAsync(ct);
-                await uow.Batches.UpdateStatusAsync(batch.BatchId, BatchStatus.Failed, null, ex.Message, _clock.UtcNow, ct);
-                await uow.CommitAsync(ct);
+                _batchRegistry.Unregister(batch.BatchId);
             }
         }
 
