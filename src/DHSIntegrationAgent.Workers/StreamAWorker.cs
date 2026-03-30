@@ -127,14 +127,13 @@ public sealed class StreamAWorker : IWorker
         {
             if (ct.IsCancellationRequested) break;
 
-            // Check if this batch is currently being processed manually by BatchTracker (or another mechanism)
-            if (_batchRegistry.IsRegistered(batch.BatchId))
+            // Atomically check and register to prevent double processing
+            if (!_batchRegistry.TryRegister(batch.BatchId))
             {
                 _logger.LogInformation("Skipping batch {BatchId} as it is currently being processed by another task.", batch.BatchId);
                 continue;
             }
 
-            _batchRegistry.Register(batch.BatchId);
             try
             {
                 providerCodes.Add(batch.ProviderDhsCode);

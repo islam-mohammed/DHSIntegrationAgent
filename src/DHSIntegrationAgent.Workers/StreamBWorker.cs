@@ -74,13 +74,12 @@ public sealed class StreamBWorker : IWorker
         {
             if (ct.IsCancellationRequested) break;
 
-            if (_batchRegistry.IsRegistered(batch.BatchId))
+            if (!_batchRegistry.TryRegister(batch.BatchId))
             {
                 _logger.LogInformation("Skipping batch {BatchId} as it is currently being processed by another task.", batch.BatchId);
                 continue;
             }
 
-            _batchRegistry.Register(batch.BatchId);
             try
             {
                 await _dispatchService.ProcessBatchSenderAsync(batch, progress, ct);

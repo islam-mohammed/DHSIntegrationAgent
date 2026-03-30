@@ -10,9 +10,9 @@ public sealed class BatchRegistry : IBatchRegistry
 {
     private readonly ConcurrentDictionary<long, byte> _activeBatches = new();
 
-    public void Register(long batchId)
+    public bool TryRegister(long batchId)
     {
-        _activeBatches.TryAdd(batchId, 0);
+        return _activeBatches.TryAdd(batchId, 0);
     }
 
     public void Unregister(long batchId)

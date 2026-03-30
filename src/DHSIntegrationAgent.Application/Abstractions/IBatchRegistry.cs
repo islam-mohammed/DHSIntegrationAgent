@@ -6,9 +6,10 @@ namespace DHSIntegrationAgent.Application.Abstractions;
 public interface IBatchRegistry
 {
     /// <summary>
-    /// Registers a batch as being actively processed.
+    /// Attempts to register a batch as being actively processed.
+    /// Returns true if successfully registered, false if it is already registered.
     /// </summary>
-    void Register(long batchId);
+    bool TryRegister(long batchId);
 
     /// <summary>
     /// Unregisters a batch from active processing.
