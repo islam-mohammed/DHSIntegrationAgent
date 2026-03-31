@@ -32,6 +32,13 @@ internal static class SqliteMigrations
 
     private static IReadOnlyList<string> BuildV4() => new List<string>
     {
+        "ALTER TABLE AppSettings ADD COLUMN ConfigCacheTtlMinutes INTEGER NOT NULL DEFAULT 1440;",
+        "ALTER TABLE AppSettings ADD COLUMN FetchIntervalMinutes INTEGER NOT NULL DEFAULT 5;",
+        "ALTER TABLE AppSettings ADD COLUMN ManualRetryCooldownMinutes INTEGER NOT NULL DEFAULT 10;",
+        "ALTER TABLE AppSettings ADD COLUMN LeaseDurationSeconds INTEGER NOT NULL DEFAULT 120;",
+        "ALTER TABLE AppSettings ADD COLUMN StreamAIntervalSeconds INTEGER NOT NULL DEFAULT 900;",
+        "ALTER TABLE AppSettings ADD COLUMN ResumePollIntervalSeconds INTEGER NOT NULL DEFAULT 300;",
+        "ALTER TABLE AppSettings ADD COLUMN ApiTimeoutSeconds INTEGER NOT NULL DEFAULT 60;",
         "ALTER TABLE AppSettings ADD COLUMN NetworkUsername TEXT NULL;",
         "ALTER TABLE AppSettings ADD COLUMN NetworkPasswordEncrypted BLOB NULL;"
     };
