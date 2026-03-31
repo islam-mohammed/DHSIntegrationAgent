@@ -378,10 +378,11 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        // 3. Delete Batch
+        // 3. Delete Batch (Soft Delete)
         await using (var cmd = CreateCommand(
             """
-            DELETE FROM Batch
+            UPDATE Batch
+            SET BatchStatus = 8
             WHERE BatchId = $bid;
             """))
         {
