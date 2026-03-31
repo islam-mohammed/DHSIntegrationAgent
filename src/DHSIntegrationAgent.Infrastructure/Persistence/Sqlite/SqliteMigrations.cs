@@ -9,14 +9,15 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 4;
+    public static readonly int CurrentSchemaVersion = 5;
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
         new Migration(1, "001_InitialSchema_v1", BuildV1()),
         new Migration(2, "002_AddFetchClaimCountPerThread", BuildV2()),
         new Migration(3, "003_MoveFetchClaimCountToProviderProfile", BuildV3()),
-        new Migration(4, "004_AddNetworkCredentials", BuildV4())
+        new Migration(4, "004_AddNetworkCredentials", BuildV4()),
+        new Migration(5, "005_DropUniqueBatchConstraint", BuildV5())
     };
 
     private static IReadOnlyList<string> BuildV2() => new List<string>
@@ -34,6 +35,11 @@ internal static class SqliteMigrations
     {
         "ALTER TABLE AppSettings ADD COLUMN NetworkUsername TEXT NULL;",
         "ALTER TABLE AppSettings ADD COLUMN NetworkPasswordEncrypted BLOB NULL;"
+    };
+
+    private static IReadOnlyList<string> BuildV5() => new List<string>
+    {
+        "DROP INDEX IF EXISTS UX_Batch_Provider_Company_Month;"
     };
 
     /// <summary>
@@ -191,7 +197,6 @@ internal static class SqliteMigrations
             LastError           TEXT NULL
         );
         """,
-        "CREATE UNIQUE INDEX UX_Batch_Provider_Company_Month ON Batch(ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc);",
         "CREATE INDEX IX_Batch_Status ON Batch(BatchStatus);",
         "CREATE INDEX IX_Batch_BcrId ON Batch(BcrId);",
 

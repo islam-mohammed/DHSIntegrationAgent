@@ -126,6 +126,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
             var endDateOffset = startDateOffset.AddMonths(1).AddTicks(-1);
 
             var batchesToDelete = new List<BatchRow>();
+            bool shouldReplace = false;
 
             // Check for existing batches
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
@@ -136,7 +137,42 @@ public sealed class CreateBatchViewModel : ViewModelBase
 
                 if (existingBatches.Any())
                 {
-                    batchesToDelete.AddRange(existingBatches);
+                    bool hasCompletedOrFailed = false;
+
+                    foreach (var existingBatch in existingBatches)
+                    {
+                        var status = existingBatch.BatchStatus;
+                        if (status == BatchStatus.Completed || status == BatchStatus.Failed)
+                        {
+                            hasCompletedOrFailed = true;
+                            break;
+                        }
+                    }
+
+                    if (hasCompletedOrFailed)
+                    {
+                        var replace = MessageBox.Show(
+                            "A completed or failed batch already exists for this Payer and Period. Do you want to delete and replace it?",
+                            "Batch Exists",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Question);
+
+                        if (replace == MessageBoxResult.Yes)
+                        {
+                            batchesToDelete.AddRange(existingBatches);
+                            shouldReplace = true;
+                        }
+                        else
+                        {
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // All existing batches are Deleted or In Progress, replace them silently
+                        batchesToDelete.AddRange(existingBatches);
+                        shouldReplace = true;
+                    }
                 }
             }
 
@@ -193,10 +229,22 @@ public sealed class CreateBatchViewModel : ViewModelBase
             }
 
             // 4. Clear existing batches associated data and mark as deleted
-            if (batchesToDelete.Any())
+            if (shouldReplace && batchesToDelete.Any())
             {
                 foreach (var batchToDelete in batchesToDelete)
                 {
+                    // Delete from API
+                    if (!string.IsNullOrEmpty(batchToDelete.BcrId) && int.TryParse(batchToDelete.BcrId, out int bcrIdInt))
+                    {
+                        var delResult = await _batchClient.DeleteBatchAsync(bcrIdInt, default);
+                        if (!delResult.Succeeded)
+                        {
+                            MessageBox.Show($"Failed to delete batch from server: {delResult.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                            return;
+                        }
+                    }
+
+                    // Soft delete locally and clear associated data
                     await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
                     {
                         await uow.Batches.UpdateStatusAsync(batchToDelete.BatchId, BatchStatus.Deleted, null, null, DateTimeOffset.UtcNow, default);
