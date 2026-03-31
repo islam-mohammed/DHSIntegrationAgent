@@ -322,6 +322,22 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        // Delete Attachment
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM Attachment
+            WHERE EXISTS (
+                SELECT 1 FROM Claim c
+                WHERE c.ProviderDhsCode = Attachment.ProviderDhsCode
+                  AND c.ProIdClaim = Attachment.ProIdClaim
+                  AND c.BatchId = $bid
+            );
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         // 2. Delete Claims
         await using (var cmd = CreateCommand(
             """
@@ -379,6 +395,62 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         await using (var cmd = CreateCommand(
             """
             DELETE FROM Batch
+            WHERE BatchId = $bid;
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
+    public async Task ClearBatchDataAsync(long batchId, CancellationToken cancellationToken)
+    {
+        // 1. Delete ClaimPayloads
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM ClaimPayload
+            WHERE EXISTS (
+                SELECT 1 FROM Claim c
+                WHERE c.ProviderDhsCode = ClaimPayload.ProviderDhsCode
+                  AND c.ProIdClaim = ClaimPayload.ProIdClaim
+                  AND c.BatchId = $bid
+            );
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // 2. Delete Claims
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM Claim
+            WHERE BatchId = $bid;
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // Delete DispatchItems
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM DispatchItem
+            WHERE EXISTS (
+                SELECT 1 FROM Dispatch d
+                WHERE d.DispatchId = DispatchItem.DispatchId
+                  AND d.BatchId = $bid
+            );
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // Delete Dispatch
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM Dispatch
             WHERE BatchId = $bid;
             """))
         {

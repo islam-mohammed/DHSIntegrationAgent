@@ -126,7 +126,6 @@ public sealed class CreateBatchViewModel : ViewModelBase
             var endDateOffset = startDateOffset.AddMonths(1).AddTicks(-1);
 
             var batchesToDelete = new List<BatchRow>();
-            bool shouldReplace = false;
 
             // Check for existing batches
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
@@ -137,54 +136,7 @@ public sealed class CreateBatchViewModel : ViewModelBase
 
                 if (existingBatches.Any())
                 {
-                    bool hasInProgress = false;
-                    bool hasCompletedOrFailed = false;
-
-                    foreach (var existingBatch in existingBatches)
-                    {
-                        var status = existingBatch.BatchStatus;
-                        if (status != BatchStatus.Completed && status != BatchStatus.Failed && status != BatchStatus.Deleted)
-                        {
-                            hasInProgress = true;
-                            break;
-                        }
-
-                        if (status == BatchStatus.Completed || status == BatchStatus.Failed)
-                        {
-                            hasCompletedOrFailed = true;
-                        }
-                    }
-
-                    if (hasInProgress)
-                    {
-                        MessageBox.Show("An in-progress batch already exists for this Payer and Period.", "Cannot Create Batch", MessageBoxButton.OK, MessageBoxImage.Error);
-                        return;
-                    }
-
-                    if (hasCompletedOrFailed)
-                    {
-                        var replace = MessageBox.Show(
-                            "A completed or failed batch already exists for this Payer and Period. Do you want to delete and replace it?",
-                            "Batch Exists",
-                            MessageBoxButton.YesNo,
-                            MessageBoxImage.Question);
-
-                        if (replace == MessageBoxResult.Yes)
-                        {
-                            batchesToDelete.AddRange(existingBatches);
-                            shouldReplace = true;
-                        }
-                        else
-                        {
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        // All existing batches are Deleted, replace them silently
-                        batchesToDelete.AddRange(existingBatches);
-                        shouldReplace = true;
-                    }
+                    batchesToDelete.AddRange(existingBatches);
                 }
             }
 
@@ -240,26 +192,15 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 }
             }
 
-            // 4. Delete existing batches if replacement confirmed
-            if (shouldReplace && batchesToDelete.Any())
+            // 4. Clear existing batches associated data and mark as deleted
+            if (batchesToDelete.Any())
             {
                 foreach (var batchToDelete in batchesToDelete)
                 {
-                    // Delete from API
-                    if (!string.IsNullOrEmpty(batchToDelete.BcrId) && int.TryParse(batchToDelete.BcrId, out int bcrIdInt))
-                    {
-                        var delResult = await _batchClient.DeleteBatchAsync(bcrIdInt, default);
-                        if (!delResult.Succeeded)
-                        {
-                            MessageBox.Show($"Failed to delete batch from server: {delResult.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                            return;
-                        }
-                    }
-
-                    // Delete locally
                     await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
                     {
-                        await uow.Batches.DeleteAsync(batchToDelete.BatchId, default);
+                        await uow.Batches.UpdateStatusAsync(batchToDelete.BatchId, BatchStatus.Deleted, null, null, DateTimeOffset.UtcNow, default);
+                        await uow.Batches.ClearBatchDataAsync(batchToDelete.BatchId, default);
                         await uow.CommitAsync(default);
                     }
                 }
