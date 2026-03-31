@@ -158,27 +158,30 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
 
     public async Task<long> EnsureBatchAsync(BatchKey key, BatchStatus batchStatus, int totalClaims, DateTimeOffset utcNow, CancellationToken cancellationToken)
     {
-        await using (var insert = CreateCommand(
+        await using var cmd = CreateCommand(
             """
-            INSERT OR IGNORE INTO Batch
+            INSERT INTO Batch
             (ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, ProcessedClaims, TotalClaims, Percentage)
-            VALUES ($p, $c, $m, $s, $e, $status, 0, $now, $now, 0, $total, 0);
-            """))
-        {
-            SqliteSqlBuilder.AddParam(insert, "$p", key.ProviderDhsCode);
-            SqliteSqlBuilder.AddParam(insert, "$c", key.CompanyCode);
-            SqliteSqlBuilder.AddParam(insert, "$m", key.MonthKey);
-            SqliteSqlBuilder.AddParam(insert, "$s", SqliteUtc.ToIso(key.StartDateUtc));
-            SqliteSqlBuilder.AddParam(insert, "$e", SqliteUtc.ToIso(key.EndDateUtc));
-            SqliteSqlBuilder.AddParam(insert, "$status", (int)batchStatus);
-            SqliteSqlBuilder.AddParam(insert, "$now", SqliteUtc.ToIso(utcNow));
-            SqliteSqlBuilder.AddParam(insert, "$total", totalClaims);
+            VALUES ($p, $c, $m, $s, $e, $status, 0, $now, $now, 0, $total, 0)
+            RETURNING BatchId;
+            """);
 
-            await insert.ExecuteNonQueryAsync(cancellationToken);
+        SqliteSqlBuilder.AddParam(cmd, "$p", key.ProviderDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$c", key.CompanyCode);
+        SqliteSqlBuilder.AddParam(cmd, "$m", key.MonthKey);
+        SqliteSqlBuilder.AddParam(cmd, "$s", SqliteUtc.ToIso(key.StartDateUtc));
+        SqliteSqlBuilder.AddParam(cmd, "$e", SqliteUtc.ToIso(key.EndDateUtc));
+        SqliteSqlBuilder.AddParam(cmd, "$status", (int)batchStatus);
+        SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
+        SqliteSqlBuilder.AddParam(cmd, "$total", totalClaims);
+
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        if (result is null || result == DBNull.Value)
+        {
+            throw new InvalidOperationException("EnsureBatch failed: no ID returned after insert.");
         }
 
-        var id = await TryGetBatchIdAsync(key, cancellationToken);
-        return id ?? throw new InvalidOperationException("EnsureBatch failed: row not found after insert.");
+        return Convert.ToInt64(result);
     }
 
     public async Task<IReadOnlyList<BatchRow>> GetBatchesWithDueRetriesAsync(DateTimeOffset utcNow, int maxAttemptCount, CancellationToken cancellationToken)
@@ -322,6 +325,22 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        // Delete Attachment
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM Attachment
+            WHERE EXISTS (
+                SELECT 1 FROM Claim c
+                WHERE c.ProviderDhsCode = Attachment.ProviderDhsCode
+                  AND c.ProIdClaim = Attachment.ProIdClaim
+                  AND c.BatchId = $bid
+            );
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         // 2. Delete Claims
         await using (var cmd = CreateCommand(
             """
@@ -359,6 +378,37 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        // 3. Delete Batch (Soft Delete)
+        await using (var cmd = CreateCommand(
+            """
+            UPDATE Batch
+            SET BatchStatus = 8
+            WHERE BatchId = $bid;
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+    }
+
+    public async Task ClearBatchDataAsync(long batchId, CancellationToken cancellationToken)
+    {
+        // 1. Delete ClaimPayloads
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM ClaimPayload
+            WHERE EXISTS (
+                SELECT 1 FROM Claim c
+                WHERE c.ProviderDhsCode = ClaimPayload.ProviderDhsCode
+                  AND c.ProIdClaim = ClaimPayload.ProIdClaim
+                  AND c.BatchId = $bid
+            );
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         // Delete Attachment
         await using (var cmd = CreateCommand(
             """
@@ -375,10 +425,36 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
-        // 3. Delete Batch
+        // 2. Delete Claims
         await using (var cmd = CreateCommand(
             """
-            DELETE FROM Batch
+            DELETE FROM Claim
+            WHERE BatchId = $bid;
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // Delete DispatchItems
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM DispatchItem
+            WHERE EXISTS (
+                SELECT 1 FROM Dispatch d
+                WHERE d.DispatchId = DispatchItem.DispatchId
+                  AND d.BatchId = $bid
+            );
+            """))
+        {
+            SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // Delete Dispatch
+        await using (var cmd = CreateCommand(
+            """
+            DELETE FROM Dispatch
             WHERE BatchId = $bid;
             """))
         {
