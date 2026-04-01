@@ -48,6 +48,52 @@ public sealed class ProviderConfigurationClient
         return ProviderConfigHttpResult.Ok(json, newEtag);
     }
 
+    public async Task<ProviderInfoHttpResult> GetProviderInfoAsync(string providerDhsCode, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("BackendApi");
+
+        var path = $"api/Provider/GetProviderInfo/{Uri.EscapeDataString(providerDhsCode)}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            return ProviderInfoHttpResult.Failed($"Provider info failed (HTTP {(int)response.StatusCode}).");
+        }
+
+        var json = await response.Content.ReadAsStringAsync(ct);
+
+        try
+        {
+            var node = System.Text.Json.Nodes.JsonNode.Parse(json);
+            if (node is System.Text.Json.Nodes.JsonObject obj)
+            {
+                if (obj.TryGetPropertyValue("succeeded", out var succeededNode) &&
+                    succeededNode is System.Text.Json.Nodes.JsonValue val &&
+                    val.TryGetValue<bool>(out var succeeded))
+                {
+                    if (!succeeded)
+                    {
+                        var msg = "Provider info failed (succeeded=false).";
+                        if (obj.TryGetPropertyValue("message", out var msgNode) && msgNode != null)
+                        {
+                            msg = msgNode.ToString();
+                        }
+                        return ProviderInfoHttpResult.Failed(msg);
+                    }
+                }
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Fall through and return Ok(json) if we can't parse it here.
+            // Let the upstream TryExtractPayloadObject handle it.
+        }
+
+        return ProviderInfoHttpResult.Ok(json);
+    }
+
     // Public because GetAsync is public and returns it.
     public sealed record ProviderConfigHttpResult(
         bool Success,
@@ -64,5 +110,14 @@ public sealed class ProviderConfigurationClient
 
         public static ProviderConfigHttpResult Failed(string error)
             => new(false, false, null, null, error);
+    }
+
+    public sealed record ProviderInfoHttpResult(
+        bool Success,
+        string? Json,
+        string? Error)
+    {
+        public static ProviderInfoHttpResult Ok(string json) => new(true, json, null);
+        public static ProviderInfoHttpResult Failed(string error) => new(false, null, error);
     }
 }
