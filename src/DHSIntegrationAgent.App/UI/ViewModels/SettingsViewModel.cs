@@ -284,11 +284,18 @@ public sealed class SettingsViewModel : ViewModelBase
                 return;
             }
 
-            await _providerConfigurationService.RefreshProviderProfileAsync(ProviderDhsCode, CancellationToken.None);
+            var success = await _providerConfigurationService.RefreshProviderProfileAsync(ProviderDhsCode, CancellationToken.None);
 
             await LoadAsync();
 
-            SaveMessage = "Provider profile refreshed from API.";
+            if (success)
+            {
+                SaveMessage = "Provider profile refreshed from API.";
+            }
+            else
+            {
+                SaveError = "Failed to refresh provider profile from API.";
+            }
         }
         catch (Exception ex)
         {

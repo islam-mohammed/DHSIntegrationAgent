@@ -63,6 +63,34 @@ public sealed class ProviderConfigurationClient
         }
 
         var json = await response.Content.ReadAsStringAsync(ct);
+
+        try
+        {
+            var node = System.Text.Json.Nodes.JsonNode.Parse(json);
+            if (node is System.Text.Json.Nodes.JsonObject obj)
+            {
+                if (obj.TryGetPropertyValue("succeeded", out var succeededNode) &&
+                    succeededNode is System.Text.Json.Nodes.JsonValue val &&
+                    val.TryGetValue<bool>(out var succeeded))
+                {
+                    if (!succeeded)
+                    {
+                        var msg = "Provider info failed (succeeded=false).";
+                        if (obj.TryGetPropertyValue("message", out var msgNode) && msgNode != null)
+                        {
+                            msg = msgNode.ToString();
+                        }
+                        return ProviderInfoHttpResult.Failed(msg);
+                    }
+                }
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Fall through and return Ok(json) if we can't parse it here.
+            // Let the upstream TryExtractPayloadObject handle it.
+        }
+
         return ProviderInfoHttpResult.Ok(json);
     }
 

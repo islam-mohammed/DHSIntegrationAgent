@@ -24,5 +24,5 @@ public interface IProviderConfigurationService
     /// <summary>
     /// Refreshes the provider profile info from the API and updates the local database.
     /// </summary>
-    Task RefreshProviderProfileAsync(string providerDhsCode, CancellationToken ct);
+    Task<bool> RefreshProviderProfileAsync(string providerDhsCode, CancellationToken ct);
 }
