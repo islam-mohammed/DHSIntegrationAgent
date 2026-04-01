@@ -15,6 +15,9 @@
     <ProjectReference Include="..\DHSIntegrationAgent.Bootstrapper\DHSIntegrationAgent.Bootstrapper.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <None Update="appsettings.Production.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
