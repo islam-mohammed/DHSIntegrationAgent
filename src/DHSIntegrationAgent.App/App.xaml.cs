@@ -78,8 +78,10 @@ namespace DHSIntegrationAgent.App
                     var basePath = AppContext.BaseDirectory;
                     config.SetBasePath(basePath);
 
+                    var currentEnvironment = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ?? "Develpment";
+
                     config.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-                    config.AddJsonFile("appsettings.Development.json", optional: true, reloadOnChange: true);
+                    config.AddJsonFile($"appsettings.{currentEnvironment}.json", optional: true, reloadOnChange: true);
 
                     if (context.HostingEnvironment.IsDevelopment())
                     {
