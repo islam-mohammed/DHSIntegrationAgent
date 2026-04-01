@@ -68,6 +68,15 @@
                                         <TextBlock  VerticalAlignment="Center" Foreground="#32729B" > Reload Config </TextBlock>
                                     </StackPanel> 
                                 </Button>
+                                <Button   FontSize="13.5" Height="33"  Margin="5,0" BorderBrush="#32729B"  Foreground="#32729B"
+                                    Style="{StaticResource MaterialDesignOutlinedButton}" materialDesign:ButtonAssist.CornerRadius="5"
+                                    Command="{Binding RefreshProviderProfileCommand}"
+                                    IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}">
+                                    <StackPanel  Margin="0,0,0,0" Orientation="Horizontal" HorizontalAlignment="Left">
+                                        <materialDesign:PackIcon Kind="AccountConvert" Width="17" Height="17" Margin="0,0,5,0"/>
+                                        <TextBlock  VerticalAlignment="Center" Foreground="#32729B" > Refresh Provider Profile </TextBlock>
+                                    </StackPanel>
+                                </Button>
                                 <Button FontSize="13.5"
                                      Height="34" Margin="5,0,0,0" 
                                      Cursor="Hand" Style="{StaticResource IconTextBtn}"

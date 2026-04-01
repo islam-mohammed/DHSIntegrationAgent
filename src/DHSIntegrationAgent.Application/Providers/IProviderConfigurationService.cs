@@ -20,4 +20,9 @@ public interface IProviderConfigurationService
     /// Refreshes both approved and missing domain mappings from the specialized endpoint.
     /// </summary>
     Task RefreshDomainMappingsAsync(string providerDhsCode, CancellationToken ct);
+
+    /// <summary>
+    /// Refreshes the provider profile info from the API and updates the local database.
+    /// </summary>
+    Task RefreshProviderProfileAsync(string providerDhsCode, CancellationToken ct);
 }

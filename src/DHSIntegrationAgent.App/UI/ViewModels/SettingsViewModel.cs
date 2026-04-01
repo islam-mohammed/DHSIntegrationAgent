@@ -71,6 +71,7 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public AsyncRelayCommand SaveCommand { get; }
     public AsyncRelayCommand ReloadProviderConfigCommand { get; }
+    public AsyncRelayCommand RefreshProviderProfileCommand { get; }
     public AsyncRelayCommand LoadCommand { get; }
 
     public SettingsViewModel(
@@ -92,6 +93,7 @@ public sealed class SettingsViewModel : ViewModelBase
         });
 
         ReloadProviderConfigCommand = new AsyncRelayCommand(ReloadProviderConfigAsync);
+        RefreshProviderProfileCommand = new AsyncRelayCommand(RefreshProviderProfileAsync);
     }
 
     public async Task LoadAsync()
@@ -259,6 +261,38 @@ public sealed class SettingsViewModel : ViewModelBase
         catch (Exception ex)
         {
             SaveError = $"Error reloading config: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task RefreshProviderProfileAsync()
+    {
+        if (IsLoading) return;
+
+        try
+        {
+            IsLoading = true;
+            SaveError = null;
+            SaveMessage = null;
+
+            if (string.IsNullOrWhiteSpace(ProviderDhsCode))
+            {
+                SaveError = "Cannot refresh provider profile: Provider DHS Code is missing.";
+                return;
+            }
+
+            await _providerConfigurationService.RefreshProviderProfileAsync(ProviderDhsCode, CancellationToken.None);
+
+            await LoadAsync();
+
+            SaveMessage = "Provider profile refreshed from API.";
+        }
+        catch (Exception ex)
+        {
+            SaveError = $"Error refreshing provider profile: {ex.Message}";
         }
         finally
         {

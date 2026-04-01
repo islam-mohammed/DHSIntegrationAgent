@@ -42,6 +42,36 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         _domainMappingClient = domainMappingClient;
     }
 
+    public async Task RefreshProviderProfileAsync(string providerDhsCode, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var result = await _client.GetProviderInfoAsync(providerDhsCode, ct);
+
+        if (!result.Success || string.IsNullOrWhiteSpace(result.Json))
+        {
+            var err = result.Error ?? "Failed to refresh provider profile from API.";
+            _logger.LogWarning("RefreshProviderProfileAsync failed: {Error}", err);
+            return;
+        }
+
+        var payload = TryExtractPayloadObject(result.Json);
+        if (payload is null)
+        {
+            _logger.LogWarning("RefreshProviderProfileAsync failed: Payload could not be extracted.");
+            return;
+        }
+
+        // The GetProviderInfo endpoint returns the providerInfo object directly in the data property
+        // But TryUpsertProviderProfileFromConfigAsync expects it under a "providerInfo" key
+        var wrappedPayload = new JsonObject { ["providerInfo"] = payload };
+
+        await using var uow = await _uowFactory.CreateAsync(ct);
+        await TryUpsertProviderProfileFromConfigAsync(uow, providerDhsCode, wrappedPayload, now, ct);
+        await uow.CommitAsync(ct);
+
+        _logger.LogInformation("Successfully refreshed provider profile for {ProviderDhsCode}", providerDhsCode);
+    }
+
     public async Task RefreshDomainMappingsAsync(string providerDhsCode, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow;

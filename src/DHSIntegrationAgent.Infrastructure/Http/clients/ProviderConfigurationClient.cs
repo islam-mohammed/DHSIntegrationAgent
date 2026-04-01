@@ -48,6 +48,24 @@ public sealed class ProviderConfigurationClient
         return ProviderConfigHttpResult.Ok(json, newEtag);
     }
 
+    public async Task<ProviderInfoHttpResult> GetProviderInfoAsync(string providerDhsCode, CancellationToken ct)
+    {
+        var client = _httpClientFactory.CreateClient("BackendApi");
+
+        var path = $"api/Provider/GetProviderInfo/{Uri.EscapeDataString(providerDhsCode)}";
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+
+        if (response.StatusCode != HttpStatusCode.OK)
+        {
+            return ProviderInfoHttpResult.Failed($"Provider info failed (HTTP {(int)response.StatusCode}).");
+        }
+
+        var json = await response.Content.ReadAsStringAsync(ct);
+        return ProviderInfoHttpResult.Ok(json);
+    }
+
     // Public because GetAsync is public and returns it.
     public sealed record ProviderConfigHttpResult(
         bool Success,
@@ -64,5 +82,14 @@ public sealed class ProviderConfigurationClient
 
         public static ProviderConfigHttpResult Failed(string error)
             => new(false, false, null, null, error);
+    }
+
+    public sealed record ProviderInfoHttpResult(
+        bool Success,
+        string? Json,
+        string? Error)
+    {
+        public static ProviderInfoHttpResult Ok(string json) => new(true, json, null);
+        public static ProviderInfoHttpResult Failed(string error) => new(false, null, error);
     }
 }
