@@ -874,6 +874,12 @@ public sealed class BatchesViewModel : ViewModelBase
                         localBatchId = bid;
                     }
 
+                    string payerDisplay = item.PayerNameEn ?? "";
+                    if (!string.IsNullOrEmpty(item.CompanyCode))
+                    {
+                        payerDisplay = $"{item.CompanyCode}-{payerDisplay}";
+                    }
+
                     Batches.Add(new BatchRow
                     {
                         LocalBatchId = localBatchId,
@@ -882,7 +888,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         BcrMonth = item.BcrMonth,
                         BcrYear = item.BcrYear,
                         UserName = item.UserName,
-                        PayerNameEn = item.PayerNameEn,
+                        PayerNameEn = payerDisplay,
                         PayerNameAr = item.PayerNameAr,
                         CompanyCode = item.CompanyCode ?? "",
                         MidTableTotalClaim = item.MidTableTotalClaim,
@@ -968,6 +974,12 @@ public sealed class BatchesViewModel : ViewModelBase
                         int.TryParse(lb.BcrId, out batchBcrId);
                     }
 
+                    string payerDisplay = payerNameEn;
+                    if (!string.IsNullOrEmpty(lb.CompanyCode))
+                    {
+                        payerDisplay = $"{lb.CompanyCode}-{payerDisplay}";
+                    }
+
                     Batches.Insert(0, new BatchRow
                     {
                         LocalBatchId = lb.BatchId,
@@ -976,7 +988,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         BcrMonth = bcrMonth,
                         BcrYear = bcrYear,
                         UserName = "Local User",
-                        PayerNameEn = payerNameEn,
+                        PayerNameEn = payerDisplay,
                         PayerNameAr = payerNameAr,
                         CompanyCode = lb.CompanyCode,
                         MidTableTotalClaim = lb.TotalClaims,
