@@ -314,8 +314,10 @@ public sealed class CreateBatchViewModel : ViewModelBase
 
                 Payers.Clear();
 
+                var sortedPayers = payersFromDb.OrderBy(p => p.PayerName ?? $"Payer {p.CompanyCode}").ToList();
+
                 // Add payers from database
-                foreach (var payer in payersFromDb)
+                foreach (var payer in sortedPayers)
                 {
                     Payers.Add(new PayerItem 
                     { 
