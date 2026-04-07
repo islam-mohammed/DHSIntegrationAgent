@@ -68,11 +68,17 @@ public sealed class AuthClient : IAuthClient
             if (parsed.Succeeded && parsed.StatusCode == 200)
                 return new AuthLoginResult(true, null, null);
 
+            if (parsed.StatusCode == 401 || response.StatusCode == HttpStatusCode.Unauthorized)
+                return new AuthLoginResult(false, "Invalid email or password.", null);
+
             return new AuthLoginResult(false,
                 string.IsNullOrWhiteSpace(parsed.Message)
                     ? $"Login failed (statusCode={parsed.StatusCode})."
                     : parsed.Message, null);
         }
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            return new AuthLoginResult(false, "Invalid email or password.", null);
 
         if (string.IsNullOrWhiteSpace(body))
             return new AuthLoginResult(false, $"Login failed: empty response (HTTP {(int)response.StatusCode} {response.StatusCode}).", null);
