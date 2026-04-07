@@ -874,6 +874,22 @@ public sealed class BatchesViewModel : ViewModelBase
                         localBatchId = bid;
                     }
 
+                    string payerCode = item.PayerCode ?? "";
+
+                    string payerDisplay = payerCode;
+                    if (!string.IsNullOrEmpty(item.CompanyCode) && !string.IsNullOrEmpty(payerCode))
+                    {
+                        payerDisplay = $"{item.CompanyCode}-{payerCode}";
+                    }
+                    else if (string.IsNullOrEmpty(item.CompanyCode))
+                    {
+                        payerDisplay = payerCode;
+                    }
+                    else
+                    {
+                        payerDisplay = item.CompanyCode;
+                    }
+
                     Batches.Add(new BatchRow
                     {
                         LocalBatchId = localBatchId,
@@ -882,7 +898,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         BcrMonth = item.BcrMonth,
                         BcrYear = item.BcrYear,
                         UserName = item.UserName,
-                        PayerNameEn = item.PayerNameEn,
+                        PayerNameEn = payerDisplay,
                         PayerNameAr = item.PayerNameAr,
                         CompanyCode = item.CompanyCode ?? "",
                         MidTableTotalClaim = item.MidTableTotalClaim,
@@ -934,12 +950,12 @@ public sealed class BatchesViewModel : ViewModelBase
                         continue;
 
                     // Try to fetch payer profile for the names
-                    string payerNameEn = $"Payer {lb.CompanyCode}";
+                    string payerCodeStr = lb.PayerCode ?? "";
                     string payerNameAr = "";
                     var payerProfile = await uow.Payers.GetByCompanyCodeAsync(providerDhsCode, lb.CompanyCode, default);
                     if (payerProfile != null)
                     {
-                        payerNameEn = payerProfile.PayerName ?? payerNameEn;
+                        payerCodeStr = payerProfile.PayerCode ?? payerCodeStr;
 
                         // Apply payer filter logic (if it differs from "All" which usually sets filterPayerId = null)
                         if (filterPayerId.HasValue)
@@ -968,6 +984,20 @@ public sealed class BatchesViewModel : ViewModelBase
                         int.TryParse(lb.BcrId, out batchBcrId);
                     }
 
+                    string payerDisplay = payerCodeStr;
+                    if (!string.IsNullOrEmpty(lb.CompanyCode) && !string.IsNullOrEmpty(payerCodeStr))
+                    {
+                        payerDisplay = $"{lb.CompanyCode}-{payerCodeStr}";
+                    }
+                    else if (string.IsNullOrEmpty(lb.CompanyCode))
+                    {
+                        payerDisplay = payerCodeStr;
+                    }
+                    else
+                    {
+                        payerDisplay = lb.CompanyCode;
+                    }
+
                     Batches.Insert(0, new BatchRow
                     {
                         LocalBatchId = lb.BatchId,
@@ -976,7 +1006,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         BcrMonth = bcrMonth,
                         BcrYear = bcrYear,
                         UserName = "Local User",
-                        PayerNameEn = payerNameEn,
+                        PayerNameEn = payerDisplay,
                         PayerNameAr = payerNameAr,
                         CompanyCode = lb.CompanyCode,
                         MidTableTotalClaim = lb.TotalClaims,
