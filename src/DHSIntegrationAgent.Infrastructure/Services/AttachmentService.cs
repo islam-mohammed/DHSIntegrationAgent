@@ -83,7 +83,10 @@ public sealed class AttachmentService : IAttachmentService
         else if (!string.IsNullOrWhiteSpace(_options.AttachmentBlobStorageCon))
         {
             var serviceClient = new BlobServiceClient(_options.AttachmentBlobStorageCon);
-            containerClient = serviceClient.GetBlobContainerClient(_options.AttachmentBlobStorageContainer);
+            var containerName = !string.IsNullOrWhiteSpace(profile?.BlobStorageContainerName)
+                ? profile.BlobStorageContainerName
+                : _options.AttachmentBlobStorageContainer;
+            containerClient = serviceClient.GetBlobContainerClient(containerName);
         }
         else
         {
