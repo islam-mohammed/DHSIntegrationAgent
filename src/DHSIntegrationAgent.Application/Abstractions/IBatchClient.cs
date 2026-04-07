@@ -94,8 +94,7 @@ public sealed record BatchRequestItem(
     string? CompanyCode,
     int MidTableTotalClaim,
     string? BatchStatus,
-    bool? ResumeBatch,
-    string? PayerCode = null
+    bool? ResumeBatch
 );
 
 /// <summary>
