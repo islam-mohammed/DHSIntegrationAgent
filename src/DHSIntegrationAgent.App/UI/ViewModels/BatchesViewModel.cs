@@ -692,6 +692,28 @@ public sealed class BatchesViewModel : ViewModelBase
                 var hasAttachmentsMap = new Dictionary<string, bool>();
                 var failedDispatchesMap = new Dictionary<string, bool>();
                 var localBatchIdMap = new Dictionary<string, long>();
+                var payerNameMap = new Dictionary<string, string>();
+
+                try
+                {
+                    var distinctCompanyCodes = result.Data.Select(x => x.CompanyCode).Where(c => !string.IsNullOrEmpty(c)).Distinct().ToList();
+                    if (distinctCompanyCodes.Count > 0)
+                    {
+                        await using var uowPayer = await _unitOfWorkFactory.CreateAsync(default);
+                        foreach (var code in distinctCompanyCodes)
+                        {
+                            var profile = await uowPayer.Payers.GetByCompanyCodeAsync(providerDhsCode, code!, default);
+                            if (profile != null && !string.IsNullOrEmpty(profile.PayerName))
+                            {
+                                payerNameMap[code!] = profile.PayerName;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error caching payer names: {ex.Message}");
+                }
 
                 try
                 {
@@ -850,6 +872,13 @@ public sealed class BatchesViewModel : ViewModelBase
 
                 foreach (var item in result.Data)
                 {
+                    string companyCode = item.CompanyCode ?? "";
+                    string payerNameEn = item.PayerNameEn ?? companyCode;
+                    if (!string.IsNullOrEmpty(companyCode) && payerNameMap.TryGetValue(companyCode, out var mappedName))
+                    {
+                        payerNameEn = mappedName;
+                    }
+
                     bool hasFailed = false;
                     if (failedClaimsMap.TryGetValue(item.BcrId.ToString(), out var failed))
                     {
@@ -882,7 +911,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         BcrMonth = item.BcrMonth,
                         BcrYear = item.BcrYear,
                         UserName = item.UserName,
-                        PayerNameEn = !string.IsNullOrEmpty(item.CompanyCode) ? $"{item.CompanyCode}-{item.PayerNameEn ?? item.CompanyCode}" : (item.PayerNameEn ?? item.CompanyCode),
+                        PayerNameEn = payerNameEn,
                         PayerNameAr = item.PayerNameAr,
                         CompanyCode = item.CompanyCode ?? "",
                         MidTableTotalClaim = item.MidTableTotalClaim,
@@ -976,7 +1005,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         BcrMonth = bcrMonth,
                         BcrYear = bcrYear,
                         UserName = "Local User",
-                        PayerNameEn = !string.IsNullOrEmpty(lb.CompanyCode) ? $"{lb.CompanyCode}-{payerNameEn}" : payerNameEn,
+                        PayerNameEn = payerNameEn,
                         PayerNameAr = payerNameAr,
                         CompanyCode = lb.CompanyCode,
                         MidTableTotalClaim = lb.TotalClaims,
