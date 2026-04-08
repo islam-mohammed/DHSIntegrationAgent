@@ -8,7 +8,7 @@ using DHSIntegrationAgent.Application.Persistence.Repositories;
 using DHSIntegrationAgent.App.UI.Navigation;
 using Microsoft.Extensions.DependencyInjection;
 using DHSIntegrationAgent.Application.Providers;
-using DHSIntegrationAgent.Adapters.Tables;
+using DHSIntegrationAgent.App.UI.Services;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
 
@@ -21,8 +21,7 @@ public sealed class BatchesViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly IWorkerEngine _workerEngine;
     private readonly IDeleteBatchService _deleteBatchService;
-    private readonly IProviderTablesAdapter _tablesAdapter;
-    private readonly ISystemClock _clock;
+    private readonly IBatchCreationOrchestrator _batchCreationOrchestrator;
 
     public ObservableCollection<BatchRow> Batches { get; } = new();
     public object ActiveBatches => _batchTracker.ActiveBatches;
@@ -130,8 +129,7 @@ public sealed class BatchesViewModel : ViewModelBase
         INavigationService navigation,
         IWorkerEngine workerEngine,
         IDeleteBatchService deleteBatchService,
-        IProviderTablesAdapter tablesAdapter,
-        ISystemClock clock)
+        IBatchCreationOrchestrator batchCreationOrchestrator)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
@@ -140,8 +138,7 @@ public sealed class BatchesViewModel : ViewModelBase
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
         _deleteBatchService = deleteBatchService ?? throw new ArgumentNullException(nameof(deleteBatchService));
-        _tablesAdapter = tablesAdapter ?? throw new ArgumentNullException(nameof(tablesAdapter));
-        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        _batchCreationOrchestrator = batchCreationOrchestrator ?? throw new ArgumentNullException(nameof(batchCreationOrchestrator));
         ShowAttachmentsCommand = new RelayCommand<BatchRow>(OnShowAttachments);
         ShowDispatchHistoryCommand = new RelayCommand<BatchRow>(OnShowDispatchHistory);
 
@@ -405,106 +402,35 @@ public sealed class BatchesViewModel : ViewModelBase
 
     private async Task OnRecreateSelectedBatchAsync(BatchRow? batch)
     {
-        if (batch == null || !batch.CanRecreate) return;
+        if (batch == null || !batch.CanRecreate || !batch.LocalBatchId.HasValue) return;
 
         IsLoading = true;
         try
         {
-            string? providerDhsCode;
+            DHSIntegrationAgent.Contracts.Persistence.BatchRow? localBatchRow;
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
             {
-                var settings = await uow.AppSettings.GetAsync(default);
-                providerDhsCode = settings?.ProviderDhsCode;
+                localBatchRow = await uow.Batches.GetByIdAsync(batch.LocalBatchId.Value, default);
             }
 
-            if (string.IsNullOrWhiteSpace(providerDhsCode))
+            if (localBatchRow == null)
             {
-                MessageBox.Show("ProviderDhsCode is not configured.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show("Batch not found locally. Please process the batch first.", "Not Found", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            var startDateOffset = new DateTimeOffset(batch.BcrYear, batch.BcrMonth, 1, 0, 0, 0, TimeSpan.Zero);
-            var endDateOffset = startDateOffset.AddMonths(1).AddTicks(-1);
+            var success = await _batchCreationOrchestrator.ConfirmAndCreateBatchAsync(
+                batch.CompanyCode,
+                batch.PayerNameEn ?? $"Payer {batch.CompanyCode}",
+                batch.BcrMonth,
+                batch.BcrYear,
+                true,
+                new[] { localBatchRow });
 
-            var integrationType = "Tables";
-            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+            if (success)
             {
-                var profile = await uow.ProviderProfiles.GetActiveByProviderDhsCodeAsync(providerDhsCode, default);
-                if (profile != null)
-                {
-                    integrationType = profile.IntegrationType;
-                }
+                await LoadBatchesAsync();
             }
-
-            DHSIntegrationAgent.Contracts.Providers.FinancialSummary? summary = null;
-            int initialTotalClaimsCount = 0;
-
-            if (integrationType.Equals("Tables", StringComparison.OrdinalIgnoreCase))
-            {
-                summary = await _tablesAdapter.GetFinancialSummaryAsync(
-                    providerDhsCode,
-                    batch.CompanyCode,
-                    startDateOffset,
-                    endDateOffset,
-                    default);
-
-                initialTotalClaimsCount = summary.TotalClaims;
-
-                var message = $"Batch Validation Summary for {batch.PayerNameEn} ({batch.BcrMonth}/{batch.BcrYear}):\n\n" +
-                              $"Total Claims: {summary.TotalClaims}\n" +
-                              $"Claimed Amount: {summary.TotalClaimedAmount:N2}\n" +
-                              $"Total Discount: {summary.TotalDiscount:N2}\n" +
-                              $"Total Deductible: {summary.TotalDeductible:N2}\n" +
-                              $"Total Net Amount: {summary.TotalNetAmount:N2}\n\n" +
-                              $"Financial Validation: {(summary.IsValid ? "VALID ✅" : "INVALID ❌")}\n\n" +
-                              $"Do you want to proceed with recreating this batch and starting the stream? The old batch will be deleted.";
-
-                var result = MessageBox.Show(message, "Confirm Batch Recreation", MessageBoxButton.YesNo, summary.IsValid ? MessageBoxImage.Question : MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
-                {
-                    return;
-                }
-            }
-            else
-            {
-                var count = await _tablesAdapter.CountClaimsAsync(providerDhsCode, batch.CompanyCode, startDateOffset, endDateOffset, default);
-                initialTotalClaimsCount = count;
-                var result = MessageBox.Show($"Recreate batch for {batch.PayerNameEn} with {count} claims? The old batch will be deleted.", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (result != MessageBoxResult.Yes)
-                {
-                    return;
-                }
-            }
-
-            var bcrIdStr = batch.BcrId > 0 ? batch.BcrId.ToString() : null;
-            var delResult = await _deleteBatchService.DeleteBatchAsync(batch.LocalBatchId, bcrIdStr, default);
-            if (!delResult.Succeeded)
-            {
-                MessageBox.Show(delResult.ErrorMessage ?? "Failed to delete old batch.", "Delete Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
-
-            long newBatchId;
-            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
-            {
-                var monthKey = $"{batch.BcrYear}{batch.BcrMonth:D2}";
-                var key = new DHSIntegrationAgent.Contracts.Persistence.BatchKey(providerDhsCode, batch.CompanyCode, monthKey, startDateOffset, endDateOffset);
-                newBatchId = await uow.Batches.EnsureBatchAsync(key, DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Draft, initialTotalClaimsCount, _clock.UtcNow, default);
-                await uow.CommitAsync(default);
-            }
-
-            DHSIntegrationAgent.Contracts.Persistence.BatchRow? newBatchRow;
-            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
-            {
-                newBatchRow = await uow.Batches.GetByIdAsync(newBatchId, default);
-            }
-
-            if (newBatchRow != null)
-            {
-                _batchTracker.TrackBatchCreation(newBatchRow, summary);
-            }
-
-            await LoadBatchesAsync();
         }
         catch (Exception ex)
         {

@@ -39,6 +39,9 @@ public static class WpfUiServiceCollectionExtensions
         // Batch creation tracking
         services.AddSingleton<IBatchTracker, BatchTracker>();
 
+        // Batch creation orchestrator
+        services.AddTransient<IBatchCreationOrchestrator, BatchCreationOrchestrator>();
+
         return services;
     }
 }
