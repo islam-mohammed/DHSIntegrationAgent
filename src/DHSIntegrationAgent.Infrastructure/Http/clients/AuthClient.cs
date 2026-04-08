@@ -66,24 +66,24 @@ public sealed class AuthClient : IAuthClient
         if (parsed is not null)
         {
             if (parsed.Succeeded && parsed.StatusCode == 200)
-                return new AuthLoginResult(true, null, null);
+                return new AuthLoginResult(true, null, null, parsed.Data?.FullName);
 
             if (parsed.StatusCode == 401 || response.StatusCode == HttpStatusCode.Unauthorized)
-                return new AuthLoginResult(false, "Invalid email or password.", null);
+                return new AuthLoginResult(false, "Invalid email or password.", null, null);
 
             return new AuthLoginResult(false,
                 string.IsNullOrWhiteSpace(parsed.Message)
                     ? $"Login failed (statusCode={parsed.StatusCode})."
-                    : parsed.Message, null);
+                    : parsed.Message, null, null);
         }
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
-            return new AuthLoginResult(false, "Invalid email or password.", null);
+            return new AuthLoginResult(false, "Invalid email or password.", null, null);
 
         if (string.IsNullOrWhiteSpace(body))
-            return new AuthLoginResult(false, $"Login failed: empty response (HTTP {(int)response.StatusCode} {response.StatusCode}).", null);
+            return new AuthLoginResult(false, $"Login failed: empty response (HTTP {(int)response.StatusCode} {response.StatusCode}).", null, null);
 
-        return new AuthLoginResult(false, $"Login failed: unexpected response body (HTTP {(int)response.StatusCode} {response.StatusCode}).", null);
+        return new AuthLoginResult(false, $"Login failed: unexpected response body (HTTP {(int)response.StatusCode} {response.StatusCode}).", null, null);
     }
 
     private static LoginResponse? TryParseLoginResponse(string body)
@@ -102,5 +102,6 @@ public sealed class AuthClient : IAuthClient
     }
 
     private sealed record LoginRequest(string Email, string GroupID, string Password);
-    private sealed record LoginResponse(bool Succeeded, int StatusCode, string Message);
+    private sealed record LoginResponse(bool Succeeded, int StatusCode, string Message, LoginData? Data);
+    private sealed record LoginData(string? FullName);
 }

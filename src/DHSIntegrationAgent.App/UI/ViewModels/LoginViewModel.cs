@@ -22,6 +22,7 @@ public sealed class LoginViewModel : ViewModelBase
     private readonly IWorkerEngine _workerEngine;
     private readonly INavigationService _navigation;
     private readonly IProviderConfigurationService _providerConfigurationService; 
+    private readonly ShellViewModel _shellViewModel;
 
     private string _email = "";
     private string _password = "";
@@ -32,13 +33,14 @@ public sealed class LoginViewModel : ViewModelBase
         ILoginService loginService,
         IWorkerEngine workerEngine,
         INavigationService navigation,
-        IProviderConfigurationService providerConfigurationService)
+        IProviderConfigurationService providerConfigurationService,
+        ShellViewModel shellViewModel)
     {
         _loginService = loginService;
         _workerEngine = workerEngine;
         _navigation = navigation;
         _providerConfigurationService = providerConfigurationService;
-
+        _shellViewModel = shellViewModel;
 
         LoginCommand = new AsyncRelayCommand(LoginAsync);
     }
@@ -118,6 +120,8 @@ public sealed class LoginViewModel : ViewModelBase
             // Clear password as soon as we no longer need it.
             Password = "";
 
+            _shellViewModel.FullName = outcome.FullName ?? "User";
+
             await Task.Run(() => _providerConfigurationService.LoadAsync(CancellationToken.None));
 
             // Start worker engine after login (WBS 5.3 deliverable).
@@ -151,4 +155,4 @@ public interface ILoginService
     Task<LoginOutcome> LoginAsync(string email, string password, CancellationToken ct);
 }
 
-public sealed record LoginOutcome(bool Succeeded, string? ErrorMessage);
+public sealed record LoginOutcome(bool Succeeded, string? ErrorMessage, string? FullName);

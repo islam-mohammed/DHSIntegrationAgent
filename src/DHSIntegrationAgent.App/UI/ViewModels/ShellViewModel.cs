@@ -16,6 +16,7 @@ public sealed class ShellViewModel : ViewModelBase
 
     private bool _showMissingDomainsNotification;
     private string _missingDomainsMessage = "";
+    private string _fullName = "";
 
     public ShellViewModel(NavigationStore navigationStore, INavigationService navigation, IWorkerEngine workerEngine)
     {
@@ -61,6 +62,12 @@ public sealed class ShellViewModel : ViewModelBase
     {
         get => _missingDomainsMessage;
         set => SetProperty(ref _missingDomainsMessage, value);
+    }
+
+    public string FullName
+    {
+        get => _fullName;
+        set => SetProperty(ref _fullName, value);
     }
 
     public RelayCommand DismissNotificationCommand => new(() => ShowMissingDomainsNotification = false);

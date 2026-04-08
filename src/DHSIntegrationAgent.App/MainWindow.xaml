@@ -93,7 +93,7 @@
                                             </Ellipse.Fill>
                                         </Ellipse>
 
-                                        <TextBlock Text="Hello, Ahmed"
+                                        <TextBlock Text="{Binding FullName, StringFormat='Hello, {0}'}"
                                        Margin="10,0,0,0"
                                        VerticalAlignment="Center"
                                        FontWeight="Medium" FontSize="14" />

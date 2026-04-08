@@ -7,4 +7,5 @@ namespace DHSIntegrationAgent.Contracts.Security;
 public sealed record AuthLoginResult(
     bool Succeeded,
     string? ErrorMessage,
-    string? Token);
+    string? Token,
+    string? FullName);
