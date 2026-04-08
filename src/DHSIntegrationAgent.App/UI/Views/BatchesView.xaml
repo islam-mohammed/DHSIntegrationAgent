@@ -319,6 +319,14 @@
                                                             <materialDesign:PackIcon Kind="History" Foreground="#EF4444"/>
                                                         </MenuItem.Icon>
                                                     </MenuItem>
+                                                    <MenuItem Header="Recreate Batch"
+                                                        Command="{Binding PlacementTarget.Tag.RecreateSelectedBatchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                        CommandParameter="{Binding}"
+                                                        Visibility="{Binding CanRecreate, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <MenuItem.Icon>
+                                                            <materialDesign:PackIcon Kind="Replay" Foreground="#3F51B5"/>
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
                                                     <Separator />
                                                     <MenuItem Header="Delete Batch"
                                                               Command="{Binding PlacementTarget.Tag.DeleteSelectedBatchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
@@ -328,14 +336,7 @@
                                                             <materialDesign:PackIcon Kind="DeleteOutline" Foreground="#D32F2F"/>
                                                         </MenuItem.Icon>
                                                     </MenuItem>
-                                                    <MenuItem Header="Recreate Batch"
-                                                              Command="{Binding PlacementTarget.Tag.RecreateSelectedBatchCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
-                                                              CommandParameter="{Binding}"
-                                                              Visibility="{Binding CanRecreate, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                        <MenuItem.Icon>
-                                                            <materialDesign:PackIcon Kind="Replay" Foreground="#3F51B5"/>
-                                                        </MenuItem.Icon>
-                                                    </MenuItem>
+                                                  
                                                 </ContextMenu>
                                             </Button.ContextMenu>
                                             <Button.Style>
