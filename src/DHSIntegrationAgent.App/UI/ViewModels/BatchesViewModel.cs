@@ -741,6 +741,7 @@ public sealed class BatchesViewModel : ViewModelBase
                 var hasAttachmentsMap = new Dictionary<string, bool>();
                 var failedDispatchesMap = new Dictionary<string, bool>();
                 var localBatchIdMap = new Dictionary<string, long>();
+                var finalLocalBatches = new List<DHSIntegrationAgent.Contracts.Persistence.BatchRow>();
 
                 try
                 {
@@ -767,7 +768,8 @@ public sealed class BatchesViewModel : ViewModelBase
 
                                 if (!string.IsNullOrEmpty(apiItem.BatchStatus) && Enum.TryParse<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(apiItem.BatchStatus, true, out var apiStatus))
                                 {
-                                    if (lb.BatchStatus != apiStatus)
+                                    // Do not revert a locally Deleted batch to a non-deleted status returned by the API
+                                    if (lb.BatchStatus != apiStatus && lb.BatchStatus != DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Deleted)
                                     {
                                         targetStatus = apiStatus;
                                         needsUpdate = true;
@@ -848,6 +850,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         }
 
                         localBatches = updatedLocalBatches;
+                        finalLocalBatches = localBatches;
 
                         if (hasAnyUpdates)
                         {
@@ -926,6 +929,16 @@ public sealed class BatchesViewModel : ViewModelBase
                     string effectivePayerName = string.IsNullOrWhiteSpace(item.PayerNameEn) ? (item.CompanyCode ?? "") : item.PayerNameEn;
                     string displayPayerName = !string.IsNullOrWhiteSpace(item.ParentPayerNameEn) ? $"{item.ParentPayerNameEn} - {effectivePayerName}" : effectivePayerName;
 
+                    string displayStatus = item.BatchStatus ?? "";
+                    if (localBatchId.HasValue && finalLocalBatches != null)
+                    {
+                        var lb = finalLocalBatches.FirstOrDefault(b => b.BatchId == localBatchId.Value);
+                        if (lb != null)
+                        {
+                            displayStatus = lb.BatchStatus.ToString();
+                        }
+                    }
+
                     Batches.Add(new BatchRow
                     {
                         LocalBatchId = localBatchId,
@@ -938,7 +951,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         PayerNameAr = item.PayerNameAr,
                         CompanyCode = item.CompanyCode ?? "",
                         MidTableTotalClaim = item.MidTableTotalClaim,
-                        BatchStatus = item.BatchStatus ?? "",
+                        BatchStatus = displayStatus,
                         HasFailedClaims = hasFailed,
                         HasAttachments = hasAtt,
                         HasFailedDispatches = hasFailedDispatches,
