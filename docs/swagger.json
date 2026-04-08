@@ -465,6 +465,26 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BooleanBaseResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Server Error",
             "content": {
@@ -1687,28 +1707,38 @@
   "components": {
     "schemas": {
       "AttachmentItemDto": {
+        "required": [
+          "attachmentType",
+          "contentType",
+          "fileSizeInByte",
+          "location",
+          "onlineURL"
+        ],
         "type": "object",
         "properties": {
           "attachmentType": {
-            "type": "string",
-            "nullable": true
+            "minLength": 1,
+            "type": "string"
           },
           "fileSizeInByte": {
             "type": "integer",
-            "format": "int64",
-            "nullable": true
+            "format": "int64"
           },
           "onlineURL": {
-            "type": "string",
-            "nullable": true
+            "minLength": 1,
+            "type": "string"
+          },
+          "contentType": {
+            "minLength": 1,
+            "type": "string"
           },
           "remarks": {
             "type": "string",
             "nullable": true
           },
           "location": {
-            "type": "string",
-            "nullable": true
+            "minLength": 1,
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -1740,6 +1770,10 @@
             "nullable": true
           },
           "payerNameEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentPayerNameEn": {
             "type": "string",
             "nullable": true
           },
@@ -3037,7 +3071,8 @@
           },
           "proIdClaim": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "nullable": true
           },
           "dhsi": {
             "type": "integer",
@@ -3596,6 +3631,11 @@
             "type": "integer",
             "format": "int32",
             "nullable": true
+          },
+          "fetchClaimCountPerThread": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -4002,11 +4042,6 @@
             "type": "string",
             "nullable": true
           },
-          "fetchSize": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
           "fetchClaimCountPerThread": {
             "type": "integer",
             "format": "int32",
@@ -4150,6 +4185,10 @@
         "additionalProperties": false
       },
       "UploadAttachmentRequestDto": {
+        "required": [
+          "attachments",
+          "proIdClaim"
+        ],
         "type": "object",
         "properties": {
           "proIdClaim": {
@@ -4160,8 +4199,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AttachmentItemDto"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
