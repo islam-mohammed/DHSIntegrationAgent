@@ -874,6 +874,9 @@ public sealed class BatchesViewModel : ViewModelBase
                         localBatchId = bid;
                     }
 
+                    string effectivePayerName = string.IsNullOrWhiteSpace(item.PayerNameEn) ? (item.CompanyCode ?? "") : item.PayerNameEn;
+                    string displayPayerName = !string.IsNullOrWhiteSpace(item.ParentPayerNameEn) ? $"{item.ParentPayerNameEn} - {effectivePayerName}" : effectivePayerName;
+
                     Batches.Add(new BatchRow
                     {
                         LocalBatchId = localBatchId,
@@ -882,7 +885,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         BcrMonth = item.BcrMonth,
                         BcrYear = item.BcrYear,
                         UserName = item.UserName,
-                        PayerNameEn = !string.IsNullOrEmpty(item.CompanyCode) ? $"{item.CompanyCode}-{item.PayerNameEn ?? item.CompanyCode}" : (item.PayerNameEn ?? item.CompanyCode),
+                        PayerNameEn = displayPayerName,
                         PayerNameAr = item.PayerNameAr,
                         CompanyCode = item.CompanyCode ?? "",
                         MidTableTotalClaim = item.MidTableTotalClaim,
@@ -976,7 +979,7 @@ public sealed class BatchesViewModel : ViewModelBase
                         BcrMonth = bcrMonth,
                         BcrYear = bcrYear,
                         UserName = "Local User",
-                        PayerNameEn = !string.IsNullOrEmpty(lb.CompanyCode) ? $"{lb.CompanyCode}-{payerNameEn}" : payerNameEn,
+                        PayerNameEn = payerNameEn,
                         PayerNameAr = payerNameAr,
                         CompanyCode = lb.CompanyCode,
                         MidTableTotalClaim = lb.TotalClaims,
