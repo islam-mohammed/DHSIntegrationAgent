@@ -9,7 +9,7 @@ using DHSIntegrationAgent.Contracts.Persistence;
 using DHSIntegrationAgent.Domain.WorkStates;
 using DHSIntegrationAgent.Contracts.Workers;
 using DHSIntegrationAgent.Contracts.Providers;
-
+using DHSIntegrationAgent.App.UI.Services;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
 
@@ -20,13 +20,7 @@ namespace DHSIntegrationAgent.App.UI.ViewModels;
 public sealed class CreateBatchViewModel : ViewModelBase
 {
     private readonly ISqliteUnitOfWorkFactory _unitOfWorkFactory;
-    private readonly IProviderTablesAdapter _tablesAdapter;
-    private readonly IProviderConfigurationService _configService;
-    private readonly ISystemClock _clock;
-    private readonly IWorkerEngine _workerEngine;
-    private readonly IFetchStageService _fetchStageService;
-    private readonly IBatchTracker _batchTracker;
-    private readonly IBatchClient _batchClient;
+    private readonly IBatchCreationOrchestrator _batchCreationOrchestrator;
 
     public event Action? RequestClose;
 
@@ -65,22 +59,10 @@ public sealed class CreateBatchViewModel : ViewModelBase
 
     public CreateBatchViewModel(
         ISqliteUnitOfWorkFactory unitOfWorkFactory,
-        IProviderTablesAdapter tablesAdapter,
-        IProviderConfigurationService configService,
-        ISystemClock clock,
-        IWorkerEngine workerEngine,
-        IFetchStageService fetchStageService,
-        IBatchTracker batchTracker,
-        IBatchClient batchClient)
+        IBatchCreationOrchestrator batchCreationOrchestrator)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
-        _tablesAdapter = tablesAdapter ?? throw new ArgumentNullException(nameof(tablesAdapter));
-        _configService = configService ?? throw new ArgumentNullException(nameof(configService));
-        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
-        _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
-        _fetchStageService = fetchStageService ?? throw new ArgumentNullException(nameof(fetchStageService));
-        _batchTracker = batchTracker ?? throw new ArgumentNullException(nameof(batchTracker));
-        _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
+        _batchCreationOrchestrator = batchCreationOrchestrator ?? throw new ArgumentNullException(nameof(batchCreationOrchestrator));
 
         CreateBatchCommand = new AsyncRelayCommand(ExecuteCreateBatchAsync);
 
@@ -126,7 +108,6 @@ public sealed class CreateBatchViewModel : ViewModelBase
             var endDateOffset = startDateOffset.AddMonths(1).AddTicks(-1);
 
             var batchesToDelete = new List<BatchRow>();
-            bool shouldReplace = false;
 
             // Check for existing batches
             await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
@@ -160,7 +141,6 @@ public sealed class CreateBatchViewModel : ViewModelBase
                         if (replace == MessageBoxResult.Yes)
                         {
                             batchesToDelete.AddRange(existingBatches);
-                            shouldReplace = true;
                         }
                         else
                         {
@@ -171,114 +151,22 @@ public sealed class CreateBatchViewModel : ViewModelBase
                     {
                         // All existing batches are Deleted or In Progress, replace them silently
                         batchesToDelete.AddRange(existingBatches);
-                        shouldReplace = true;
                     }
                 }
             }
 
-            // 3. Check Integration Type and Validate Financials
-            var integrationType = "Tables"; // Default
+            var success = await _batchCreationOrchestrator.ConfirmAndCreateBatchAsync(
+                SelectedPayer.CompanyCode,
+                SelectedPayer.PayerName,
+                month,
+                year,
+                false,
+                batchesToDelete);
 
-            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+            if (success)
             {
-                var profile = await uow.ProviderProfiles.GetActiveByProviderDhsCodeAsync(providerDhsCode, default);
-                if (profile != null)
-                {
-                    integrationType = profile.IntegrationType;
-                }
+                RequestClose?.Invoke();
             }
-
-            FinancialSummary? summary = null;
-            int initialTotalClaimsCount = 0;
-            if (integrationType.Equals("Tables", StringComparison.OrdinalIgnoreCase))
-            {
-                summary = await _tablesAdapter.GetFinancialSummaryAsync(
-                    providerDhsCode,
-                    SelectedPayer.CompanyCode,
-                    startDateOffset,
-                    endDateOffset,
-                    default);
-
-                initialTotalClaimsCount = summary.TotalClaims;
-
-                var message = $"Batch Validation Summary for {SelectedPayer.PayerName} ({SelectedMonth}/{SelectedYear}):\n\n" +
-                              $"Total Claims: {summary.TotalClaims}\n" +
-                              $"Claimed Amount: {summary.TotalClaimedAmount:N2}\n" +
-                              $"Total Discount: {summary.TotalDiscount:N2}\n" +
-                              $"Total Deductible: {summary.TotalDeductible:N2}\n" +
-                              $"Total Net Amount: {summary.TotalNetAmount:N2}\n\n" +
-                              $"Financial Validation: {(summary.IsValid ? "VALID ✅" : "INVALID ❌")}\n\n" +
-                              $"Do you want to proceed with creating this batch and starting the stream?";
-
-                var result = MessageBox.Show(message, "Confirm Batch Creation", MessageBoxButton.YesNo, summary.IsValid ? MessageBoxImage.Question : MessageBoxImage.Warning);
-                if (result != MessageBoxResult.Yes)
-                {
-                    return;
-                }
-            }
-            else
-            {
-                // For other integration types, just show a simple confirmation or count
-                var count = await _tablesAdapter.CountClaimsAsync(providerDhsCode, SelectedPayer.CompanyCode, startDateOffset, endDateOffset, default);
-                initialTotalClaimsCount = count;
-                var result = MessageBox.Show($"Create batch for {SelectedPayer.PayerName} with {count} claims?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (result != MessageBoxResult.Yes)
-                {
-                    return;
-                }
-            }
-
-            // 4. Clear existing batches associated data and mark as deleted
-            if (shouldReplace && batchesToDelete.Any())
-            {
-                foreach (var batchToDelete in batchesToDelete)
-                {
-                    // Delete from API
-                    if (!string.IsNullOrEmpty(batchToDelete.BcrId) && int.TryParse(batchToDelete.BcrId, out int bcrIdInt))
-                    {
-                        var delResult = await _batchClient.DeleteBatchAsync(bcrIdInt, default);
-                        if (!delResult.Succeeded)
-                        {
-                            MessageBox.Show($"Failed to delete batch from server: {delResult.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                            return;
-                        }
-                    }
-
-                    // Soft delete locally and clear associated data
-                    await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
-                    {
-                        await uow.Batches.UpdateStatusAsync(batchToDelete.BatchId, BatchStatus.Deleted, null, null, DateTimeOffset.UtcNow, default);
-                        await uow.Batches.ClearBatchDataAsync(batchToDelete.BatchId, default);
-                        await uow.CommitAsync(default);
-                    }
-                }
-            }
-
-            // 5. Create Batch locally
-            long batchId;
-            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
-            {
-                var monthKey = $"{year}{month:D2}";
-                var key = new BatchKey(providerDhsCode, SelectedPayer.CompanyCode, monthKey, startDateOffset, endDateOffset);
-
-                // Start as Draft to allow Fetch & Stage to pick it up properly (isolated)
-                batchId = await uow.Batches.EnsureBatchAsync(key, BatchStatus.Draft, initialTotalClaimsCount, _clock.UtcNow, default);
-                await uow.CommitAsync(default);
-            }
-
-            // 5. Run Stream A Fetch & Stage immediately (via Tracker)
-            BatchRow? batchRow;
-            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
-            {
-                batchRow = await uow.Batches.GetByIdAsync(batchId, default);
-            }
-
-            if (batchRow != null)
-            {
-                _batchTracker.TrackBatchCreation(batchRow, summary);
-            }
-
-            RequestClose?.Invoke();
         }
         catch (Exception ex)
         {

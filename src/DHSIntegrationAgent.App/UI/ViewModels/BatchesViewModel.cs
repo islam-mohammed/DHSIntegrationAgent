@@ -7,6 +7,8 @@ using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
 using DHSIntegrationAgent.App.UI.Navigation;
 using Microsoft.Extensions.DependencyInjection;
+using DHSIntegrationAgent.Application.Providers;
+using DHSIntegrationAgent.App.UI.Services;
 
 namespace DHSIntegrationAgent.App.UI.ViewModels;
 
@@ -19,6 +21,7 @@ public sealed class BatchesViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly IWorkerEngine _workerEngine;
     private readonly IDeleteBatchService _deleteBatchService;
+    private readonly IBatchCreationOrchestrator _batchCreationOrchestrator;
 
     public ObservableCollection<BatchRow> Batches { get; } = new();
     public object ActiveBatches => _batchTracker.ActiveBatches;
@@ -114,6 +117,7 @@ public sealed class BatchesViewModel : ViewModelBase
     public AsyncRelayCommand UploadAttachmentsCommand { get; }
     public AsyncRelayCommand<BatchRow> ResumeSelectedBatchCommand { get; }
     public AsyncRelayCommand<BatchRow> DeleteSelectedBatchCommand { get; }
+    public AsyncRelayCommand<BatchRow> RecreateSelectedBatchCommand { get; }
     public RelayCommand<BatchRow> ShowAttachmentsCommand { get; }
     public RelayCommand<BatchRow> ShowDispatchHistoryCommand { get; }
 
@@ -124,7 +128,8 @@ public sealed class BatchesViewModel : ViewModelBase
         IAttachmentDispatchService attachmentDispatchService,
         INavigationService navigation,
         IWorkerEngine workerEngine,
-        IDeleteBatchService deleteBatchService)
+        IDeleteBatchService deleteBatchService,
+        IBatchCreationOrchestrator batchCreationOrchestrator)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
@@ -133,6 +138,7 @@ public sealed class BatchesViewModel : ViewModelBase
         _navigation = navigation ?? throw new ArgumentNullException(nameof(navigation));
         _workerEngine = workerEngine ?? throw new ArgumentNullException(nameof(workerEngine));
         _deleteBatchService = deleteBatchService ?? throw new ArgumentNullException(nameof(deleteBatchService));
+        _batchCreationOrchestrator = batchCreationOrchestrator ?? throw new ArgumentNullException(nameof(batchCreationOrchestrator));
         ShowAttachmentsCommand = new RelayCommand<BatchRow>(OnShowAttachments);
         ShowDispatchHistoryCommand = new RelayCommand<BatchRow>(OnShowDispatchHistory);
 
@@ -143,6 +149,7 @@ public sealed class BatchesViewModel : ViewModelBase
         UploadAttachmentsCommand = new AsyncRelayCommand(OnUploadAttachmentsAsync);
         ResumeSelectedBatchCommand = new AsyncRelayCommand<BatchRow>(OnResumeSelectedBatchAsync);
         DeleteSelectedBatchCommand = new AsyncRelayCommand<BatchRow>(OnDeleteSelectedBatchAsync);
+        RecreateSelectedBatchCommand = new AsyncRelayCommand<BatchRow>(OnRecreateSelectedBatchAsync);
 
         // Initialize with default "All" option synchronously to prevent type name display in ComboBox
         var allPayer = new PayerItem { PayerId = null, PayerName = "All" };
@@ -391,6 +398,48 @@ public sealed class BatchesViewModel : ViewModelBase
                 });
             }
         });
+    }
+
+    private async Task OnRecreateSelectedBatchAsync(BatchRow? batch)
+    {
+        if (batch == null || !batch.CanRecreate || !batch.LocalBatchId.HasValue) return;
+
+        IsLoading = true;
+        try
+        {
+            DHSIntegrationAgent.Contracts.Persistence.BatchRow? localBatchRow;
+            await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+            {
+                localBatchRow = await uow.Batches.GetByIdAsync(batch.LocalBatchId.Value, default);
+            }
+
+            if (localBatchRow == null)
+            {
+                MessageBox.Show("Batch not found locally. Please process the batch first.", "Not Found", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var success = await _batchCreationOrchestrator.ConfirmAndCreateBatchAsync(
+                batch.CompanyCode,
+                batch.PayerNameEn ?? $"Payer {batch.CompanyCode}",
+                batch.BcrMonth,
+                batch.BcrYear,
+                true,
+                new[] { localBatchRow });
+
+            if (success)
+            {
+                await LoadBatchesAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error recreating batch: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private async Task OnDeleteSelectedBatchAsync(BatchRow? batch)
@@ -1060,6 +1109,7 @@ public sealed class BatchRow : ViewModelBase
                     OnPropertyChanged(nameof(Status));
                     OnPropertyChanged(nameof(CanUploadAttachments));
                     OnPropertyChanged(nameof(CanDelete));
+                    OnPropertyChanged(nameof(CanRecreate));
                     OnPropertyChanged(nameof(HasActions));
                 }
             }
@@ -1083,6 +1133,7 @@ public sealed class BatchRow : ViewModelBase
         public bool CanResume => ResumeBatch;
         public bool CanUploadAttachments => BatchStatus == "Completed";
         public bool CanDelete => BatchStatus == "Completed";
+        public bool CanRecreate => BatchStatus == "Completed";
         public bool HasFailedClaims { get => _hasFailedClaims; set => SetProperty(ref _hasFailedClaims, value); }
         public bool HasAttachments
         {
@@ -1107,7 +1158,7 @@ public sealed class BatchRow : ViewModelBase
             }
         }
 
-        public bool HasActions => HasAttachments || CanResume || CanUploadAttachments || HasFailedDispatches || CanDelete;
+        public bool HasActions => HasAttachments || CanResume || CanUploadAttachments || HasFailedDispatches || CanDelete || CanRecreate;
     }
 
     public sealed class DispatchRow
