@@ -89,6 +89,7 @@ public sealed record BatchRequestItem(
     int BcrMonth,
     int BcrYear,
     string? UserName,
+    string? ParentPayerNameEn,
     string? PayerNameEn,
     string? PayerNameAr,
     string? CompanyCode,
