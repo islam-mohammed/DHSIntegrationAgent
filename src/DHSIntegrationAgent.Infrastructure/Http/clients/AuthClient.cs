@@ -66,7 +66,7 @@ public sealed class AuthClient : IAuthClient
         if (parsed is not null)
         {
             if (parsed.Succeeded && parsed.StatusCode == 200)
-                return new AuthLoginResult(true, null, null, parsed.Data?.FullName);
+                return new AuthLoginResult(true, null, null, parsed.Data?.Data?.FullName);
 
             if (parsed.StatusCode == 401 || response.StatusCode == HttpStatusCode.Unauthorized)
                 return new AuthLoginResult(false, "Invalid email or password.", null, null);
@@ -102,6 +102,7 @@ public sealed class AuthClient : IAuthClient
     }
 
     private sealed record LoginRequest(string Email, string GroupID, string Password);
-    private sealed record LoginResponse(bool Succeeded, int StatusCode, string Message, LoginData? Data);
+    private sealed record LoginResponse(bool Succeeded, int StatusCode, string Message, LoginResponseDto? Data);
+    private sealed record LoginResponseDto(bool Succeeded, int StatusCode, string Message, LoginData? Data);
     private sealed record LoginData(string? FullName);
 }
