@@ -39,4 +39,9 @@ public interface IBatchTracker
     /// Restores any active batches from the persistent store into the tracking collection.
     /// </summary>
     Task RestoreActiveBatchesAsync();
+
+    /// <summary>
+    /// Removes a tracked batch from the collection.
+    /// </summary>
+    void RemoveTrackedBatch(long batchId);
 }
