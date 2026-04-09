@@ -56,6 +56,7 @@ public sealed class DeleteBatchService : IDeleteBatchService
                     null,
                     DateTimeOffset.UtcNow,
                     ct);
+                await uow.Batches.ClearBatchDataAsync(localBatchId.Value, ct);
                 await uow.CommitAsync(ct);
             }
 
