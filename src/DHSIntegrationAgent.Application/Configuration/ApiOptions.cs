@@ -17,7 +17,14 @@ public sealed class ApiOptions
         if (string.IsNullOrWhiteSpace(path)) return false;
         if (DisableGzipForEndpoints == null || DisableGzipForEndpoints.Length == 0) return false;
 
-        var normalizedPath = path.ToLowerInvariant();
-        return DisableGzipForEndpoints.Any(e => normalizedPath.Contains(e.ToLowerInvariant()));
+        var normalizedPath = path.Trim().TrimStart('/').ToLowerInvariant();
+
+        return DisableGzipForEndpoints
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .Any(e =>
+            {
+                var normalizedConfig = e.Trim().TrimStart('/').ToLowerInvariant();
+                return normalizedPath.Contains(normalizedConfig) || normalizedConfig.Contains(normalizedPath);
+            });
     }
 }
