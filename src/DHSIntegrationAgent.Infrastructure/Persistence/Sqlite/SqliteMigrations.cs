@@ -18,7 +18,11 @@ internal static class SqliteMigrations
         new Migration(2, "002_AddFetchClaimCountPerThread", BuildV2()),
         new Migration(3, "003_MoveFetchClaimCountToProviderProfile", BuildV3()),
         new Migration(4, "004_AddNetworkCredentials", BuildV4()),
-        new Migration(5, "005_DropUniqueBatchConstraint", BuildV5())
+        new Migration(5, "005_DropUniqueBatchConstraint", BuildV5()),
+        new Migration(6, "006_AddBatchCreatedByUserName", new List<string>
+        {
+            "ALTER TABLE Batch ADD COLUMN CreatedByUserName TEXT NULL;"
+        })
     };
 
     private static IReadOnlyList<string> BuildV2() => new List<string>
@@ -200,10 +204,7 @@ internal static class SqliteMigrations
         """,
         "CREATE INDEX IX_Batch_Status ON Batch(BatchStatus);",
         "CREATE INDEX IX_Batch_BcrId ON Batch(BcrId);",
-        // -----------------------
-        // V2 Migration
-        // -----------------------
-        "ALTER TABLE Batch ADD COLUMN CreatedByUserName TEXT NULL;",
+     
 
         // -----------------------
         // 5.9 Claim (composite PK)
