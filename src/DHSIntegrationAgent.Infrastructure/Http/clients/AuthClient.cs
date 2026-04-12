@@ -1,11 +1,12 @@
+using DHSIntegrationAgent.Application.Abstractions;
+using DHSIntegrationAgent.Application.Configuration;
+using DHSIntegrationAgent.Application.Security;
 using DHSIntegrationAgent.Contracts.Security;
+using Microsoft.Extensions.Options;
 ﻿using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using DHSIntegrationAgent.Application.Configuration;
-using DHSIntegrationAgent.Application.Abstractions;
-using DHSIntegrationAgent.Application.Security;
-using Microsoft.Extensions.Options;
 
 namespace DHSIntegrationAgent.Infrastructure.Http.Clients;
 
@@ -37,31 +38,20 @@ public sealed class AuthClient : IAuthClient
     public async Task<AuthLoginResult> LoginAsync(string email, string password, string groupID, CancellationToken ct)
     {
         var client = _httpClientFactory.CreateClient("BackendApi");
-        const string path = "api/Authentication/login";
+        const string path = "api/UserManagementAPI/LoginUser";
 
-        var requestBody = new LoginRequest(email, groupID, password);
-
-        HttpContent content;
-
-        // Default to true (spec requires gzip). If config disables gzip (dev only), send plain JSON.
-        var gzipEnabled = _apiOptions?.Value.UseGzipPostRequests ?? true;
-
-        if (_apiOptions?.Value.IsGzipDisabledForEndpoint(path) == true)
+        var requestBody = new
         {
-            gzipEnabled = false;
-        }
+            email = email,
+            groupId = groupID,
+            password = password
+        };
 
-        if (gzipEnabled)
-        {
-            content = GzipJsonHttpContent.Create(requestBody, RequestJsonOptions);
-        }
-        else
-        {
-            var json = JsonSerializer.Serialize(requestBody, RequestJsonOptions);
-            content = new StringContent(json, Encoding.UTF8, "application/json");
-        }
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = content };
+        using var request = new HttpRequestMessage(HttpMethod.Post, path) { 
+            Content = JsonContent.Create(requestBody, options: RequestJsonOptions) 
+        };
+
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
 
         var body = await response.Content.ReadAsStringAsync(ct);

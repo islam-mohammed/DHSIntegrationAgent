@@ -14,7 +14,7 @@ public sealed class ApiLoggingHandler : DelegatingHandler
 
     private static readonly IReadOnlyList<KeyValuePair<string, string>> Aliases = new[]
     {
-        new KeyValuePair<string, string>("api/Authentication/login", "Authentication_Login"),
+        new KeyValuePair<string, string>("api/UserManagementAPI/LoginUser", "Authentication_Login"),
         new KeyValuePair<string, string>("api/Batch/CreateBatchRequest", "Batch_Create"),
         new KeyValuePair<string, string>("api/Batch/GetBatchRequest", "Batch_Get"),
         new KeyValuePair<string, string>("api/Provider/GetProviderConfigration", "Provider_GetConfig"),

@@ -58,7 +58,7 @@ public sealed class AuthClient_Wbs2_2_Tests
         var captured = handler.Captured[0];
 
         Assert.Equal(HttpMethod.Post, captured.Method);
-        Assert.EndsWith("/api/Authentication/login", captured.Uri, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith("/api/UserManagementAPI/LoginUser", captured.Uri, StringComparison.OrdinalIgnoreCase);
 
         Assert.Contains("gzip", captured.ContentEncoding, StringComparison.OrdinalIgnoreCase);
 

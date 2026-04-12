@@ -8,7 +8,7 @@ using DHSIntegrationAgent.Contracts.Security;
 public interface IAuthClient
 {
     /// <summary>
-    /// Calls POST /api/Authentication/login (gzip JSON).
+    /// Calls POST /api/UserManagementAPI/LoginUser (gzip JSON).
     /// GroupId comes from SQLite AppSettings (source of truth).
     /// </summary>
     Task<AuthLoginResult> LoginAsync(string email, string password, string groupId, CancellationToken ct);
