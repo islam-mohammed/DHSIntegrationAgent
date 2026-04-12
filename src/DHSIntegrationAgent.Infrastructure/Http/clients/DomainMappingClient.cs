@@ -54,15 +54,21 @@ public sealed class DomainMappingClient : IDomainMappingClient
         }
 
         var client = _httpClientFactory.CreateClient("BackendApi");
+        const string path = "api/DomainMapping/InsertMissMappingDomain";
 
         var useGzip = _apiOptions?.Value.UseGzipPostRequests ?? true;
+
+        if (_apiOptions?.Value.IsGzipDisabledForEndpoint(path) == true)
+        {
+            useGzip = false;
+        }
 
         using HttpContent content = useGzip
             ? (HttpContent)GzipJsonHttpContent.Create(request, RequestJsonOptions)
             : new StringContent(JsonSerializer.Serialize(request, RequestJsonOptions), Encoding.UTF8, "application/json");
 
 
-        using var resp = await client.PostAsync("api/DomainMapping/InsertMissMappingDomain", content, ct);
+        using var resp = await client.PostAsync(path, content, ct);
         var body = await resp.Content.ReadAsStringAsync(ct);
 
         // NOTE: Service might return structured JSON even on 500; parse payload if present.

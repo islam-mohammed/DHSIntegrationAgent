@@ -46,6 +46,11 @@ public sealed class AuthClient : IAuthClient
         // Default to true (spec requires gzip). If config disables gzip (dev only), send plain JSON.
         var gzipEnabled = _apiOptions?.Value.UseGzipPostRequests ?? true;
 
+        if (_apiOptions?.Value.IsGzipDisabledForEndpoint(path) == true)
+        {
+            gzipEnabled = false;
+        }
+
         if (gzipEnabled)
         {
             content = GzipJsonHttpContent.Create(requestBody, RequestJsonOptions);

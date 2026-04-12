@@ -16,9 +16,13 @@ namespace DHSIntegrationAgent.Infrastructure.Http.Clients;
 /// - Gzip compression is applied by GzipRequestHandler (pipeline).
 /// - Timeouts are applied only if ApiTimeoutHandler is registered in the pipeline.
 /// </summary>
+using DHSIntegrationAgent.Application.Configuration;
+using Microsoft.Extensions.Options;
+
 public sealed class ClaimsClient : IClaimsClient
 {
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IOptions<ApiOptions>? _apiOptions;
 
     // Response parsing (tolerant)
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -26,9 +30,10 @@ public sealed class ClaimsClient : IClaimsClient
         PropertyNameCaseInsensitive = true
     };
 
-    public ClaimsClient(IHttpClientFactory httpClientFactory)
+    public ClaimsClient(IHttpClientFactory httpClientFactory, IOptions<ApiOptions>? apiOptions = null)
     {
         _httpClientFactory = httpClientFactory;
+        _apiOptions = apiOptions;
     }
 
     public async Task<SendClaimResult> SendClaimAsync(string claimBundlesJsonArray, string? correlationId, CancellationToken ct)
@@ -44,20 +49,29 @@ public sealed class ClaimsClient : IClaimsClient
         var client = _httpClientFactory.CreateClient("BackendApi");
         const string path = "api/Claims/SendClaim";
 
-        var uncompressedBytes = Encoding.UTF8.GetBytes(trimmed);
-        byte[] compressedBytes;
-        using (var ms = new MemoryStream())
+        HttpContent content;
+        if (_apiOptions?.Value.IsGzipDisabledForEndpoint(path) == true)
         {
-            using (var gzip = new GZipStream(ms, CompressionLevel.Optimal, true))
-            {
-                gzip.Write(uncompressedBytes, 0, uncompressedBytes.Length);
-            }
-            compressedBytes = ms.ToArray();
+            content = new StringContent(trimmed, Encoding.UTF8, "application/json");
         }
+        else
+        {
+            var uncompressedBytes = Encoding.UTF8.GetBytes(trimmed);
+            byte[] compressedBytes;
+            using (var ms = new MemoryStream())
+            {
+                using (var gzip = new GZipStream(ms, CompressionLevel.Optimal, true))
+                {
+                    gzip.Write(uncompressedBytes, 0, uncompressedBytes.Length);
+                }
+                compressedBytes = ms.ToArray();
+            }
 
-        using var content = new ByteArrayContent(compressedBytes);
-        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
-        content.Headers.ContentEncoding.Add("gzip");
+            var byteArrayContent = new ByteArrayContent(compressedBytes);
+            byteArrayContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json") { CharSet = "utf-8" };
+            byteArrayContent.Headers.ContentEncoding.Add("gzip");
+            content = byteArrayContent;
+        }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = content };
 

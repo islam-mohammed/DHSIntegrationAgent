@@ -69,6 +69,11 @@ public sealed class BatchClient : IBatchClient
 
         var gzipEnabled = _apiOptions?.Value.UseGzipPostRequests ?? true;
 
+        if (_apiOptions?.Value.IsGzipDisabledForEndpoint(path) == true)
+        {
+            gzipEnabled = false;
+        }
+
         HttpContent content;
         if (gzipEnabled)
         {
