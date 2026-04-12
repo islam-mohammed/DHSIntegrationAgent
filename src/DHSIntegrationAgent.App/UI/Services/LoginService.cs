@@ -31,7 +31,7 @@ public sealed class LoginService : ILoginService
         var settings = await uow.AppSettings.GetAsync(ct);
 
         if (string.IsNullOrWhiteSpace(settings.GroupId))
-            return new LoginOutcome(false, "Setup is missing GroupID. Please complete Setup first.", null);
+            return new LoginOutcome(false, "Setup is missing GroupID. Please complete Setup first.", null, null);
 
         // Delegate HTTP/gzip/response parsing to WBS 2.2 AuthClient.
         var result = await _authClient.LoginAsync(
@@ -44,7 +44,7 @@ public sealed class LoginService : ILoginService
         await uow.CommitAsync(ct);
 
         return result.Succeeded
-            ? new LoginOutcome(true, null, result.FullName)
-            : new LoginOutcome(false, result.ErrorMessage ?? "Login failed.", null);
+            ? new LoginOutcome(true, null, result.FullName, result.UserName)
+            : new LoginOutcome(false, result.ErrorMessage ?? "Login failed.", null, null);
     }
 }

@@ -41,7 +41,8 @@ public sealed class AuthClient_Wbs2_2_Tests
         var opts = Options.Create(new ApiOptions
         {
             BaseUrl = "https://example.invalid/",
-            UseGzipPostRequests = true
+            UseGzipPostRequests = true,
+            DisableGzipForEndpoints = Array.Empty<string>()
         });
 
         var sut = new AuthClient(factory, opts);

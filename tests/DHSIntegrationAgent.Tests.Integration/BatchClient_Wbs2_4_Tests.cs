@@ -64,7 +64,8 @@ public sealed class BatchClient_Wbs2_4_Tests
                 BatchStartDate: DateTimeOffset.Parse("2026-02-02T06:28:26.189Z"),
                 BatchEndDate: DateTimeOffset.Parse("2026-02-02T06:28:26.189Z"),
                 TotalClaims: 77,
-                ProviderDhsCode: "54455")
+                ProviderDhsCode: "54455",
+                UserName: null)
         };
 
         var result = await sut.CreateBatchAsync(items, CancellationToken.None);
@@ -128,7 +129,7 @@ public sealed class BatchClient_Wbs2_4_Tests
 
         var result = await sut.CreateBatchAsync(new[]
         {
-            new CreateBatchRequestItem("c", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 0, "p")
+            new CreateBatchRequestItem("c", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, 0, "p", null)
         }, CancellationToken.None);
 
         Assert.False(result.Succeeded);

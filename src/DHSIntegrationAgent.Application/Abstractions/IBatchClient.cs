@@ -47,7 +47,8 @@ public sealed record CreateBatchRequestItem(
     DateTimeOffset BatchStartDate,
     DateTimeOffset BatchEndDate,
     int TotalClaims,
-    string ProviderDhsCode
+    string ProviderDhsCode,
+    string? UserName
 );
 
 /// <summary>
