@@ -83,7 +83,7 @@ public sealed class FetchStageService : IFetchStageService
             var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
             var totalClaimsCount = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
 
-            var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaimsCount, batch.ProviderDhsCode, _userContext.UserName);
+            var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaimsCount, batch.ProviderDhsCode, batch.CreatedByUserName);
             var result = await _batchClient.CreateBatchAsync(new[] { request }, ct);
 
             if (!result.Succeeded)

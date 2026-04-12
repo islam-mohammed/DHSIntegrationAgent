@@ -14,7 +14,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         await using var cmd = CreateCommand(
             """
             SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
-                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage, CreatedByUserName
             FROM Batch
             WHERE ProviderDhsCode = $p
               AND CompanyCode = $c
@@ -59,7 +59,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         await using var cmd = CreateCommand(
             """
             SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
-                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage, CreatedByUserName
             FROM Batch
             WHERE BatchId = $id;
             """);
@@ -79,7 +79,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         await using var cmd = CreateCommand(
             """
             SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
-                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage, CreatedByUserName
             FROM Batch
             WHERE BcrId = $bcr;
             """);
@@ -104,7 +104,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
 
         cmd.CommandText = $"""
             SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
-                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage, CreatedByUserName
             FROM Batch
             WHERE BcrId IN {inClause};
             """;
@@ -152,17 +152,18 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
             ProcessedClaims: reader.GetInt32(13),
             TotalClaims: reader.GetInt32(14),
             CurrentStageMessage: reader.IsDBNull(15) ? null : reader.GetString(15),
-            Percentage: reader.GetInt32(16)
+            Percentage: reader.GetInt32(16),
+            CreatedByUserName: reader.IsDBNull(17) ? null : reader.GetString(17)
         );
     }
 
-    public async Task<long> EnsureBatchAsync(BatchKey key, BatchStatus batchStatus, int totalClaims, DateTimeOffset utcNow, CancellationToken cancellationToken)
+    public async Task<long> EnsureBatchAsync(BatchKey key, BatchStatus batchStatus, int totalClaims, DateTimeOffset utcNow, CancellationToken cancellationToken, string? createdByUserName = null)
     {
         await using var cmd = CreateCommand(
             """
             INSERT INTO Batch
-            (ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, ProcessedClaims, TotalClaims, Percentage)
-            VALUES ($p, $c, $m, $s, $e, $status, 0, $now, $now, 0, $total, 0)
+            (ProviderDhsCode, CompanyCode, MonthKey, StartDateUtc, EndDateUtc, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, ProcessedClaims, TotalClaims, Percentage, CreatedByUserName)
+            VALUES ($p, $c, $m, $s, $e, $status, 0, $now, $now, 0, $total, 0, $userName)
             RETURNING BatchId;
             """);
 
@@ -174,6 +175,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         SqliteSqlBuilder.AddParam(cmd, "$status", (int)batchStatus);
         SqliteSqlBuilder.AddParam(cmd, "$now", SqliteUtc.ToIso(utcNow));
         SqliteSqlBuilder.AddParam(cmd, "$total", totalClaims);
+        SqliteSqlBuilder.AddParam(cmd, "$userName", createdByUserName);
 
         var result = await cmd.ExecuteScalarAsync(cancellationToken);
         if (result is null || result == DBNull.Value)
@@ -189,7 +191,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         await using var cmd = CreateCommand(
             """
             SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
-                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage, CreatedByUserName
             FROM Batch
             WHERE BatchStatus != $deleted
               AND EXISTS (

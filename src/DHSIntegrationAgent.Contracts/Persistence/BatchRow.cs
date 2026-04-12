@@ -19,5 +19,6 @@ public sealed record BatchRow(
     int ProcessedClaims,
     int TotalClaims,
     string? CurrentStageMessage,
-    int Percentage
+    int Percentage,
+    string? CreatedByUserName
 );
