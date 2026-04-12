@@ -262,7 +262,7 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         await using var cmd = CreateCommand(
             """
             SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
-                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage, CreatedByUserName
             FROM Batch
             WHERE BatchStatus = $status;
             """);
