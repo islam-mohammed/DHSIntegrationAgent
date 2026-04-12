@@ -1134,6 +1134,7 @@ public sealed class BatchRow : ViewModelBase
                     OnPropertyChanged(nameof(CanDelete));
                     OnPropertyChanged(nameof(CanRecreate));
                     OnPropertyChanged(nameof(HasActions));
+                    OnPropertyChanged(nameof(DisplayStatus));
                 }
             }
         }
@@ -1150,7 +1151,18 @@ public sealed class BatchRow : ViewModelBase
                 {
                     OnPropertyChanged(nameof(CanResume));
                     OnPropertyChanged(nameof(HasActions));
+                    OnPropertyChanged(nameof(DisplayStatus));
                 }
+            }
+        }
+
+        public string DisplayStatus
+        {
+            get
+            {
+                if (ResumeBatch) return "Paused";
+                if (BatchStatus == "Enqueued") return "In-Progress";
+                return BatchStatus;
             }
         }
         public bool CanResume => ResumeBatch;
