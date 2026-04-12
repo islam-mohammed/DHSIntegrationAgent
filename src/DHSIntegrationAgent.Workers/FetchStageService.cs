@@ -26,7 +26,6 @@ public sealed class FetchStageService : IFetchStageService
     private readonly IDomainMappingClient _domainMappingClient;
     private readonly ISystemClock _clock;
     private readonly ILogger<FetchStageService> _logger;
-    private readonly IUserContext _userContext;
 
     public FetchStageService(
         ISqliteUnitOfWorkFactory uowFactory,
@@ -34,8 +33,7 @@ public sealed class FetchStageService : IFetchStageService
         IBatchClient batchClient,
         IDomainMappingClient domainMappingClient,
         ISystemClock clock,
-        ILogger<FetchStageService> logger,
-        IUserContext userContext)
+        ILogger<FetchStageService> logger)
     {
         _uowFactory = uowFactory;
         _tablesAdapter = tablesAdapter;
@@ -43,7 +41,6 @@ public sealed class FetchStageService : IFetchStageService
         _domainMappingClient = domainMappingClient;
         _clock = clock;
         _logger = logger;
-        _userContext = userContext;
     }
 
     public async Task ProcessBatchAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct)
