@@ -120,6 +120,7 @@ public sealed class BatchesViewModel : ViewModelBase
     public AsyncRelayCommand<BatchRow> RecreateSelectedBatchCommand { get; }
     public RelayCommand<BatchRow> ShowAttachmentsCommand { get; }
     public RelayCommand<BatchRow> ShowDispatchHistoryCommand { get; }
+    public RelayCommand<BatchProgressViewModel> RemoveActiveBatchCommand { get; }
 
     public BatchesViewModel(
         ISqliteUnitOfWorkFactory unitOfWorkFactory,
@@ -141,6 +142,7 @@ public sealed class BatchesViewModel : ViewModelBase
         _batchCreationOrchestrator = batchCreationOrchestrator ?? throw new ArgumentNullException(nameof(batchCreationOrchestrator));
         ShowAttachmentsCommand = new RelayCommand<BatchRow>(OnShowAttachments);
         ShowDispatchHistoryCommand = new RelayCommand<BatchRow>(OnShowDispatchHistory);
+        RemoveActiveBatchCommand = new RelayCommand<BatchProgressViewModel>(OnRemoveActiveBatch);
 
         ApplyFilterCommand = new RelayCommand(() => { /* screen-only */ });
         ManualRetrySelectedPacketCommand = new RelayCommand<DispatchRow>(OnManualRetrySelectedPacket, CanManualRetrySelectedPacket);
@@ -291,6 +293,14 @@ public sealed class BatchesViewModel : ViewModelBase
 
 
     private bool CanManualRetrySelectedPacket(DispatchRow dispatchRow) => !IsRetrying && dispatchRow != null;
+
+    private void OnRemoveActiveBatch(BatchProgressViewModel progressItem)
+    {
+        if (progressItem != null)
+        {
+            _batchTracker.RemoveTrackedBatch(progressItem.InternalBatchId);
+        }
+    }
 
     private void OnShowDispatchHistory(BatchRow batch)
     {

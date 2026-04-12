@@ -134,6 +134,18 @@ public sealed class BatchTracker : IBatchTracker
         }
     }
 
+    public void RemoveTrackedBatch(long batchId)
+    {
+        System.Windows.Application.Current?.Dispatcher.Invoke(() =>
+        {
+            var existing = ActiveBatches.FirstOrDefault(x => x.InternalBatchId == batchId);
+            if (existing != null)
+            {
+                ActiveBatches.Remove(existing);
+            }
+        });
+    }
+
     public async Task RestoreActiveBatchesAsync()
     {
         try
