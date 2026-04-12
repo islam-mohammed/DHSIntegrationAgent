@@ -199,6 +199,10 @@ internal static class SqliteMigrations
         """,
         "CREATE INDEX IX_Batch_Status ON Batch(BatchStatus);",
         "CREATE INDEX IX_Batch_BcrId ON Batch(BcrId);",
+        // -----------------------
+        // V2 Migration
+        // -----------------------
+        "ALTER TABLE Batch ADD COLUMN CreatedByUserName TEXT NULL;",
 
         // -----------------------
         // 5.9 Claim (composite PK)

@@ -26,6 +26,7 @@ public sealed class FetchStageService : IFetchStageService
     private readonly IDomainMappingClient _domainMappingClient;
     private readonly ISystemClock _clock;
     private readonly ILogger<FetchStageService> _logger;
+    private readonly IUserContext _userContext;
 
     public FetchStageService(
         ISqliteUnitOfWorkFactory uowFactory,
@@ -33,7 +34,8 @@ public sealed class FetchStageService : IFetchStageService
         IBatchClient batchClient,
         IDomainMappingClient domainMappingClient,
         ISystemClock clock,
-        ILogger<FetchStageService> logger)
+        ILogger<FetchStageService> logger,
+        IUserContext userContext)
     {
         _uowFactory = uowFactory;
         _tablesAdapter = tablesAdapter;
@@ -41,6 +43,7 @@ public sealed class FetchStageService : IFetchStageService
         _domainMappingClient = domainMappingClient;
         _clock = clock;
         _logger = logger;
+        _userContext = userContext;
     }
 
     public async Task ProcessBatchAsync(BatchRow batch, IProgress<WorkerProgressReport> progress, CancellationToken ct)
@@ -80,7 +83,7 @@ public sealed class FetchStageService : IFetchStageService
             var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
             var totalClaimsCount = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
 
-            var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaimsCount, batch.ProviderDhsCode);
+            var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaimsCount, batch.ProviderDhsCode, batch.CreatedByUserName);
             var result = await _batchClient.CreateBatchAsync(new[] { request }, ct);
 
             if (!result.Succeeded)

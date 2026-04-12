@@ -16,6 +16,7 @@ public class BatchCreationOrchestrator : IBatchCreationOrchestrator
     private readonly IBatchTracker _batchTracker;
     private readonly IDeleteBatchService _deleteBatchService;
     private readonly IBatchClient _batchClient;
+    private readonly IUserContext _userContext;
 
     public BatchCreationOrchestrator(
         ISqliteUnitOfWorkFactory unitOfWorkFactory,
@@ -23,7 +24,8 @@ public class BatchCreationOrchestrator : IBatchCreationOrchestrator
         ISystemClock clock,
         IBatchTracker batchTracker,
         IDeleteBatchService deleteBatchService,
-        IBatchClient batchClient)
+        IBatchClient batchClient,
+        IUserContext userContext)
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _tablesAdapter = tablesAdapter ?? throw new ArgumentNullException(nameof(tablesAdapter));
@@ -31,6 +33,7 @@ public class BatchCreationOrchestrator : IBatchCreationOrchestrator
         _batchTracker = batchTracker ?? throw new ArgumentNullException(nameof(batchTracker));
         _deleteBatchService = deleteBatchService ?? throw new ArgumentNullException(nameof(deleteBatchService));
         _batchClient = batchClient ?? throw new ArgumentNullException(nameof(batchClient));
+        _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
     }
 
     public async Task<bool> ConfirmAndCreateBatchAsync(
@@ -163,7 +166,7 @@ public class BatchCreationOrchestrator : IBatchCreationOrchestrator
                 var key = new BatchKey(providerDhsCode, companyCode, monthKey, startDateOffset, endDateOffset);
 
                 // Start as Draft to allow Fetch & Stage to pick it up properly (isolated)
-                batchId = await uow.Batches.EnsureBatchAsync(key, BatchStatus.Draft, initialTotalClaimsCount, _clock.UtcNow, default);
+                batchId = await uow.Batches.EnsureBatchAsync(key, BatchStatus.Draft, initialTotalClaimsCount, _clock.UtcNow, default, _userContext.UserName);
                 await uow.CommitAsync(default);
             }
 

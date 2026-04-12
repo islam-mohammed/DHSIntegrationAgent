@@ -20,7 +20,8 @@ public interface IBatchRepository
         BatchStatus batchStatus,
         int totalClaims,
         DateTimeOffset utcNow,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? createdByUserName = null);
 
     Task SetBcrIdAsync(long batchId, string bcrId, DateTimeOffset utcNow, CancellationToken cancellationToken);
 

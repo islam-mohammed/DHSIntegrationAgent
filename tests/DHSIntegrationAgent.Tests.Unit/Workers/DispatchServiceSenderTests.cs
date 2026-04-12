@@ -47,7 +47,7 @@ public class DispatchServiceSenderTests
     public async Task ProcessBatchSenderAsync_AllSuccess_ShouldMarkAllEnqueued()
     {
         // Setup
-        var batch = new BatchRow(1, "provider", "company", "payer", "202401", null, null, "bcr-123", BatchStatus.Ready, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, 0, 0, "", 0);
+        var batch = new BatchRow(1, "provider", "company", "payer", "202401", null, null, "bcr-123", BatchStatus.Ready, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, 0, 0, "", 0, null);
 
         var uowMock = new Mock<ISqliteUnitOfWork>();
         var claimRepoMock = new Mock<IClaimRepository>();
@@ -115,7 +115,7 @@ public class DispatchServiceSenderTests
     public async Task ProcessBatchSenderAsync_PartialSuccess_ShouldMarkFailuresDeterministically()
     {
         // Setup
-        var batch = new BatchRow(1, "provider", "company", "payer", "202401", null, null, "bcr-123", BatchStatus.Ready, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, 0, 0, "", 0);
+        var batch = new BatchRow(1, "provider", "company", "payer", "202401", null, null, "bcr-123", BatchStatus.Ready, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, 0, 0, "", 0, null);
 
         var uowMock = new Mock<ISqliteUnitOfWork>();
         var claimRepoMock = new Mock<IClaimRepository>();
@@ -182,7 +182,7 @@ public class DispatchServiceSenderTests
     public async Task ProcessBatchSenderAsync_ZeroSuccess_ShouldMarkAllFailures()
     {
         // Setup
-        var batch = new BatchRow(1, "provider", "company", "payer", "202401", null, null, "bcr-123", BatchStatus.Ready, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, 0, 0, "", 0);
+        var batch = new BatchRow(1, "provider", "company", "payer", "202401", null, null, "bcr-123", BatchStatus.Ready, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, 0, 0, "", 0, null);
 
         var uowMock = new Mock<ISqliteUnitOfWork>();
         var claimRepoMock = new Mock<IClaimRepository>();
@@ -249,7 +249,7 @@ public class DispatchServiceSenderTests
     public async Task ProcessBatchSenderAsync_InvalidResponse_ShouldMarkAllFailures()
     {
         // Setup
-        var batch = new BatchRow(1, "provider", "company", "payer", "202401", null, null, "bcr-123", BatchStatus.Ready, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, 0, 0, "", 0);
+        var batch = new BatchRow(1, "provider", "company", "payer", "202401", null, null, "bcr-123", BatchStatus.Ready, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, 0, 0, "", 0, null);
 
         var uowMock = new Mock<ISqliteUnitOfWork>();
         var claimRepoMock = new Mock<IClaimRepository>();

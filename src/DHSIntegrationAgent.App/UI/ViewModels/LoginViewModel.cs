@@ -23,6 +23,7 @@ public sealed class LoginViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly IProviderConfigurationService _providerConfigurationService; 
     private readonly ShellViewModel _shellViewModel;
+    private readonly IUserContext _userContext;
 
     private string _email = "";
     private string _password = "";
@@ -34,13 +35,15 @@ public sealed class LoginViewModel : ViewModelBase
         IWorkerEngine workerEngine,
         INavigationService navigation,
         IProviderConfigurationService providerConfigurationService,
-        ShellViewModel shellViewModel)
+        ShellViewModel shellViewModel,
+        IUserContext userContext)
     {
         _loginService = loginService;
         _workerEngine = workerEngine;
         _navigation = navigation;
         _providerConfigurationService = providerConfigurationService;
         _shellViewModel = shellViewModel;
+        _userContext = userContext;
 
         LoginCommand = new AsyncRelayCommand(LoginAsync);
     }
@@ -121,6 +124,7 @@ public sealed class LoginViewModel : ViewModelBase
             Password = "";
 
             _shellViewModel.FullName = outcome.FullName ?? "User";
+            _userContext.UserName = outcome.UserName;
 
             await Task.Run(() => _providerConfigurationService.LoadAsync(CancellationToken.None));
 
@@ -155,4 +159,4 @@ public interface ILoginService
     Task<LoginOutcome> LoginAsync(string email, string password, CancellationToken ct);
 }
 
-public sealed record LoginOutcome(bool Succeeded, string? ErrorMessage, string? FullName);
+public sealed record LoginOutcome(bool Succeeded, string? ErrorMessage, string? FullName, string? UserName);

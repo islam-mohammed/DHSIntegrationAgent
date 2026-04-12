@@ -22,6 +22,9 @@ public static class ApplicationServiceCollectionExtensions
         // Provider Context
         services.AddSingleton<IProviderContext, ProviderContext>();
 
+        // User Context
+        services.AddSingleton<IUserContext, UserContext>();
+
         // App (non-secret)
         services.AddOptions<AppOptions>()
             .Bind(configuration.GetSection("App"))

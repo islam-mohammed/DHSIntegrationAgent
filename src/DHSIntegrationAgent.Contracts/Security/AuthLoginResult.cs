@@ -8,4 +8,5 @@ public sealed record AuthLoginResult(
     bool Succeeded,
     string? ErrorMessage,
     string? Token,
-    string? FullName);
+    string? FullName,
+    string? UserName);
