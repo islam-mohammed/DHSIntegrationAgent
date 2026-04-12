@@ -213,7 +213,7 @@
                                                 MinWidth="80"
                                                 HorizontalAlignment="Center">
                                             <TextBlock x:Name="StatusText"
-                                                       Text="{Binding BatchStatus}"
+                                                       Text="{Binding DisplayStatus}"
                                                        FontSize="11"
                                                        FontWeight="SemiBold"
                                                        VerticalAlignment="Center" 
@@ -221,7 +221,7 @@
                                         </Border>
                                         <DataTemplate.Triggers>
                                             <!-- In-Progress Status -->
-                                            <DataTrigger Binding="{Binding BatchStatus}" Value="In-Progress">
+                                            <DataTrigger Binding="{Binding DisplayStatus}" Value="In-Progress">
                                                 <Setter TargetName="StatusBorder"
                                                         Property="Background"
                                                         Value="#FEF5E4"/>
@@ -230,7 +230,7 @@
                                                         Value="#f09100"/>
                                             </DataTrigger>
                                             <!-- Staged Status -->
-                                            <DataTrigger Binding="{Binding BatchStatus}" Value="Staged">
+                                            <DataTrigger Binding="{Binding DisplayStatus}" Value="Staged">
                                                 <Setter TargetName="StatusBorder"
                                                         Property="Background"
                                                         Value="#E0F3F3"/>
@@ -239,7 +239,7 @@
                                                         Value="#099"/>
                                             </DataTrigger>
                                             <!-- Enqueued Status -->
-                                            <DataTrigger Binding="{Binding BatchStatus}" Value="Enqueued">
+                                            <DataTrigger Binding="{Binding DisplayStatus}" Value="Enqueued">
                                                 <Setter TargetName="StatusBorder"
                                                         Property="Background"
                                                         Value="#FEF5E4"/>
@@ -248,7 +248,7 @@
                                                         Value="#f09100"/>
                                             </DataTrigger>
                                             <!-- Completed Status -->
-                                            <DataTrigger Binding="{Binding BatchStatus}" Value="Completed">
+                                            <DataTrigger Binding="{Binding DisplayStatus}" Value="Completed">
                                                 <Setter TargetName="StatusBorder"
                                                         Property="Background"
                                                         Value="#E8F5E9"/>
@@ -257,13 +257,40 @@
                                                         Value="#2E7D32"/>
                                             </DataTrigger>
                                             <!-- Deleted Status -->
-                                            <DataTrigger Binding="{Binding BatchStatus}" Value="Deleted">
+                                            <DataTrigger Binding="{Binding DisplayStatus}" Value="Deleted">
                                                 <Setter TargetName="StatusBorder"
                                                         Property="Background"
                                                         Value="#FFEBEE"/>
                                                 <Setter TargetName="StatusText"
                                                         Property="Foreground"
                                                         Value="#D32F2F"/>
+                                            </DataTrigger>
+                                            <!-- Paused Status -->
+                                            <DataTrigger Binding="{Binding DisplayStatus}" Value="Paused">
+                                                <Setter TargetName="StatusBorder"
+                                                        Property="Background"
+                                                        Value="#F3E5F5"/>
+                                                <Setter TargetName="StatusText"
+                                                        Property="Foreground"
+                                                        Value="#8E24AA"/>
+                                            </DataTrigger>
+                                            <!-- Fetching Status -->
+                                            <DataTrigger Binding="{Binding DisplayStatus}" Value="Fetching">
+                                                <Setter TargetName="StatusBorder"
+                                                        Property="Background"
+                                                        Value="#E3F2FD"/>
+                                                <Setter TargetName="StatusText"
+                                                        Property="Foreground"
+                                                        Value="#1976D2"/>
+                                            </DataTrigger>
+                                            <!-- Sending Status -->
+                                            <DataTrigger Binding="{Binding DisplayStatus}" Value="Sending">
+                                                <Setter TargetName="StatusBorder"
+                                                        Property="Background"
+                                                        Value="#FFF3E0"/>
+                                                <Setter TargetName="StatusText"
+                                                        Property="Foreground"
+                                                        Value="#F57C00"/>
                                             </DataTrigger>
                                         </DataTemplate.Triggers>
                                     </DataTemplate>
