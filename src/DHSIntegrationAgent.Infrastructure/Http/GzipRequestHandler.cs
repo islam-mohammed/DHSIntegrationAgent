@@ -34,13 +34,22 @@ public sealed class GzipRequestHandler : DelegatingHandler
         // Decide if gzip is enabled (with compliance guard).
         var gzipEnabled = _apiOptions.Value.UseGzipPostRequests;
 
-        // KB compliance: do not allow disabling gzip outside Development.
-        if (!gzipEnabled && !_env.IsDevelopment())
+        var isEndpointDisabled = _apiOptions.Value.IsGzipDisabledForEndpoint(request.RequestUri?.ToString());
+
+        if (isEndpointDisabled)
         {
-            gzipEnabled = true;
-            _logger.LogWarning(
-                "Api:UseGzipPostRequests=false ignored because environment is '{Env}'. Gzip is required by spec for POST JSON.",
-                _env.EnvironmentName);
+            gzipEnabled = false;
+        }
+        else
+        {
+            // KB compliance: do not allow disabling gzip outside Development.
+            if (!gzipEnabled && !_env.IsDevelopment())
+            {
+                gzipEnabled = true;
+                _logger.LogWarning(
+                    "Api:UseGzipPostRequests=false ignored because environment is '{Env}'. Gzip is required by spec for POST JSON.",
+                    _env.EnvironmentName);
+            }
         }
 
         if (gzipEnabled)
