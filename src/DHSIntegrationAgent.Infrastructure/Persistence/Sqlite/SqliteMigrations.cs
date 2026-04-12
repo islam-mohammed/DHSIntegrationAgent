@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DHSIntegrationAgent.Infrastructure.Persistence.Sqlite;
 
@@ -9,7 +10,7 @@ internal static class SqliteMigrations
     /// <summary>
     /// Current consolidated schema version.
     /// </summary>
-    public static readonly int CurrentSchemaVersion = 5;
+    public static int CurrentSchemaVersion => All.Max(m => m.Version);
 
     public static IReadOnlyList<Migration> All { get; } = new[]
     {
