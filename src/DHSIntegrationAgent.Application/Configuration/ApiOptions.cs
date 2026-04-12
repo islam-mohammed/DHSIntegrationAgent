@@ -10,7 +10,10 @@ public sealed class ApiOptions
 
     public bool UseGzipPostRequests { get; init; } = true;
 
-    public string[] DisableGzipForEndpoints { get; init; } = Array.Empty<string>();
+    public string[] DisableGzipForEndpoints { get; init; } = new[]
+    {
+        "api/UserManagementAPI/LoginUser"
+    };
 
     public bool IsGzipDisabledForEndpoint(string? path)
     {
