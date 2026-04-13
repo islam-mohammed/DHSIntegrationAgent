@@ -279,6 +279,17 @@ internal sealed class BatchRepository : SqliteRepositoryBase, IBatchRepository
         return results;
     }
 
+    public async Task<IReadOnlyList<BatchRow>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT BatchId, ProviderDhsCode, CompanyCode, PayerCode, MonthKey, StartDateUtc, EndDateUtc, BcrId, BatchStatus, HasResume, CreatedUtc, UpdatedUtc, LastError,
+                   ProcessedClaims, TotalClaims, CurrentStageMessage, Percentage, CreatedByUserName
+            FROM Batch;
+            """);
+        return await ListInternalAsync(cmd, cancellationToken);
+    }
+
     public async Task UpdateProgressAsync(
         long batchId,
         int processed,

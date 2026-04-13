@@ -38,6 +38,8 @@ public interface IBatchRepository
 
     Task<IReadOnlyList<BatchRow>> GetBatchesWithDueRetriesAsync(DateTimeOffset utcNow, int maxAttemptCount, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<BatchRow>> GetAllAsync(CancellationToken cancellationToken);
+
     Task UpdateProgressAsync(
         long batchId,
         int processed,
