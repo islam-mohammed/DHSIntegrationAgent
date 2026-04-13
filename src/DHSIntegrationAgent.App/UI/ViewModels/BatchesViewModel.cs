@@ -758,6 +758,22 @@ public sealed class BatchesViewModel : ViewModelBase
                     // Optimization: Bulk load local data in two queries instead of N+1 loop
                     var bcrIds = result.Data.Select(x => x.BcrId.ToString()).Distinct().ToList();
 
+                    // If it does not exist in the endpoint anymore, then delete it from the local SQLite DB
+                    await using (var uow = await _unitOfWorkFactory.CreateAsync(default))
+                    {
+                        var allLocalBatches = await uow.Batches.GetAllAsync(default);
+                        foreach (var localBatch in allLocalBatches)
+                        {
+                            if (!string.IsNullOrEmpty(localBatch.BcrId) &&
+                                !bcrIds.Contains(localBatch.BcrId) &&
+                                localBatch.BatchStatus != DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Deleted)
+                            {
+                                await uow.Batches.DeleteAsync(localBatch.BatchId, default);
+                            }
+                        }
+                        await uow.CommitAsync(default);
+                    }
+
                     if (bcrIds.Count > 0)
                     {
                         await using var uow = await _unitOfWorkFactory.CreateAsync(default);
@@ -778,8 +794,15 @@ public sealed class BatchesViewModel : ViewModelBase
 
                                 if (!string.IsNullOrEmpty(apiItem.BatchStatus) && Enum.TryParse<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(apiItem.BatchStatus, true, out var apiStatus))
                                 {
+                                    // if the current batch is fetching or sending, then keep the current status,
+                                    // otherwise update the current status with the endpoint status.
+                                    bool keepCurrentStatus = lb.BatchStatus == DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Fetching ||
+                                                             lb.BatchStatus == DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Sending;
+
                                     // Do not revert a locally Deleted batch to a non-deleted status returned by the API
-                                    if (lb.BatchStatus != apiStatus && lb.BatchStatus != DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Deleted)
+                                    if (lb.BatchStatus != apiStatus &&
+                                        lb.BatchStatus != DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Deleted &&
+                                        !keepCurrentStatus)
                                     {
                                         targetStatus = apiStatus;
                                         needsUpdate = true;
