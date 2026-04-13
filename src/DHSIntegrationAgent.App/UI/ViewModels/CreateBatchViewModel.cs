@@ -119,15 +119,30 @@ public sealed class CreateBatchViewModel : ViewModelBase
                 if (existingBatches.Any())
                 {
                     bool hasCompletedOrFailed = false;
+                    bool hasInProgress = false;
 
                     foreach (var existingBatch in existingBatches)
                     {
                         var status = existingBatch.BatchStatus;
+                        if (status != BatchStatus.Completed && status != BatchStatus.Failed && status != BatchStatus.Deleted)
+                        {
+                            hasInProgress = true;
+                            break;
+                        }
                         if (status == BatchStatus.Completed || status == BatchStatus.Failed)
                         {
                             hasCompletedOrFailed = true;
-                            break;
                         }
+                    }
+
+                    if (hasInProgress)
+                    {
+                        MessageBox.Show(
+                            "A batch is already in progress for this Payer and Period. Cannot create a new batch.",
+                            "Batch In Progress",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Warning);
+                        return;
                     }
 
                     if (hasCompletedOrFailed)
