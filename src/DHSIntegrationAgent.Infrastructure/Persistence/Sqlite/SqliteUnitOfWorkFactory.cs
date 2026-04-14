@@ -9,7 +9,6 @@ internal sealed class SqliteUnitOfWorkFactory : ISqliteUnitOfWorkFactory
 {
     private readonly ISqliteConnectionFactory _connectionFactory;
     private readonly IColumnEncryptor _encryptor;
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     public SqliteUnitOfWorkFactory(ISqliteConnectionFactory connectionFactory, IColumnEncryptor encryptor)
     {
@@ -19,18 +18,9 @@ internal sealed class SqliteUnitOfWorkFactory : ISqliteUnitOfWorkFactory
 
     public async Task<ISqliteUnitOfWork> CreateAsync(CancellationToken cancellationToken)
     {
-        await _semaphore.WaitAsync(cancellationToken);
-        try
-        {
-            var conn = await _connectionFactory.OpenConnectionAsync(cancellationToken);
-            var tx = await conn.BeginTransactionAsync(cancellationToken);
+        var conn = await _connectionFactory.OpenConnectionAsync(cancellationToken);
+        var tx = await conn.BeginTransactionAsync(cancellationToken);
 
-            return new SqliteUnitOfWork(conn, tx, _encryptor, _semaphore);
-        }
-        catch
-        {
-            _semaphore.Release();
-            throw;
-        }
+        return new SqliteUnitOfWork(conn, tx, _encryptor);
     }
 }

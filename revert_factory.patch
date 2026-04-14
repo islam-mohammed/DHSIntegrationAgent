@@ -1,0 +1,45 @@
+<<<<<<< SEARCH
+    private readonly ISqliteConnectionFactory _connectionFactory;
+    private readonly IColumnEncryptor _encryptor;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+
+    public SqliteUnitOfWorkFactory(ISqliteConnectionFactory connectionFactory, IColumnEncryptor encryptor)
+    {
+        _connectionFactory = connectionFactory;
+        _encryptor = encryptor;
+    }
+
+    public async Task<ISqliteUnitOfWork> CreateAsync(CancellationToken cancellationToken)
+    {
+        await _semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            var conn = await _connectionFactory.OpenConnectionAsync(cancellationToken);
+            var tx = await conn.BeginTransactionAsync(cancellationToken);
+
+            return new SqliteUnitOfWork(conn, tx, _encryptor, _semaphore);
+        }
+        catch
+        {
+            _semaphore.Release();
+            throw;
+        }
+    }
+=======
+    private readonly ISqliteConnectionFactory _connectionFactory;
+    private readonly IColumnEncryptor _encryptor;
+
+    public SqliteUnitOfWorkFactory(ISqliteConnectionFactory connectionFactory, IColumnEncryptor encryptor)
+    {
+        _connectionFactory = connectionFactory;
+        _encryptor = encryptor;
+    }
+
+    public async Task<ISqliteUnitOfWork> CreateAsync(CancellationToken cancellationToken)
+    {
+        var conn = await _connectionFactory.OpenConnectionAsync(cancellationToken);
+        var tx = await conn.BeginTransactionAsync(cancellationToken);
+
+        return new SqliteUnitOfWork(conn, tx, _encryptor);
+    }
+>>>>>>> REPLACE

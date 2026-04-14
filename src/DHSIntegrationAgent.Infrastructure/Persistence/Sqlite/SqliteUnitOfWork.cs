@@ -12,7 +12,6 @@ internal sealed class SqliteUnitOfWork : ISqliteUnitOfWork
 {
     private readonly DbConnection _conn;
     private readonly DbTransaction _tx;
-    private readonly SemaphoreSlim? _semaphore;
     private bool _completed;
 
     /// <summary>
@@ -21,11 +20,10 @@ internal sealed class SqliteUnitOfWork : ISqliteUnitOfWork
     /// - Repositories share that same transaction to guarantee atomic operations.
     /// - encryptor is injected so PHI repos can encrypt/decrypt at the boundary (WBS 1.3).
     /// </summary>
-    public SqliteUnitOfWork(DbConnection conn, DbTransaction tx, IColumnEncryptor encryptor, SemaphoreSlim? semaphore = null)
+    public SqliteUnitOfWork(DbConnection conn, DbTransaction tx, IColumnEncryptor encryptor)
     {
         _conn = conn;
         _tx = tx;
-        _semaphore = semaphore;
 
         // Core settings + config repos
         AppSettings = new AppSettingsRepository(_conn, _tx);
@@ -115,15 +113,8 @@ internal sealed class SqliteUnitOfWork : ISqliteUnitOfWork
         }
         finally
         {
-            try
-            {
-                await _tx.DisposeAsync();
-                await _conn.DisposeAsync();
-            }
-            finally
-            {
-                _semaphore?.Release();
-            }
+            await _tx.DisposeAsync();
+            await _conn.DisposeAsync();
         }
     }
 }
