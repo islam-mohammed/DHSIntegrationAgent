@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using DHSIntegrationAgent.App.UI.ViewModels;
 using DHSIntegrationAgent.Application.Persistence;
@@ -25,23 +25,24 @@ public sealed class LoginService : ILoginService
 
     public async Task<LoginOutcome> LoginAsync(string email, string password, CancellationToken ct)
     {
-        await using var uow = await _uowFactory.CreateAsync(ct);
+        string groupId;
 
-        // SQLite is source of truth for GroupID (saved by Setup).
-        var settings = await uow.AppSettings.GetAsync(ct);
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            // SQLite is source of truth for GroupID (saved by Setup).
+            var settings = await uow.AppSettings.GetAsync(ct);
+            groupId = settings.GroupId ?? string.Empty;
+        }
 
-        if (string.IsNullOrWhiteSpace(settings.GroupId))
+        if (string.IsNullOrWhiteSpace(groupId))
             return new LoginOutcome(false, "Setup is missing GroupID. Please complete Setup first.", null, null);
 
         // Delegate HTTP/gzip/response parsing to WBS 2.2 AuthClient.
         var result = await _authClient.LoginAsync(
             email: email,
             password: password,
-            groupId: settings.GroupId,
+            groupId: groupId,
             ct: ct);
-
-        // No DB writes here; commit keeps UoW lifecycle consistent.
-        await uow.CommitAsync(ct);
 
         return result.Succeeded
             ? new LoginOutcome(true, null, result.FullName, result.UserName)

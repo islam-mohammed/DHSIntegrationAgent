@@ -1,4 +1,6 @@
-﻿using DHSIntegrationAgent.Application.Persistence;
+using System.Threading;
+using System.Threading.Tasks;
+using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Security;
 
 namespace DHSIntegrationAgent.Infrastructure.Persistence.Sqlite;
@@ -7,6 +9,7 @@ internal sealed class SqliteUnitOfWorkFactory : ISqliteUnitOfWorkFactory
 {
     private readonly ISqliteConnectionFactory _connectionFactory;
     private readonly IColumnEncryptor _encryptor;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     public SqliteUnitOfWorkFactory(ISqliteConnectionFactory connectionFactory, IColumnEncryptor encryptor)
     {
@@ -16,9 +19,18 @@ internal sealed class SqliteUnitOfWorkFactory : ISqliteUnitOfWorkFactory
 
     public async Task<ISqliteUnitOfWork> CreateAsync(CancellationToken cancellationToken)
     {
-        var conn = await _connectionFactory.OpenConnectionAsync(cancellationToken);
-        var tx = await conn.BeginTransactionAsync(cancellationToken);
+        await _semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            var conn = await _connectionFactory.OpenConnectionAsync(cancellationToken);
+            var tx = await conn.BeginTransactionAsync(cancellationToken);
 
-        return new SqliteUnitOfWork(conn, tx, _encryptor);
+            return new SqliteUnitOfWork(conn, tx, _encryptor, _semaphore);
+        }
+        catch
+        {
+            _semaphore.Release();
+            throw;
+        }
     }
 }
