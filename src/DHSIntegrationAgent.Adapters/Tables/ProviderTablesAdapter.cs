@@ -1,11 +1,9 @@
 using DHSIntegrationAgent.Application.Providers;
 using DHSIntegrationAgent.Contracts.Persistence;
 using DHSIntegrationAgent.Contracts.Providers;
-﻿using System.Data;
-using System.Data.Common;
+﻿using System.Data.Common;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
-using Microsoft.Data.SqlClient;
 using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 
@@ -91,10 +89,10 @@ WHERE CompanyCode = @CompanyCode
   AND {config.DateColumnName} >= @StartDate
   AND {config.DateColumnName} <= @EndDate;";
 
-        cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
-        cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
-        cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
-        cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+        cmd.AddParameter("@CompanyCode", companyCode);
+        cmd.AddParameter("@ProviderDhsCode", providerDhsCode);
+        cmd.AddParameter("@StartDate", batchStartDateUtc.UtcDateTime);
+        cmd.AddParameter("@EndDate", batchEndDateUtc.UtcDateTime);
 
         var result = await cmd.ExecuteScalarAsync(ct);
         return Convert.ToInt32(result);
@@ -122,10 +120,10 @@ WHERE h.CompanyCode = @CompanyCode
   AND h.{config.DateColumnName} >= @StartDate
   AND h.{config.DateColumnName} <= @EndDate;";
 
-        cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
-        cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
-        cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
-        cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+        cmd.AddParameter("@CompanyCode", companyCode);
+        cmd.AddParameter("@ProviderDhsCode", providerDhsCode);
+        cmd.AddParameter("@StartDate", batchStartDateUtc.UtcDateTime);
+        cmd.AddParameter("@EndDate", batchEndDateUtc.UtcDateTime);
 
         var result = await cmd.ExecuteScalarAsync(ct);
         return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
@@ -157,9 +155,9 @@ WHERE CompanyCode = @CompanyCode
   AND {config.DateColumnName} >= @StartDate
   AND {config.DateColumnName} <= @EndDate;";
 
-        cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
-        cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
-        cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+        cmd.AddParameter("@CompanyCode", companyCode);
+        cmd.AddParameter("@StartDate", batchStartDateUtc.UtcDateTime);
+        cmd.AddParameter("@EndDate", batchEndDateUtc.UtcDateTime);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         if (await reader.ReadAsync(ct))
@@ -204,12 +202,12 @@ WHERE CompanyCode = @CompanyCode
   AND (@LastSeen IS NULL OR {config.ClaimKeyColumnName} > @LastSeen)
 ORDER BY {config.ClaimKeyColumnName} ASC;";
 
-        cmd.Parameters.Add(new SqlParameter("@PageSize", SqlDbType.Int) { Value = pageSize });
-        cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
-        cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
-        cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
-        cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
-        cmd.Parameters.Add(new SqlParameter("@LastSeen", SqlDbType.Int) { Value = (object?)lastSeenClaimKey ?? DBNull.Value });
+        cmd.AddParameter("@PageSize", pageSize);
+        cmd.AddParameter("@CompanyCode", companyCode);
+        cmd.AddParameter("@ProviderDhsCode", providerDhsCode);
+        cmd.AddParameter("@StartDate", batchStartDateUtc.UtcDateTime);
+        cmd.AddParameter("@EndDate", batchEndDateUtc.UtcDateTime);
+        cmd.AddParameter("@LastSeen", lastSeenClaimKey);
 
         var keys = new List<int>(capacity: Math.Min(pageSize, 1024));
 
@@ -361,9 +359,9 @@ WHERE h.CompanyCode = @CompanyCode
   AND t.{columnName} IS NOT NULL;";
             }
 
-            cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
-            cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
-            cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+            cmd.AddParameter("@CompanyCode", companyCode);
+            cmd.AddParameter("@StartDate", batchStartDateUtc.UtcDateTime);
+            cmd.AddParameter("@EndDate", batchEndDateUtc.UtcDateTime);
 
             await using var reader = await cmd.ExecuteReaderAsync(ct);
             while (await reader.ReadAsync(ct))
@@ -404,9 +402,9 @@ WHERE h.CompanyCode = @CompanyCode
   AND h.{config.DateColumnName} >= @StartDate
   AND h.{config.DateColumnName} <= @EndDate;";
 
-        cmd.Parameters.Add(new SqlParameter("@CompanyCode", SqlDbType.VarChar, 50) { Value = companyCode });
-        cmd.Parameters.Add(new SqlParameter("@StartDate", SqlDbType.DateTime2) { Value = batchStartDateUtc.UtcDateTime });
-        cmd.Parameters.Add(new SqlParameter("@EndDate", SqlDbType.DateTime2) { Value = batchEndDateUtc.UtcDateTime });
+        cmd.AddParameter("@CompanyCode", companyCode);
+        cmd.AddParameter("@StartDate", batchStartDateUtc.UtcDateTime);
+        cmd.AddParameter("@EndDate", batchEndDateUtc.UtcDateTime);
 
         var results = new List<JsonObject>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -461,11 +459,11 @@ WHERE h.CompanyCode = @CompanyCode
         cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
         cmd.CommandText = sql;
 
-        cmd.Parameters.Add(new SqlParameter("@ClaimKey", SqlDbType.Int) { Value = claimKey });
+        cmd.AddParameter("@ClaimKey", claimKey);
 
         if (includeProviderFilter)
         {
-            cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
+            cmd.AddParameter("@ProviderDhsCode", providerDhsCode);
         }
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -487,11 +485,11 @@ WHERE h.CompanyCode = @CompanyCode
         cmd.CommandTimeout = ProviderDbCommandTimeoutSeconds;
         cmd.CommandText = sql;
 
-        cmd.Parameters.Add(new SqlParameter("@ClaimKey", SqlDbType.Int) { Value = claimKey });
+        cmd.AddParameter("@ClaimKey", claimKey);
 
         if (includeProviderFilter)
         {
-            cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
+            cmd.AddParameter("@ProviderDhsCode", providerDhsCode);
         }
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -516,7 +514,7 @@ FROM {tableName}
 WHERE {keyCol} IN ({keyList})";
 
         // Preserve original behavior of adding ProviderDhsCode parameter even if not explicitly in SQL string
-        cmd.Parameters.Add(new SqlParameter("@ProviderDhsCode", SqlDbType.NVarChar, 50) { Value = providerDhsCode });
+        cmd.AddParameter("@ProviderDhsCode", providerDhsCode);
 
         var result = new Dictionary<int, JsonObject>();
         await using var reader = await cmd.ExecuteReaderAsync(ct);
