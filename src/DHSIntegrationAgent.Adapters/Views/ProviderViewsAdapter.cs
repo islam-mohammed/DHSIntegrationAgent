@@ -172,7 +172,8 @@ ORDER BY {config.ClaimKeyColumnName} ASC;";
         cmd.CommandText = $@"
 SELECT *
 FROM {config.ViewSourceName}
-WHERE {config.ClaimKeyColumnName} IN ({keyList});";
+WHERE {config.ClaimKeyColumnName} IN ({keyList})
+ORDER BY {config.ClaimKeyColumnName};";
 
         var claimsData = new Dictionary<int, List<JsonObject>>();
 
