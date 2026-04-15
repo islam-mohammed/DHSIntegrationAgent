@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using DHSIntegrationAgent.Adapters.Tables;
+using DHSIntegrationAgent.Adapters.Views;
 
 namespace DHSIntegrationAgent.Adapters;
 
@@ -14,6 +15,7 @@ public static class AdaptersServiceCollectionExtensions
         // This release supports SQL Server provider HIS databases.
         services.AddSingleton<IProviderDbFactory, SqlServerProviderDbFactory>();
         services.AddSingleton<IProviderTablesAdapter, ProviderTablesAdapter>();
+        services.AddSingleton<IProviderViewsAdapter, ProviderViewsAdapter>();
 
         return services;
     }
