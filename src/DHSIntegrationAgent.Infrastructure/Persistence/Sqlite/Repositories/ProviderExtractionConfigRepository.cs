@@ -15,9 +15,9 @@ internal sealed class ProviderExtractionConfigRepository : SqliteRepositoryBase,
             INSERT INTO ProviderExtractionConfig
             (ProviderCode, ClaimKeyColumnName, DateColumnName, HeaderSourceName, DetailsSourceName, DoctorSourceName, ServiceSourceName, DiagnosisSourceName, LabSourceName, RadiologySourceName, AttachmentSourceName, OpticalSourceName, ItemDetailsSourceName, AchiSourceName,
              CustomHeaderSql, CustomServiceSql, CustomDiagnosisSql, CustomLabSql, CustomRadiologySql, CustomOpticalSql, CustomItemSql, CustomAchiSql,
-             Notes, UpdatedUtc)
+             Notes, FieldMappingJson, UpdatedUtc)
             VALUES
-            ($pc, $ck, $dc, $hs, $ds, $doc, $srv, $diag, $lab, $rad, $att, $opt, $itm, $achi, $h, $s, $d, $l, $r, $o, $ci, $ca, $n, $u)
+            ($pc, $ck, $dc, $hs, $ds, $doc, $srv, $diag, $lab, $rad, $att, $opt, $itm, $achi, $h, $s, $d, $l, $r, $o, $ci, $ca, $n, $fm, $u)
             ON CONFLICT(ProviderCode)
             DO UPDATE SET
                 ClaimKeyColumnName = excluded.ClaimKeyColumnName,
@@ -42,6 +42,7 @@ internal sealed class ProviderExtractionConfigRepository : SqliteRepositoryBase,
                 CustomItemSql = excluded.CustomItemSql,
                 CustomAchiSql = excluded.CustomAchiSql,
                 Notes = excluded.Notes,
+                FieldMappingJson = excluded.FieldMappingJson,
                 UpdatedUtc = excluded.UpdatedUtc;
             """);
 
@@ -68,6 +69,7 @@ internal sealed class ProviderExtractionConfigRepository : SqliteRepositoryBase,
         SqliteSqlBuilder.AddParam(cmd, "$ci", row.CustomItemSql);
         SqliteSqlBuilder.AddParam(cmd, "$ca", row.CustomAchiSql);
         SqliteSqlBuilder.AddParam(cmd, "$n", row.Notes);
+        SqliteSqlBuilder.AddParam(cmd, "$fm", row.FieldMappingJson);
         SqliteSqlBuilder.AddParam(cmd, "$u", SqliteUtc.ToIso(row.UpdatedUtc));
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
@@ -79,7 +81,7 @@ internal sealed class ProviderExtractionConfigRepository : SqliteRepositoryBase,
             """
             SELECT ProviderCode, ClaimKeyColumnName, DateColumnName, HeaderSourceName, DetailsSourceName, DoctorSourceName, ServiceSourceName, DiagnosisSourceName, LabSourceName, RadiologySourceName, AttachmentSourceName, OpticalSourceName, ItemDetailsSourceName, AchiSourceName,
                    CustomHeaderSql, CustomServiceSql, CustomDiagnosisSql, CustomLabSql, CustomRadiologySql, CustomOpticalSql, CustomItemSql, CustomAchiSql,
-                   Notes, UpdatedUtc
+                   Notes, FieldMappingJson, UpdatedUtc
             FROM ProviderExtractionConfig
             WHERE ProviderCode = $pc
             LIMIT 1;
@@ -113,6 +115,7 @@ internal sealed class ProviderExtractionConfigRepository : SqliteRepositoryBase,
             CustomItemSql: r.IsDBNull(20) ? null : r.GetString(20),
             CustomAchiSql: r.IsDBNull(21) ? null : r.GetString(21),
             Notes: r.IsDBNull(22) ? null : r.GetString(22),
-            UpdatedUtc: SqliteUtc.FromIso(r.GetString(23)));
+            FieldMappingJson: r.IsDBNull(23) ? null : r.GetString(23),
+            UpdatedUtc: SqliteUtc.FromIso(r.GetString(24)));
     }
 }
