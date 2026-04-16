@@ -8,6 +8,7 @@ using DHSIntegrationAgent.Contracts.Persistence;
 using DHSIntegrationAgent.Contracts.Workers;
 using DHSIntegrationAgent.Domain.WorkStates;
 using DHSIntegrationAgent.Adapters.Claims;
+using DHSIntegrationAgent.Adapters.Views;
 using Microsoft.Extensions.Logging;
 
 namespace DHSIntegrationAgent.Workers;
@@ -16,6 +17,7 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
 {
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly IProviderTablesAdapter _tablesAdapter;
+    private readonly IProviderViewsAdapter _viewsAdapter;
     private readonly IAttachmentService _attachmentService;
     private readonly IAttachmentClient _attachmentClient;
     private readonly ISystemClock _clock;
@@ -24,6 +26,7 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
     public AttachmentDispatchService(
         ISqliteUnitOfWorkFactory uowFactory,
         IProviderTablesAdapter tablesAdapter,
+        IProviderViewsAdapter viewsAdapter,
         IAttachmentService attachmentService,
         IAttachmentClient attachmentClient,
         ISystemClock clock,
@@ -31,6 +34,7 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
     {
         _uowFactory = uowFactory;
         _tablesAdapter = tablesAdapter;
+        _viewsAdapter = viewsAdapter;
         _attachmentService = attachmentService;
         _attachmentClient = attachmentClient;
         _clock = clock;
@@ -57,15 +61,23 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
             var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
             var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
 
+            string integrationType = "Tables";
+            await using (var uow = await _uowFactory.CreateAsync(ct))
+            {
+                var providerProfile = await uow.ProviderProfiles.GetActiveByProviderDhsCodeAsync(batch.ProviderDhsCode, ct);
+                if (providerProfile != null)
+                {
+                    integrationType = providerProfile.IntegrationType;
+                }
+            }
+            bool isViews = integrationType.Equals("Views", StringComparison.OrdinalIgnoreCase);
+
             _logger.LogInformation("Fetching attachments for batch {BatchId}...", batchId);
 
             // Preparation: Fetch all raw attachments directly
-            var rawAttachments = await _tablesAdapter.GetAttachmentsForBatchAsync(
-                batch.ProviderDhsCode,
-                batch.CompanyCode,
-                startDate,
-                endDate,
-                ct);
+            var rawAttachments = isViews
+                ? await _viewsAdapter.GetAttachmentsForBatchAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct)
+                : await _tablesAdapter.GetAttachmentsForBatchAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
 
             if (rawAttachments.Count == 0)
             {
@@ -368,12 +380,21 @@ public sealed class AttachmentDispatchService : IAttachmentDispatchService
         var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
         var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
 
-        return await _tablesAdapter.CountAttachmentsAsync(
-            batch.ProviderDhsCode,
-            batch.CompanyCode,
-            startDate,
-            endDate,
-            ct);
+        string integrationType = "Tables";
+        await using (var uow = await _uowFactory.CreateAsync(ct))
+        {
+            var providerProfile = await uow.ProviderProfiles.GetActiveByProviderDhsCodeAsync(batch.ProviderDhsCode, ct);
+            if (providerProfile != null)
+            {
+                integrationType = providerProfile.IntegrationType;
+            }
+        }
+
+        bool isViews = integrationType.Equals("Views", StringComparison.OrdinalIgnoreCase);
+
+        return isViews
+            ? await _viewsAdapter.CountAttachmentsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct)
+            : await _tablesAdapter.CountAttachmentsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
     }
 
     private DateTimeOffset ParseMonthKey(string monthKey)

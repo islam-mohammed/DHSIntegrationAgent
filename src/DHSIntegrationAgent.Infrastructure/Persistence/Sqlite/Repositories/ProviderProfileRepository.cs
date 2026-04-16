@@ -13,9 +13,9 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
         await using var cmd = CreateCommand(
             """
             INSERT INTO ProviderProfile
-            (ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread)
+            (ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread, ClaimSplitFollowupDays, DefaultTreatmentCountryCode, DefaultSubmissionReasonCode, DefaultPriority, DefaultErPbmDuration, SfdaServiceTypeIdentifier, PayersToDropZeroAmountServicesCsv)
             VALUES
-            ($pc, $pd, $db, $it, $cs, $kid, $a, $c, $u, $ebs, $bsc, $fcc)
+            ($pc, $pd, $db, $it, $cs, $kid, $a, $c, $u, $ebs, $bsc, $fcc, $cfd, $dtcc, $dsrc, $dp, $depd, $ssti, $ptdz)
             ON CONFLICT(ProviderCode)
             DO UPDATE SET
                 ProviderDhsCode = excluded.ProviderDhsCode,
@@ -27,7 +27,14 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
                 UpdatedUtc = excluded.UpdatedUtc,
                 EncryptedBlobStorageConnectionString = excluded.EncryptedBlobStorageConnectionString,
                 BlobStorageContainerName = excluded.BlobStorageContainerName,
-                FetchClaimCountPerThread = excluded.FetchClaimCountPerThread;
+                FetchClaimCountPerThread = excluded.FetchClaimCountPerThread,
+                ClaimSplitFollowupDays = excluded.ClaimSplitFollowupDays,
+                DefaultTreatmentCountryCode = excluded.DefaultTreatmentCountryCode,
+                DefaultSubmissionReasonCode = excluded.DefaultSubmissionReasonCode,
+                DefaultPriority = excluded.DefaultPriority,
+                DefaultErPbmDuration = excluded.DefaultErPbmDuration,
+                SfdaServiceTypeIdentifier = excluded.SfdaServiceTypeIdentifier,
+                PayersToDropZeroAmountServicesCsv = excluded.PayersToDropZeroAmountServicesCsv;
             """);
         SqliteSqlBuilder.AddParam(cmd, "$pc", row.ProviderCode);
         SqliteSqlBuilder.AddParam(cmd, "$pd", row.ProviderDhsCode);
@@ -41,6 +48,13 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
         SqliteSqlBuilder.AddParam(cmd, "$ebs", row.EncryptedBlobStorageConnectionString);
         SqliteSqlBuilder.AddParam(cmd, "$bsc", row.BlobStorageContainerName);
         SqliteSqlBuilder.AddParam(cmd, "$fcc", row.FetchClaimCountPerThread);
+        SqliteSqlBuilder.AddParam(cmd, "$cfd", row.ClaimSplitFollowupDays);
+        SqliteSqlBuilder.AddParam(cmd, "$dtcc", row.DefaultTreatmentCountryCode);
+        SqliteSqlBuilder.AddParam(cmd, "$dsrc", row.DefaultSubmissionReasonCode);
+        SqliteSqlBuilder.AddParam(cmd, "$dp", row.DefaultPriority);
+        SqliteSqlBuilder.AddParam(cmd, "$depd", row.DefaultErPbmDuration);
+        SqliteSqlBuilder.AddParam(cmd, "$ssti", row.SfdaServiceTypeIdentifier);
+        SqliteSqlBuilder.AddParam(cmd, "$ptdz", row.PayersToDropZeroAmountServicesCsv);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -49,7 +63,7 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
     {
         await using var cmd = CreateCommand(
             """
-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread
+            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread, ClaimSplitFollowupDays, DefaultTreatmentCountryCode, DefaultSubmissionReasonCode, DefaultPriority, DefaultErPbmDuration, SfdaServiceTypeIdentifier, PayersToDropZeroAmountServicesCsv
             FROM ProviderProfile
             WHERE ProviderCode = $pc
             LIMIT 1;
@@ -66,7 +80,7 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
     {
         await using var cmd = CreateCommand(
             """
-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread
+            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread, ClaimSplitFollowupDays, DefaultTreatmentCountryCode, DefaultSubmissionReasonCode, DefaultPriority, DefaultErPbmDuration, SfdaServiceTypeIdentifier, PayersToDropZeroAmountServicesCsv
             FROM ProviderProfile
             WHERE ProviderDhsCode = $pd AND IsActive = 1
             LIMIT 1;
@@ -107,5 +121,12 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
             UpdatedUtc: SqliteUtc.FromIso(r.GetString(8)),
             EncryptedBlobStorageConnectionString: r.IsDBNull(9) ? null : (byte[])r["EncryptedBlobStorageConnectionString"],
             BlobStorageContainerName: r.IsDBNull(10) ? null : r.GetString(10),
-            FetchClaimCountPerThread: r.IsDBNull(11) ? 300 : r.GetInt32(11));
+            FetchClaimCountPerThread: r.IsDBNull(11) ? 300 : r.GetInt32(11),
+            ClaimSplitFollowupDays: r.IsDBNull(12) ? null : r.GetInt32(12),
+            DefaultTreatmentCountryCode: r.IsDBNull(13) ? null : r.GetString(13),
+            DefaultSubmissionReasonCode: r.IsDBNull(14) ? null : r.GetString(14),
+            DefaultPriority: r.IsDBNull(15) ? null : r.GetString(15),
+            DefaultErPbmDuration: r.IsDBNull(16) ? null : r.GetInt32(16),
+            SfdaServiceTypeIdentifier: r.IsDBNull(17) ? null : r.GetString(17),
+            PayersToDropZeroAmountServicesCsv: r.IsDBNull(18) ? null : r.GetString(18));
 }

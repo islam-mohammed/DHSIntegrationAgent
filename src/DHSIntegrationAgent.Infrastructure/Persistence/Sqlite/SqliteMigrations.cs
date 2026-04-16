@@ -22,6 +22,16 @@ internal static class SqliteMigrations
         new Migration(6, "006_AddBatchCreatedByUserName", new List<string>
         {
             "ALTER TABLE Batch ADD COLUMN CreatedByUserName TEXT NULL;"
+        }),
+        new Migration(7, "007_AddProviderViewsConfiguration", new List<string>
+        {
+            "ALTER TABLE ProviderProfile ADD COLUMN ClaimSplitFollowupDays INTEGER NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN DefaultTreatmentCountryCode TEXT NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN DefaultSubmissionReasonCode TEXT NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN DefaultPriority TEXT NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN DefaultErPbmDuration INTEGER NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN SfdaServiceTypeIdentifier TEXT NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN PayersToDropZeroAmountServicesCsv TEXT NULL;"
         })
     };
 
@@ -109,6 +119,13 @@ internal static class SqliteMigrations
             BlobStorageContainerName             TEXT NULL,
             CreatedUtc                           TEXT NOT NULL,
             UpdatedUtc                           TEXT NOT NULL,
+            ClaimSplitFollowupDays               INTEGER NULL,
+            DefaultTreatmentCountryCode          TEXT NULL,
+            DefaultSubmissionReasonCode          TEXT NULL,
+            DefaultPriority                      TEXT NULL,
+            DefaultErPbmDuration                 INTEGER NULL,
+            SfdaServiceTypeIdentifier            TEXT NULL,
+            PayersToDropZeroAmountServicesCsv    TEXT NULL,
             PRIMARY KEY (ProviderCode)
         );
         """,

@@ -1,5 +1,6 @@
 using System.Windows;
 using DHSIntegrationAgent.Adapters.Tables;
+using DHSIntegrationAgent.Adapters.Views;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Providers;
@@ -12,6 +13,7 @@ public class BatchCreationOrchestrator : IBatchCreationOrchestrator
 {
     private readonly ISqliteUnitOfWorkFactory _unitOfWorkFactory;
     private readonly IProviderTablesAdapter _tablesAdapter;
+    private readonly IProviderViewsAdapter _viewsAdapter;
     private readonly ISystemClock _clock;
     private readonly IBatchTracker _batchTracker;
     private readonly IDeleteBatchService _deleteBatchService;
@@ -21,6 +23,7 @@ public class BatchCreationOrchestrator : IBatchCreationOrchestrator
     public BatchCreationOrchestrator(
         ISqliteUnitOfWorkFactory unitOfWorkFactory,
         IProviderTablesAdapter tablesAdapter,
+        IProviderViewsAdapter viewsAdapter,
         ISystemClock clock,
         IBatchTracker batchTracker,
         IDeleteBatchService deleteBatchService,
@@ -29,6 +32,7 @@ public class BatchCreationOrchestrator : IBatchCreationOrchestrator
     {
         _unitOfWorkFactory = unitOfWorkFactory ?? throw new ArgumentNullException(nameof(unitOfWorkFactory));
         _tablesAdapter = tablesAdapter ?? throw new ArgumentNullException(nameof(tablesAdapter));
+        _viewsAdapter = viewsAdapter ?? throw new ArgumentNullException(nameof(viewsAdapter));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _batchTracker = batchTracker ?? throw new ArgumentNullException(nameof(batchTracker));
         _deleteBatchService = deleteBatchService ?? throw new ArgumentNullException(nameof(deleteBatchService));
@@ -81,14 +85,12 @@ public class BatchCreationOrchestrator : IBatchCreationOrchestrator
             string actionText = isRecreation ? "recreating" : "creating";
             string actionSuffix = isRecreation ? " The old batch will be deleted." : "";
 
-            if (integrationType.Equals("Tables", StringComparison.OrdinalIgnoreCase))
+            if (integrationType.Equals("Tables", StringComparison.OrdinalIgnoreCase) ||
+                integrationType.Equals("Views", StringComparison.OrdinalIgnoreCase))
             {
-                summary = await _tablesAdapter.GetFinancialSummaryAsync(
-                    providerDhsCode,
-                    companyCode,
-                    startDateOffset,
-                    endDateOffset,
-                    default);
+                summary = integrationType.Equals("Views", StringComparison.OrdinalIgnoreCase)
+                    ? await _viewsAdapter.GetFinancialSummaryAsync(providerDhsCode, companyCode, startDateOffset, endDateOffset, default)
+                    : await _tablesAdapter.GetFinancialSummaryAsync(providerDhsCode, companyCode, startDateOffset, endDateOffset, default);
 
                 initialTotalClaimsCount = summary.TotalClaims;
 
