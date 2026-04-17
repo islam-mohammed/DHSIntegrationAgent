@@ -20,7 +20,6 @@ public sealed class ProviderViewsAdapter : IProviderViewsAdapter
 {
     private readonly IProviderDbFactory _providerDbFactory;
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
-    private readonly ISchemaMapperService _schemaMapperService;
 
     private sealed record ProviderViewsConfig(
         string ViewSourceName,
@@ -32,8 +31,7 @@ public sealed class ProviderViewsAdapter : IProviderViewsAdapter
         string DefaultPriority,
         int DefaultErPbmDuration,
         string SfdaServiceTypeIdentifier,
-        List<string> PayersToDropZeroAmountServices,
-        JsonObject? ParsedFieldMapping
+        List<string> PayersToDropZeroAmountServices
     );
 
     private readonly ConcurrentDictionary<string, ProviderViewsConfig> _configCache = new();
@@ -270,24 +268,8 @@ ORDER BY {config.ClaimKeyColumnName};";
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            var rawRow = reader.ReadRowAsJsonObject();
-            var row = _schemaMapperService.MapRow("Header", rawRow, config.ParsedFieldMapping);
-            row = _schemaMapperService.MapRow("Services", row, config.ParsedFieldMapping);
-            row = _schemaMapperService.MapRow("Diagnosis", row, config.ParsedFieldMapping);
-            row = _schemaMapperService.MapRow("Labs", row, config.ParsedFieldMapping);
-            row = _schemaMapperService.MapRow("Radiology", row, config.ParsedFieldMapping);
-            row = _schemaMapperService.MapRow("Attachments", row, config.ParsedFieldMapping);
-            row = _schemaMapperService.MapRow("Optical", row, config.ParsedFieldMapping);
-            row = _schemaMapperService.MapRow("ItemDetails", row, config.ParsedFieldMapping);
-            row = _schemaMapperService.MapRow("Achi", row, config.ParsedFieldMapping);
-
-            JsonNode? val = null;
-            if (!row.TryGetPropertyValue("ProIdClaim", out val) || val == null)
-            {
-                row.TryGetPropertyValue(config.ClaimKeyColumnName, out val);
-            }
-
-            if (val != null)
+            var row = reader.ReadRowAsJsonObject();
+            if (row.TryGetPropertyValue(config.ClaimKeyColumnName, out var val) && val != null)
             {
                 if (int.TryParse(val.ToString(), out var id))
                 {
@@ -688,27 +670,8 @@ WHERE CompanyCode = @CompanyCode
             dropZerosList.AddRange(profile.PayersToDropZeroAmountServicesCsv.Split(',').Select(s => s.Trim()));
         }
 
-        JsonObject? parsedMapping = null;
-        if (!string.IsNullOrWhiteSpace(extraction?.FieldMappingJson))
-        {
-            try { parsedMapping = System.Text.Json.Nodes.JsonNode.Parse(extraction.FieldMappingJson) as JsonObject; } catch { }
-        }
-
-        string ExtractSourceName(string category, string defaultSource, string? legacySource)
-        {
-            if (parsedMapping != null && parsedMapping.TryGetPropertyValue(category, out var catNode) && catNode is JsonObject catObj)
-            {
-                if (catObj.TryGetPropertyValue("SourceName", out var srcNode) && srcNode != null)
-                {
-                    var val = srcNode.ToString();
-                    if (!string.IsNullOrWhiteSpace(val)) return val;
-                }
-            }
-            return string.IsNullOrWhiteSpace(legacySource) ? defaultSource : legacySource;
-        }
-
         var config = new ProviderViewsConfig(
-            ViewSourceName: ExtractSourceName("Header", DefaultViewName, extraction?.HeaderSourceName),
+            ViewSourceName: string.IsNullOrWhiteSpace(extraction?.HeaderSourceName) ? DefaultViewName : extraction.HeaderSourceName,
             ClaimKeyColumnName: string.IsNullOrWhiteSpace(extraction?.ClaimKeyColumnName) ? DefaultClaimKeyColumn : extraction.ClaimKeyColumnName,
             DateColumnName: string.IsNullOrWhiteSpace(extraction?.DateColumnName) ? DefaultDateColumn : extraction.DateColumnName,
             ClaimSplitFollowupDays: profile?.ClaimSplitFollowupDays ?? 14,
@@ -717,8 +680,7 @@ WHERE CompanyCode = @CompanyCode
             DefaultPriority: string.IsNullOrWhiteSpace(profile?.DefaultPriority) ? "Normal" : profile.DefaultPriority,
             DefaultErPbmDuration: profile?.DefaultErPbmDuration ?? 1,
             SfdaServiceTypeIdentifier: string.IsNullOrWhiteSpace(profile?.SfdaServiceTypeIdentifier) ? "SFDA" : profile.SfdaServiceTypeIdentifier,
-            PayersToDropZeroAmountServices: dropZerosList,
-            ParsedFieldMapping: parsedMapping
+            PayersToDropZeroAmountServices: dropZerosList
         );
 
         _configCache.TryAdd(providerDhsCode, config);

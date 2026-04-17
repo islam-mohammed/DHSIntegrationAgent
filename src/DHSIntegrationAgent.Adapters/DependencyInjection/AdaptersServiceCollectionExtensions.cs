@@ -16,7 +16,6 @@ public static class AdaptersServiceCollectionExtensions
         services.AddSingleton<IProviderDbFactory, SqlServerProviderDbFactory>();
         services.AddSingleton<IProviderTablesAdapter, ProviderTablesAdapter>();
         services.AddSingleton<IProviderViewsAdapter, ProviderViewsAdapter>();
-        services.AddSingleton<ISchemaMapperService, SchemaMapperService>();
 
         return services;
     }
