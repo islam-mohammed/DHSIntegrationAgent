@@ -56,11 +56,11 @@ public sealed class WorkerEngine : IWorkerEngine, IHostedService, IDisposable
 
             _logger.LogInformation("Starting Worker Engine...");
 
+            IsRunning = true;
+
             _cts?.Dispose();
             _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             _executingTask = RunWorkersAsync(_cts.Token);
-
-            IsRunning = true;
         }
         finally
         {

@@ -24,4 +24,5 @@ public sealed record ProviderExtractionConfigRow(
     string? CustomItemSql,
     string? CustomAchiSql,
     string? Notes,
+    string? FieldMappingJson,
     DateTimeOffset UpdatedUtc);
