@@ -32,10 +32,6 @@ internal static class SqliteMigrations
             "ALTER TABLE ProviderProfile ADD COLUMN DefaultErPbmDuration INTEGER NULL;",
             "ALTER TABLE ProviderProfile ADD COLUMN SfdaServiceTypeIdentifier TEXT NULL;",
             "ALTER TABLE ProviderProfile ADD COLUMN PayersToDropZeroAmountServicesCsv TEXT NULL;"
-        }),
-        new Migration(8, "008_AddFieldMappingJson", new List<string>
-        {
-            "ALTER TABLE ProviderExtractionConfig ADD COLUMN FieldMappingJson TEXT NULL;"
         })
     };
 
@@ -162,7 +158,6 @@ internal static class SqliteMigrations
             CustomItemSql          TEXT NULL,
             CustomAchiSql          TEXT NULL,
             Notes                  TEXT NULL,
-            FieldMappingJson       TEXT NULL,
             UpdatedUtc             TEXT NOT NULL
         );
         """,
