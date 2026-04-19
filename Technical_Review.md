@@ -6,14 +6,18 @@ Below is the comprehensive technical review based on a strict cross-check of the
 
 ---
 
-## 1. Core Architecture & Strategic Alignment: Move to Dapper?
+## 1. Core Architecture & Strategic Alignment: Move to Dapper vs Current Implementation?
 
-**Verdict: REJECTED.** Moving to the new Dapper-based Sync Layer, as currently proposed, violates a critical architectural constraint and will introduce unnecessary memory overhead and limitations.
+**Verdict: ARCHITECTURE APPROVED, DAPPER REJECTED.**
 
-**Why Dapper is rejected for this use case:**
-*   **Memory Overhead & Strong-Typing Limitations:** The adapter layer (`DHSIntegrationAgent.Adapters`) is explicitly designed to handle highly dynamic HIS vendor schemas by using raw ADO.NET (`DbDataReader`) to read arbitrary database rows directly into `JsonObject` dictionaries.
+Moving to the new Sync Layer architecture (direct vendor connections, SQL aliasing, tiered JSON descriptors) is highly recommended and **superior to the current implementation** (which relies on legacy SPs, linked servers, and on-site DBA staging tables). The decoupling and modularization of vendor logic will significantly improve maintainability and operational safety.
+
+However, the specific plan to use the **Dapper ORM** as the materialization layer must be rejected.
+
+**Why Dapper is rejected and the current materialization code should be kept:**
+*   **Memory Overhead & Strong-Typing Limitations:** The current adapter layer (`DHSIntegrationAgent.Adapters`) is explicitly designed to handle highly dynamic HIS vendor schemas by using raw ADO.NET (`DbDataReader`) to read arbitrary database rows directly into `JsonObject` dictionaries. This is highly memory-efficient for dynamic schemas.
 *   **Architectural Constraint Violation:** The established system rules explicitly state: *"Do not use ORMs like Dapper for this mapping, as it introduces unnecessary memory overhead and strong-typing limitations."*
-*   **Proposed Alternative:** The Sync Layer's goals (decoupling from linked servers, modularizing vendor logic, tiered JSON descriptors) are excellent, but the materialization mechanism must be refactored to use the existing `DbDataReader -> JsonObject` pipeline instead of Dapper's strongly-typed DTO mapping (e.g., `conn.QueryAsync<ClaimHeaderDto>`). The SQL aliasing strategy still works perfectly with `JsonObject` mapping.
+*   **Proposed Alternative:** The new Sync Layer pipeline must be refactored to use the **current implementation's `DbDataReader -> JsonObject` pipeline** instead of Dapper's strongly-typed DTO mapping (e.g., `conn.QueryAsync<ClaimHeaderDto>`). The SQL aliasing strategy still works perfectly with `JsonObject` mapping, meaning we get the benefits of the new architecture without the memory overhead of Dapper.
 
 ---
 
@@ -75,10 +79,10 @@ I have cross-referenced the canonical `ClaimBundle` contract (`_SCHEMA_AND_MAPPI
 
 ## 4. Conclusion & Actionable Steps
 
-The *logic* and *architecture* of the Sync Layer (decoupling, SQL aliasing, tiered JSON descriptors) are sound and highly recommended. However, the *implementation mechanism* (Dapper ORM) must be rejected.
+The *logic* and *architecture* of the Sync Layer (decoupling, SQL aliasing, tiered JSON descriptors) are sound and highly recommended. It represents a significant improvement over the current implementation (legacy SPs/Linked Servers). However, the *implementation mechanism* for data mapping (Dapper ORM) must be rejected.
 
 **Required Changes to the Plan before execution:**
-1.  **Drop Dapper:** Replace all planned usage of Dapper with the existing raw ADO.NET `DbDataReader -> JsonObject` extraction mechanism to comply with memory and dynamic schema constraints.
+1.  **Drop Dapper & Retain Current Mapping Implementation:** Replace all planned usage of Dapper with the current implementation's raw ADO.NET `DbDataReader -> JsonObject` extraction mechanism to comply with memory constraints and maintain efficient dynamic schema handling.
 2.  **Add MonthKey Computation:** Explicitly define where `MonthKey` is computed and injected.
 3.  **Strengthen Validation:** Ensure `DescriptorValidator` enforces exact alias-to-JSON property matching via schema-only dry runs.
 4.  **UTC & Sanitization:** Enforce UTC formatting without timezone suffixes and UTF-8 sanitization at the `JsonObject` generation boundary.
