@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using DHSIntegrationAgent.Adapters.Claims;
 using DHSIntegrationAgent.Domain.Claims;
 using DHSIntegrationAgent.Adapters.Tables;
-using DHSIntegrationAgent.Adapters.Views;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
 using DHSIntegrationAgent.Application.Providers;
@@ -23,7 +22,6 @@ public sealed class FetchStageService : IFetchStageService
 {
     private readonly ISqliteUnitOfWorkFactory _uowFactory;
     private readonly IProviderTablesAdapter _tablesAdapter;
-    private readonly IProviderViewsAdapter _viewsAdapter;
     private readonly IBatchClient _batchClient;
     private readonly IDomainMappingClient _domainMappingClient;
     private readonly ISystemClock _clock;
@@ -33,7 +31,6 @@ public sealed class FetchStageService : IFetchStageService
     public FetchStageService(
         ISqliteUnitOfWorkFactory uowFactory,
         IProviderTablesAdapter tablesAdapter,
-        IProviderViewsAdapter viewsAdapter,
         IBatchClient batchClient,
         IDomainMappingClient domainMappingClient,
         ISystemClock clock,
@@ -42,7 +39,6 @@ public sealed class FetchStageService : IFetchStageService
     {
         _uowFactory = uowFactory;
         _tablesAdapter = tablesAdapter;
-        _viewsAdapter = viewsAdapter;
         _batchClient = batchClient;
         _domainMappingClient = domainMappingClient;
         _clock = clock;
@@ -78,17 +74,6 @@ public sealed class FetchStageService : IFetchStageService
             }
         }
 
-        string integrationType = "Tables";
-        await using (var uow = await _uowFactory.CreateAsync(ct))
-        {
-            var providerProfile = await uow.ProviderProfiles.GetActiveByProviderDhsCodeAsync(batch.ProviderDhsCode, ct);
-            if (providerProfile != null)
-            {
-                integrationType = providerProfile.IntegrationType;
-            }
-        }
-        bool isViews = integrationType.Equals("Views", StringComparison.OrdinalIgnoreCase);
-
         // 2. Ensure BcrId exists
         if (string.IsNullOrWhiteSpace(bcrId))
         {
@@ -96,9 +81,7 @@ public sealed class FetchStageService : IFetchStageService
 
             var startDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
             var endDate = batch.EndDateUtc ?? startDate.AddMonths(1).AddTicks(-1);
-            var totalClaimsCount = isViews
-                ? await _viewsAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct)
-                : await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
+            var totalClaimsCount = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, startDate, endDate, ct);
 
             var request = new CreateBatchRequestItem(batch.CompanyCode, startDate, endDate, totalClaimsCount, batch.ProviderDhsCode, batch.CreatedByUserName);
             var result = await _batchClient.CreateBatchAsync(new[] { request }, ct);
@@ -116,9 +99,7 @@ public sealed class FetchStageService : IFetchStageService
         // 3. Fetch and Stage Claims
         var batchStartDate = batch.StartDateUtc ?? ParseMonthKey(batch.MonthKey);
         var batchEndDate = batch.EndDateUtc ?? batchStartDate.AddMonths(1).AddTicks(-1);
-        var totalClaims = isViews
-            ? await _viewsAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, ct)
-            : await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, ct);
+        var totalClaims = await _tablesAdapter.CountClaimsAsync(batch.ProviderDhsCode, batch.CompanyCode, batchStartDate, batchEndDate, ct);
 
         int processedCount = 0;
         int? lastSeen = null;
@@ -195,31 +176,20 @@ public sealed class FetchStageService : IFetchStageService
 
         while (true)
         {
-            var keys = isViews
-                ? await _viewsAdapter.ListClaimKeysAsync(
-                    batch.ProviderDhsCode,
-                    batch.CompanyCode,
-                    batchStartDate,
-                    batchEndDate,
-                    pageSize,
-                    lastSeen,
-                    ct)
-                : await _tablesAdapter.ListClaimKeysAsync(
-                    batch.ProviderDhsCode,
-                    batch.CompanyCode,
-                    batchStartDate,
-                    batchEndDate,
-                    pageSize,
-                    lastSeen,
-                    ct);
+            var keys = await _tablesAdapter.ListClaimKeysAsync(
+                batch.ProviderDhsCode,
+                batch.CompanyCode,
+                batchStartDate,
+                batchEndDate,
+                pageSize,
+                lastSeen,
+                ct);
 
             if (keys.Count == 0)
                 break;
 
             // Fetch full bundles in batch (WBS 3.2 efficiency optimization)
-            var rawBundles = isViews
-                ? await _viewsAdapter.GetClaimBundlesRawBatchAsync(batch.ProviderDhsCode, keys, ct)
-                : await _tablesAdapter.GetClaimBundlesRawBatchAsync(batch.ProviderDhsCode, keys, ct);
+            var rawBundles = await _tablesAdapter.GetClaimBundlesRawBatchAsync(batch.ProviderDhsCode, keys, ct);
 
             // Build payloads OUTSIDE any SQLite transaction.
             var workItems = new List<StageWorkItem>(rawBundles.Count);

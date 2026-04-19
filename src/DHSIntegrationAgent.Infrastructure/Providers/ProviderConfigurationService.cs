@@ -355,37 +355,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         var domainMappings = GetCaseInsensitive(payload, "domainMappings") as JsonArray;
         var missingDomainMappings = GetCaseInsensitive(payload, "missingDomainMappings") as JsonArray;
 
-        int? claimSplitFollowupDays = GetInt(payload, "claimSplitFollowupDays");
-        string? defaultTreatmentCountryCode = GetString(payload, "defaultTreatmentCountryCode");
-        string? defaultSubmissionReasonCode = GetString(payload, "defaultSubmissionReasonCode");
-        string? defaultPriority = GetString(payload, "defaultPriority");
-        int? defaultErPbmDuration = GetInt(payload, "defaultErPbmDuration");
-        string? sfdaServiceTypeIdentifier = GetString(payload, "sfdaServiceTypeIdentifier");
-
-        List<string>? payersToDropZeroAmountServices = null;
-        if (GetCaseInsensitive(payload, "payersToDropZeroAmountServices") is JsonArray pArray)
-        {
-            payersToDropZeroAmountServices = new List<string>();
-            foreach (var val in pArray)
-            {
-                if (val is JsonValue jv && jv.TryGetValue<string>(out var pStr) && !string.IsNullOrWhiteSpace(pStr))
-                {
-                    payersToDropZeroAmountServices.Add(pStr);
-                }
-            }
-        }
-
-        return new ProviderConfigurationParsed(
-            providerPayers,
-            domainMappings,
-            missingDomainMappings,
-            claimSplitFollowupDays,
-            defaultTreatmentCountryCode,
-            defaultSubmissionReasonCode,
-            defaultPriority,
-            defaultErPbmDuration,
-            sfdaServiceTypeIdentifier,
-            payersToDropZeroAmountServices);
+        return new ProviderConfigurationParsed(providerPayers, domainMappings, missingDomainMappings);
     }
 
     private static string BuildEmptyPlaceholderConfigJson()
@@ -422,10 +392,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             if (string.IsNullOrWhiteSpace(dbEngine))
                 dbEngine = "sqlserver";
 
-            var integrationType = GetString(payload, "integrationType");
-            if (string.IsNullOrWhiteSpace(integrationType))
-                integrationType = GetString(providerInfo, "integrationType");
-
+            var integrationType = GetString(providerInfo, "integrationType");
             if (string.IsNullOrWhiteSpace(integrationType))
                 integrationType = "Tables";
 
@@ -442,30 +409,6 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
 
             var fetchClaimCountPerThread = GetInt(providerInfo, "fetchClaimCountPerThread") ?? 300;
 
-            int? claimSplitFollowupDays = GetInt(payload, "claimSplitFollowupDays");
-            string? defaultTreatmentCountryCode = GetString(payload, "defaultTreatmentCountryCode");
-            string? defaultSubmissionReasonCode = GetString(payload, "defaultSubmissionReasonCode");
-            string? defaultPriority = GetString(payload, "defaultPriority");
-            int? defaultErPbmDuration = GetInt(payload, "defaultErPbmDuration");
-            string? sfdaServiceTypeIdentifier = GetString(payload, "sfdaServiceTypeIdentifier");
-
-            string? payersToDropZeroAmountServicesCsv = null;
-            if (GetCaseInsensitive(payload, "payersToDropZeroAmountServices") is JsonArray pArray)
-            {
-                var lst = new List<string>();
-                foreach (var val in pArray)
-                {
-                    if (val is JsonValue jv && jv.TryGetValue<string>(out var pStr) && !string.IsNullOrWhiteSpace(pStr))
-                    {
-                        lst.Add(pStr);
-                    }
-                }
-                if (lst.Count > 0)
-                {
-                    payersToDropZeroAmountServicesCsv = string.Join(",", lst);
-                }
-            }
-
             var row = new ProviderProfileRow(
                 ProviderCode: SingleProviderCode,
                 ProviderDhsCode: providerDhsCode,
@@ -478,14 +421,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 UpdatedUtc: now,
                 EncryptedBlobStorageConnectionString: encryptedBlobStorageConnectionString,
                 BlobStorageContainerName: blobStorageContainerName,
-                FetchClaimCountPerThread: fetchClaimCountPerThread,
-                ClaimSplitFollowupDays: claimSplitFollowupDays,
-                DefaultTreatmentCountryCode: defaultTreatmentCountryCode,
-                DefaultSubmissionReasonCode: defaultSubmissionReasonCode,
-                DefaultPriority: defaultPriority,
-                DefaultErPbmDuration: defaultErPbmDuration,
-                SfdaServiceTypeIdentifier: sfdaServiceTypeIdentifier,
-                PayersToDropZeroAmountServicesCsv: payersToDropZeroAmountServicesCsv);
+                FetchClaimCountPerThread: fetchClaimCountPerThread);
 
             await uow.ProviderProfiles.UpsertAsync(row, ct);
         }
