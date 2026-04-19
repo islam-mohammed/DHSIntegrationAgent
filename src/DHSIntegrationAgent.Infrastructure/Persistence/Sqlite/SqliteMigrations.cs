@@ -22,6 +22,25 @@ internal static class SqliteMigrations
         new Migration(6, "006_AddBatchCreatedByUserName", new List<string>
         {
             "ALTER TABLE Batch ADD COLUMN CreatedByUserName TEXT NULL;"
+        }),
+        new Migration(7, "007_AddVendorDescriptor", new List<string>
+        {
+            """
+            CREATE TABLE IF NOT EXISTS VendorDescriptor (
+                VendorId       TEXT    NOT NULL PRIMARY KEY,
+                SchemaVersion  TEXT    NOT NULL,
+                DbEngine       TEXT    NOT NULL,
+                DescriptorJson TEXT    NOT NULL,
+                CreatedAt      TEXT    NOT NULL,
+                UpdatedAt      TEXT    NOT NULL,
+                UpdatedBy      TEXT    NOT NULL,
+                IsActive       INTEGER NOT NULL DEFAULT 1
+            );
+            """
+        }),
+        new Migration(8, "008_AddClaimSourceCursor", new List<string>
+        {
+            "ALTER TABLE Claim ADD COLUMN SourceCursor TEXT NULL;"
         })
     };
 
