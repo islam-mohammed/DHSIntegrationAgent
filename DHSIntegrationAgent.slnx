@@ -7,6 +7,7 @@
     <Project Path="src/DHSIntegrationAgent.Contracts/DHSIntegrationAgent.Contracts.csproj" />
     <Project Path="src/DHSIntegrationAgent.Domain/DHSIntegrationAgent.Domain.csproj" />
     <Project Path="src/DHSIntegrationAgent.Infrastructure/DHSIntegrationAgent.Infrastructure.csproj" />
+    <Project Path="src/DHSIntegrationAgent.Sync/DHSIntegrationAgent.Sync.csproj" />
     <Project Path="src/DHSIntegrationAgent.Workers/DHSIntegrationAgent.Workers.csproj" />
   </Folder>
   <Folder Name="/tests/">
