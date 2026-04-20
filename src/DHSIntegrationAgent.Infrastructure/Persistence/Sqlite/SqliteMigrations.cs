@@ -54,7 +54,8 @@ internal static class SqliteMigrations
         }),
         new Migration(10, "010_MoveDescriptorJsonToProviderProfile", new List<string>
         {
-            "ALTER TABLE ProviderProfile ADD COLUMN DescriptorJson TEXT NULL;"
+            "ALTER TABLE ProviderProfile ADD COLUMN DescriptorJson TEXT NULL;",
+            "DROP TABLE IF EXISTS VendorDescriptor;"
         })
     };
 

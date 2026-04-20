@@ -66,7 +66,7 @@ src/
 |---|---|
 | `DHSIntegrationAgent.Workers` | `FetchStageService` ctor: swap `IProviderTablesAdapter` → `IClaimExtractionPipeline` |
 | `DHSIntegrationAgent.Adapters` | Retains `ClaimBundleBuilder`, `DbReaderJsonExtensions`. `ProviderTablesAdapter` deprecated in Phase 1, removed in Phase 2. |
-| `DHSIntegrationAgent.Persistence` | New migration: `VendorDescriptor` table + `SourceCursor` column on `Claim`. |
+| `DHSIntegrationAgent.Persistence` | New migrations: `DescriptorJson` on `ProviderProfile` (M-010) + `SourceCursor` on `Claim` (M-008). |
 | `DHSIntegrationAgent.Bootstrapper` | Register new services; remove `ProviderTablesAdapter` registration. |
 
 ### Project References
@@ -83,7 +83,7 @@ Sync.Mapper  (no project refs — pure logic, only System.Text.Json)
 
 ## 3. VendorDescriptor — Full JSON Schema
 
-This is the authoritative shape of the descriptor JSON blob stored in the `VendorDescriptor` SQLite table. Every field is mandatory unless marked `optional`.
+This is the authoritative shape of the descriptor JSON blob stored in the `DescriptorJson` column of the `ProviderProfile` SQLite table. Every field is mandatory unless marked `optional`.
 
 ```jsonc
 {
@@ -255,28 +255,20 @@ This is the authoritative shape of the descriptor JSON blob stored in the `Vendo
 
 ## 4. SQLite Migrations
 
-### Migration M-001: VendorDescriptor table
-
-```sql
-CREATE TABLE IF NOT EXISTS VendorDescriptor (
-    VendorId          TEXT    NOT NULL PRIMARY KEY,
-    SchemaVersion     TEXT    NOT NULL,
-    DbEngine          TEXT    NOT NULL,           -- 'sqlserver'|'oracle'|'mysql'
-    DescriptorJson    TEXT    NOT NULL,           -- full JSON blob above
-    CreatedAt         TEXT    NOT NULL,
-    UpdatedAt         TEXT    NOT NULL,
-    UpdatedBy         TEXT    NOT NULL,           -- 'cloud' | 'ops:<username>'
-    IsActive          INTEGER NOT NULL DEFAULT 1
-);
-```
-
-### Migration M-002: SourceCursor on Claim
+### Migration M-008: SourceCursor on Claim
 
 ```sql
 ALTER TABLE Claim ADD COLUMN SourceCursor TEXT NULL;
 -- SourceCursor is the opaque resume point for paged extraction.
 -- Integer cursors store the last-seen ProIdClaim as a decimal string.
 -- Composite cursors store pipe-delimited key values (see section 9.3).
+```
+
+### Migration M-010: DescriptorJson on ProviderProfile
+
+```sql
+ALTER TABLE ProviderProfile ADD COLUMN DescriptorJson TEXT NULL;
+-- Stores the JSON descriptor payload directly on the provider profile
 ```
 
 ---
@@ -720,7 +712,7 @@ Client login
   └─ GET /api/Provider/GetProviderConfigration/{providerDhsCode}
        └─ payload includes { ..., "vendorDescriptor": { <full descriptor JSON> } }
             └─ LoginViewModel.cs caches response to SQLite
-                 └─ Migration M-001 row: INSERT OR REPLACE INTO VendorDescriptor
+                 └─ ProviderProfile table: Updates the DescriptorJson column for the active ProviderProfile.
 ```
 
 ### DescriptorResolver
@@ -729,7 +721,7 @@ Client login
 // DHSIntegrationAgent.Sync/Pipeline/DescriptorResolver.cs
 public sealed class DescriptorResolver
 {
-    // 1. Read VendorDescriptor row from SQLite for providerDhsCode.
+    // 1. Read ProviderProfile row from SQLite for providerDhsCode.
     // 2. Deserialize DescriptorJson into VendorDescriptor model.
     // 3. Cache in memory for session lifetime (ConcurrentDictionary).
     // 4. Throw DescriptorNotFoundException if row absent (forces re-login).
@@ -738,7 +730,7 @@ public sealed class DescriptorResolver
 }
 ```
 
-The cloud-config API payload must add the `vendorDescriptor` field. The `LoginViewModel` persistence path already handles arbitrary JSON fields from the payload — adding `vendorDescriptor` requires only that `VendorDescriptor` is written to the new SQLite table during the login flow.
+The cloud-config API payload must add the `vendorDescriptor` field. The `LoginViewModel` persistence path already handles arbitrary JSON fields from the payload — adding `vendorDescriptor` requires only that the JSON string is saved to the `DescriptorJson` column in the `ProviderProfile` table during the login flow.
 
 ---
 
@@ -796,9 +788,9 @@ services.AddScoped<IClaimExtractionPipeline, ClaimExtractionPipeline>();
 ### Phase 0 — Security fix + migrations (no behavior change)
 
 - Fix `ProviderConfigurationService.cs:386-387` (remove hardcoded `Password=root`).
-- Apply migration M-001 (`VendorDescriptor` table).
-- Apply migration M-002 (`Claim.SourceCursor` column).
-- `VendorDescriptor` table is seeded but pipeline is not yet wired.
+- Apply migration M-008 (`Claim.SourceCursor` column).
+- Apply migration M-010 (`ProviderProfile.DescriptorJson` column).
+- Descriptor payload logic is seeded but pipeline is not yet wired.
 
 **Deliverable:** Clean build, all existing tests pass.
 
