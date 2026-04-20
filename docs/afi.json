@@ -1,0 +1,170 @@
+{
+  "vendorId": "AFI",
+  "schemaVersion": "1.0.0",
+  "dbEngine": "sqlserver",
+  "topology": "tableToTable",
+
+  "sources": {
+    "header":     "DHSClaim_Header",
+    "doctor":     "DHS_Doctor",
+    "service":    "DHSService_Details",
+    "diagnosis":  "DHSDiagnosis_Details",
+    "lab":        "DHSLab_Details",
+    "radiology":  "DHSRadiology_Details",
+    "attachment": "DHS_Attachment"
+  },
+
+  "filter": {
+    "claimKeyColumn":    "ProIdClaim",
+    "dateColumn":        "InvoiceDate",
+    "companyCodeColumn": "CompanyCode"
+  },
+
+  "paging": {
+    "pageSize":       50,
+    "cursorStrategy": "integer"
+  },
+
+  "columnManifests": {
+    "header": {
+      "ProIdClaim":             { "source": "ProIdClaim",             "type": "int"      },
+      "CompanyCode":            { "source": "CompanyCode",            "type": "string"   },
+      "InvoiceDate":            { "source": "InvoiceDate",            "type": "datetime" },
+      "ClaimDate":              { "source": "ClaimDate",              "type": "datetime" },
+      "ClaimType":              { "source": "ClaimType",              "type": "string"   },
+      "PatientName":            { "source": "PatientName",            "type": "string"   },
+      "MemberID":               { "source": "MemberID",               "type": "string"   },
+      "PatientID":              { "source": "PatientID",              "type": "string"   },
+      "EmiratesID":             { "source": "EmiratesID",             "type": "string"   },
+      "NationalID":             { "source": "NationalID",             "type": "string"   },
+      "Age":                    { "source": "Age",                    "type": "int"      },
+      "genderID":               { "source": "genderID",               "type": "int"      },
+      "BirthDate":              { "source": "BirthDate",              "type": "datetime" },
+      "MaritalStatus":          { "source": "MaritalStatus",          "type": "string"   },
+      "TotalNetAmount":         { "source": "TotalNetAmount",         "type": "decimal"  },
+      "ClaimedAmount":          { "source": "ClaimedAmount",          "type": "decimal"  },
+      "TotalDiscount":          { "source": "TotalDiscount",          "type": "decimal"  },
+      "TotalDeductible":        { "source": "TotalDeductible",        "type": "decimal"  },
+      "SubmissionReasonCode":   { "source": "SubmissionReasonCode",   "type": "int"      },
+      "TreatmentTypeIndicator": { "source": "TreatmentTypeIndicator", "type": "int"      },
+      "TreatmentFromDate":      { "source": "TreatmentFromDate",      "type": "datetime" },
+      "TreatmentToDate":        { "source": "TreatmentToDate",        "type": "datetime" },
+      "AdmissionDate":          { "source": "AdmissionDate",          "type": "datetime" },
+      "DischargeDate":          { "source": "DischargeDate",          "type": "datetime" },
+      "TriageDate":             { "source": "TriageDate",             "type": "datetime" },
+      "UserID":                 { "source": "UserID",                 "type": "int"      },
+      "RelatedClaim":           { "source": "RelatedClaim",           "type": "int"      },
+      "DiagnosisCode":          { "source": "DiagnosisCode",          "type": "string"   },
+      "Pulse":                  { "source": "Pulse",                  "type": "int"      },
+      "SystolicBP":             { "source": "SystolicBP",             "type": "int"      },
+      "DiastolicBP":            { "source": "DiastolicBP",            "type": "int"      },
+      "RespiratoryRate":        { "source": "RespiratoryRate",        "type": "int"      },
+      "Temperature":            { "source": "Temperature",            "type": "decimal"  },
+      "Weight":                 { "source": "Weight",                 "type": "decimal"  },
+      "Height":                 { "source": "Height",                 "type": "decimal"  },
+      "ventilationhours":       { "source": "ventilationhours",       "type": "int"      },
+      "DurationOFIllness":      { "source": "DurationOFIllness",      "type": "int"      },
+      "PBMDuration":            { "source": "PBMDuration",            "type": "int"      },
+      "PBMTimes":               { "source": "PBMTimes",               "type": "int"      },
+      "PBMUnit":                { "source": "PBMUnit",                "type": "int"      },
+      "nphiesServiceTypeID":    { "source": "nphiesServiceTypeID",    "type": "int"      },
+      "DHSI":                   { "source": "DHSI",                   "type": "int"      },
+      "ServiceLocation":        { "source": "ServiceLocation",        "type": "string"   }
+    },
+    "doctor": {
+      "ProIdClaim":  { "source": "ProIdClaim",  "type": "int"    },
+      "DoctorName":  { "source": "DoctorName",  "type": "string" },
+      "DoctorCode":  { "source": "DoctorCode",  "type": "string" },
+      "LicenseNo":   { "source": "LicenseNo",   "type": "string" },
+      "Speciality":  { "source": "Speciality",  "type": "string" },
+      "NationalId":  { "source": "NationalId",  "type": "string" }
+    },
+    "service": {
+      "ProIdClaim":          { "source": "ProIdClaim",          "type": "string"   },
+      "CompanyCode":         { "source": "CompanyCode",         "type": "string"   },
+      "ServiceID":           { "source": "ServiceID",           "type": "int"      },
+      "ServiceDate":         { "source": "ServiceDate",         "type": "datetime" },
+      "ServiceCode":         { "source": "ServiceCode",         "type": "string"   },
+      "ServiceType":         { "source": "ServiceType",         "type": "string"   },
+      "Quantity":            { "source": "Quantity",            "type": "decimal"  },
+      "UnitPrice":           { "source": "UnitPrice",           "type": "decimal"  },
+      "NetAmount":           { "source": "NetAmount",           "type": "decimal"  },
+      "Discount":            { "source": "Discount",            "type": "decimal"  },
+      "Deductible":          { "source": "Deductible",          "type": "decimal"  },
+      "TaxAmount":           { "source": "TaxAmount",           "type": "decimal"  },
+      "nphiesServiceTypeID": { "source": "nphiesServiceTypeID", "type": "int"      },
+      "PBMDuration":         { "source": "PBMDuration",         "type": "int"      },
+      "PBMTimes":            { "source": "PBMTimes",            "type": "int"      },
+      "PBMUnit":             { "source": "PBMUnit",             "type": "int"      }
+    },
+    "diagnosis": {
+      "ProIdClaim":           { "source": "ProIdClaim",           "type": "int"    },
+      "DiagnosisID":          { "source": "DiagnosisID",          "type": "int"    },
+      "DiagnosisCode":        { "source": "DiagnosisCode",        "type": "string" },
+      "diagnosis_Order":      { "source": "diagnosis_Order",      "type": "int"    },
+      "fK_DiagnosisType_ID":  { "source": "fK_DiagnosisType_ID",  "type": "int"    },
+      "fK_ConditionOnset_ID": { "source": "fK_ConditionOnset_ID", "type": "int"    },
+      "DHSI":                 { "source": "DHSI",                 "type": "int"    }
+    },
+    "lab": {
+      "ProIdClaim":  { "source": "ProIdClaim",  "type": "int"      },
+      "LabID":       { "source": "LabID",       "type": "int"      },
+      "LabCode":     { "source": "LabCode",     "type": "string"   },
+      "Result":      { "source": "Result",      "type": "string"   },
+      "LabUnit":     { "source": "LabUnit",     "type": "string"   },
+      "NormalRange": { "source": "NormalRange", "type": "string"   },
+      "TestDate":    { "source": "TestDate",    "type": "datetime" }
+    },
+    "radiology": {
+      "ProIdClaim":    { "source": "ProIdClaim",    "type": "int"      },
+      "RadiologyID":   { "source": "RadiologyID",   "type": "int"      },
+      "RadiologyCode": { "source": "RadiologyCode", "type": "string"   },
+      "Result":        { "source": "Result",        "type": "string"   },
+      "RadiologyDate": { "source": "RadiologyDate", "type": "datetime" }
+    },
+    "attachment": {
+      "ProIdClaim":     { "source": "ProIdClaim",     "type": "int"    },
+      "AttachmentType": { "source": "AttachmentType", "type": "string" },
+      "FileType":       { "source": "FileType",       "type": "string" },
+      "AttachmentUrl":  { "source": "AttachmentUrl",  "type": "string" },
+      "FileName":       { "source": "FileName",       "type": "string" },
+      "FileSize":       { "source": "FileSize",       "type": "int"    }
+    }
+  },
+
+  "grouping": {
+    "strategy":    "none",
+    "followupDays": 14
+  },
+
+  "postLoadRules": [
+    {
+      "rule": "BackfillMemberId",
+      "params": {
+        "memberIdColumn":  "MemberID",
+        "patientIdColumn": "PatientID"
+      }
+    },
+    {
+      "rule": "SetInvestigationResult",
+      "params": {
+        "labEntity":    "lab",
+        "resultColumn": "Result"
+      }
+    },
+    {
+      "rule": "BackfillDiagnosisCodeFromSource",
+      "params": {
+        "sourceColumn":        "DiagnosisCode",
+        "diagnosisCodeColumn": "DiagnosisCode"
+      }
+    }
+  ],
+
+  "distinctEntities": ["doctor"],
+
+  "validationGates": {
+    "runOnSessionStart":   true,
+    "runBeforeFirstBatch": true
+  }
+}

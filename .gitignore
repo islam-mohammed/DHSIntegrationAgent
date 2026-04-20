@@ -1,10 +1,14 @@
 **/[Bb]in/
 **/[Oo]bj/
 .vs/
+.claude/
+*.md
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
 .DS_Store
+.gitignore
 **/appsettings.Development.json
 **/appsettings.json
+src/.gitignore
