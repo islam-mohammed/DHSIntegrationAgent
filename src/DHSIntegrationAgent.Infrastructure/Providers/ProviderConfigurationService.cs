@@ -386,9 +386,18 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             // Look for vendorDescriptor: first at the top level of descriptorPayload (RefreshProviderProfileAsync path
             // passes the raw GetProviderInfo response here), then at the top level of payload (LoadAsync path).
             var descriptorSource = descriptorPayload ?? payload;
-            var descriptorNode = GetCaseInsensitive(descriptorSource, "vendorDescriptor") as JsonObject
-                ?? GetCaseInsensitive(providerInfo, "vendorDescriptor") as JsonObject;
-            var descriptorJson = descriptorNode?.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var descriptorNode = GetCaseInsensitive(descriptorSource, "vendorDescriptor")
+                ?? GetCaseInsensitive(providerInfo, "vendorDescriptor");
+
+            string? descriptorJson = null;
+            if (descriptorNode is JsonValue val && val.TryGetValue<string>(out var strValue))
+            {
+                descriptorJson = strValue;
+            }
+            else if (descriptorNode is JsonObject obj)
+            {
+                descriptorJson = obj.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            }
 
             var connectionString = GetString(providerInfo, "connectionString");
             if (string.IsNullOrWhiteSpace(connectionString))
