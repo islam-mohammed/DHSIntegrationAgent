@@ -391,7 +391,6 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             var descriptorJson = descriptorNode?.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
             var connectionString = GetString(providerInfo, "connectionString");
-            connectionString = "Server=Dev\\SQLEXPRESS;Database=DHS;User Id=root; Password=root;Encrypt=True;TrustServerCertificate=True;";
             if (string.IsNullOrWhiteSpace(connectionString))
                 return;
 
