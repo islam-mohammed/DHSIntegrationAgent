@@ -4,6 +4,7 @@
     <ProjectReference Include="..\DHSIntegrationAgent.Adapters\DHSIntegrationAgent.Adapters.csproj" />
     <ProjectReference Include="..\DHSIntegrationAgent.Application\DHSIntegrationAgent.Application.csproj" />
     <ProjectReference Include="..\DHSIntegrationAgent.Infrastructure\DHSIntegrationAgent.Infrastructure.csproj" />
+    <ProjectReference Include="..\DHSIntegrationAgent.Sync\DHSIntegrationAgent.Sync.csproj" />
     <ProjectReference Include="..\DHSIntegrationAgent.Workers\DHSIntegrationAgent.Workers.csproj" />
   </ItemGroup>
 

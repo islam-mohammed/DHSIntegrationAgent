@@ -1,0 +1,60 @@
+namespace DHSIntegrationAgent.Sync.Mapper;
+
+public sealed class TypeCoercionMap
+{
+    private static readonly Dictionary<string, Type> _map = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [CanonicalSchema.ProIdClaim]        = typeof(int),
+        [CanonicalSchema.CompanyCode]       = typeof(string),
+        ["TotalNetAmount"]                  = typeof(decimal),
+        ["ClaimedAmount"]                   = typeof(decimal),
+        ["TotalDiscount"]                   = typeof(decimal),
+        ["TotalDeductible"]                 = typeof(decimal),
+        [CanonicalSchema.InvoiceDate]       = typeof(DateTime),
+        ["ClaimDate"]                       = typeof(DateTime),
+        ["ServiceDate"]                     = typeof(DateTime),
+        ["TreatmentFromDate"]               = typeof(DateTime),
+        ["TreatmentToDate"]                 = typeof(DateTime),
+        ["DischargeDate"]                   = typeof(DateTime),
+        ["AdmissionDate"]                   = typeof(DateTime),
+        ["TriageDate"]                      = typeof(DateTime),
+        ["BirthDate"]                       = typeof(DateTime),
+        ["Quantity"]                        = typeof(decimal),
+        ["UnitPrice"]                       = typeof(decimal),
+        ["NetAmount"]                       = typeof(decimal),
+        ["Discount"]                        = typeof(decimal),
+        ["Deductible"]                      = typeof(decimal),
+        ["TaxAmount"]                       = typeof(decimal),
+        ["Age"]                             = typeof(int),
+        ["DurationOFIllness"]               = typeof(int),
+        ["UserID"]                          = typeof(int),
+        ["RelatedClaim"]                    = typeof(int),
+        ["bCR_Id"]                          = typeof(int),
+        ["ventilationhours"]                = typeof(int),
+        ["DiagnosisID"]                     = typeof(int),
+        ["DHSI"]                            = typeof(int),
+        ["diagnosis_Order"]                 = typeof(int),
+        ["fK_DiagnosisType_ID"]             = typeof(int),
+        ["fK_ConditionOnset_ID"]            = typeof(int),
+        ["genderID"]                        = typeof(int),
+        ["LabID"]                           = typeof(int),
+        ["RadiologyID"]                     = typeof(int),
+        ["ServiceID"]                       = typeof(int),
+        ["SubmissionReasonCode"]            = typeof(int),
+        ["TreatmentTypeIndicator"]          = typeof(int),
+        ["PBMDuration"]                     = typeof(int),
+        ["PBMTimes"]                        = typeof(int),
+        ["PBMUnit"]                         = typeof(int),
+        ["nphiesServiceTypeID"]             = typeof(int),
+        ["Pulse"]                           = typeof(int),
+        ["SystolicBP"]                      = typeof(int),
+        ["DiastolicBP"]                     = typeof(int),
+        ["RespiratoryRate"]                 = typeof(int),
+        ["Temperature"]                     = typeof(decimal),
+        ["Weight"]                          = typeof(decimal),
+        ["Height"]                          = typeof(decimal),
+    };
+
+    public Type? GetTargetType(string canonicalName)
+        => _map.TryGetValue(canonicalName, out var t) ? t : null;
+}

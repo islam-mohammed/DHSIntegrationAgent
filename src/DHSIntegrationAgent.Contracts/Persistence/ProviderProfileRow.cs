@@ -12,4 +12,12 @@ public sealed record ProviderProfileRow(
     DateTimeOffset UpdatedUtc,
     byte[]? EncryptedBlobStorageConnectionString = null,
     string? BlobStorageContainerName = null,
-    int FetchClaimCountPerThread = 300);
+    int FetchClaimCountPerThread = 300,
+    string? PayersToDropZeroAmountServicesCsv = null,
+    int ClaimSplitFollowupDays = 14,
+    string? DefaultTreatmentCountryCode = null,
+    string? DefaultSubmissionReasonCode = null,
+    string? DefaultPriority = null,
+    int DefaultErPbmDuration = 1,
+    string? SfdaServiceTypeIdentifier = null,
+    string? DescriptorJson = null);

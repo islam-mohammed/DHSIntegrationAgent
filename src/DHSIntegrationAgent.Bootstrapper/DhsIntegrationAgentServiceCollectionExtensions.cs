@@ -1,6 +1,7 @@
 ﻿using DHSIntegrationAgent.Adapters;
 using DHSIntegrationAgent.Application;
 using DHSIntegrationAgent.Infrastructure;
+using DHSIntegrationAgent.Sync.DependencyInjection;
 using DHSIntegrationAgent.Workers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,7 @@ public static class DhsIntegrationAgentServiceCollectionExtensions
     {
         services.AddDhsApplication(configuration);
         services.AddDhsInfrastructure(configuration);
+        services.AddDhsSync();
         services.AddDhsWorkers(configuration);
         services.AddDhsAdapters(configuration);
 

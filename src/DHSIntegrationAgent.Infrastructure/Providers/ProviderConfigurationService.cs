@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using DHSIntegrationAgent.Application.Persistence;
-using DHSIntegrationAgent.Application.Persistence.Repositories;
 using DHSIntegrationAgent.Application.Providers;
 using DHSIntegrationAgent.Application.Security;
 using DHSIntegrationAgent.Domain.WorkStates;
@@ -66,7 +65,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         var wrappedPayload = new JsonObject { ["providerInfo"] = payload };
 
         await using var uow = await _uowFactory.CreateAsync(ct);
-        await TryUpsertProviderProfileFromConfigAsync(uow, providerDhsCode, wrappedPayload, now, ct);
+        await TryUpsertProviderProfileFromConfigAsync(uow, providerDhsCode, wrappedPayload, now, ct, descriptorPayload: payload);
         await uow.CommitAsync(ct);
 
         _logger.LogInformation("Successfully refreshed provider profile for {ProviderDhsCode}", providerDhsCode);
@@ -375,7 +374,8 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         string providerDhsCode,
         JsonObject payload,
         DateTimeOffset now,
-        CancellationToken ct)
+        CancellationToken ct,
+        JsonObject? descriptorPayload = null)
     {
         try
         {
@@ -383,7 +383,15 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             if (providerInfo is null)
                 return;
 
+            // Look for vendorDescriptor: first at the top level of descriptorPayload (RefreshProviderProfileAsync path
+            // passes the raw GetProviderInfo response here), then at the top level of payload (LoadAsync path).
+            var descriptorSource = descriptorPayload ?? payload;
+            var descriptorNode = GetCaseInsensitive(descriptorSource, "vendorDescriptor") as JsonObject
+                ?? GetCaseInsensitive(providerInfo, "vendorDescriptor") as JsonObject;
+            var descriptorJson = descriptorNode?.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
             var connectionString = GetString(providerInfo, "connectionString");
+            connectionString = "Server=Dev\\SQLEXPRESS;Database=DHS;User Id=root; Password=root;Encrypt=True;TrustServerCertificate=True;";
             if (string.IsNullOrWhiteSpace(connectionString))
                 return;
 
@@ -420,7 +428,8 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 UpdatedUtc: now,
                 EncryptedBlobStorageConnectionString: encryptedBlobStorageConnectionString,
                 BlobStorageContainerName: blobStorageContainerName,
-                FetchClaimCountPerThread: fetchClaimCountPerThread);
+                FetchClaimCountPerThread: fetchClaimCountPerThread,
+                DescriptorJson: descriptorJson);
 
             await uow.ProviderProfiles.UpsertAsync(row, ct);
         }
@@ -801,4 +810,5 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
 
         return null;
     }
+
 }

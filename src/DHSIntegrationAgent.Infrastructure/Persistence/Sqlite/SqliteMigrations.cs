@@ -41,6 +41,20 @@ internal static class SqliteMigrations
         new Migration(8, "008_AddClaimSourceCursor", new List<string>
         {
             "ALTER TABLE Claim ADD COLUMN SourceCursor TEXT NULL;"
+        }),
+        new Migration(9, "009_AddProviderProfileViewsColumns", new List<string>
+        {
+            "ALTER TABLE ProviderProfile ADD COLUMN PayersToDropZeroAmountServicesCsv TEXT NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN ClaimSplitFollowupDays INTEGER NOT NULL DEFAULT 14;",
+            "ALTER TABLE ProviderProfile ADD COLUMN DefaultTreatmentCountryCode TEXT NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN DefaultSubmissionReasonCode TEXT NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN DefaultPriority TEXT NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN DefaultErPbmDuration INTEGER NOT NULL DEFAULT 1;",
+            "ALTER TABLE ProviderProfile ADD COLUMN SfdaServiceTypeIdentifier TEXT NULL;"
+        }),
+        new Migration(10, "010_MoveDescriptorJsonToProviderProfile", new List<string>
+        {
+            "ALTER TABLE ProviderProfile ADD COLUMN DescriptorJson TEXT NULL;"
         })
     };
 
