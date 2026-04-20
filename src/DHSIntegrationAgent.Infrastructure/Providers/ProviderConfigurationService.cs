@@ -390,41 +390,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 ?? GetCaseInsensitive(providerInfo, "vendorDescriptor") as JsonObject;
             var descriptorJson = descriptorNode?.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-            // Fallback for when the backend Swagger/API does not provide vendorDescriptor (WBS 2.3 logic mapping via afi.json)
-            if (string.IsNullOrWhiteSpace(descriptorJson))
-            {
-                var possiblePaths = new[]
-                {
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "docs", "afi.json"),
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "..", "docs", "afi.json"),
-                    Path.Combine(Directory.GetCurrentDirectory(), "docs", "afi.json"),
-                    Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "..", "docs", "afi.json")
-                };
-
-                foreach (var fallbackPath in possiblePaths)
-                {
-                    if (File.Exists(fallbackPath))
-                    {
-                        try
-                        {
-                            var fallbackJson = await File.ReadAllTextAsync(fallbackPath, ct);
-                            if (!string.IsNullOrWhiteSpace(fallbackJson))
-                            {
-                                descriptorJson = fallbackJson;
-                                _logger.LogInformation("Applied docs/afi.json fallback for missing VendorDescriptor on provider {ProviderDhsCode}", providerDhsCode);
-                                break;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Failed to read fallback afi.json descriptor.");
-                        }
-                    }
-                }
-            }
-
             var connectionString = GetString(providerInfo, "connectionString");
-            connectionString = "Server=Dev\\SQLEXPRESS;Database=DHS;User Id=root; Password=root;Encrypt=True;TrustServerCertificate=True;";
             if (string.IsNullOrWhiteSpace(connectionString))
                 return;
 

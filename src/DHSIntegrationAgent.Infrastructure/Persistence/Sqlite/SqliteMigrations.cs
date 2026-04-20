@@ -25,18 +25,7 @@ internal static class SqliteMigrations
         }),
         new Migration(7, "007_AddVendorDescriptor", new List<string>
         {
-            """
-            CREATE TABLE IF NOT EXISTS VendorDescriptor (
-                VendorId       TEXT    NOT NULL PRIMARY KEY,
-                SchemaVersion  TEXT    NOT NULL,
-                DbEngine       TEXT    NOT NULL,
-                DescriptorJson TEXT    NOT NULL,
-                CreatedAt      TEXT    NOT NULL,
-                UpdatedAt      TEXT    NOT NULL,
-                UpdatedBy      TEXT    NOT NULL,
-                IsActive       INTEGER NOT NULL DEFAULT 1
-            );
-            """
+            "SELECT 1;"
         }),
         new Migration(8, "008_AddClaimSourceCursor", new List<string>
         {
@@ -54,7 +43,10 @@ internal static class SqliteMigrations
         }),
         new Migration(10, "010_MoveDescriptorJsonToProviderProfile", new List<string>
         {
-            "ALTER TABLE ProviderProfile ADD COLUMN DescriptorJson TEXT NULL;",
+            "ALTER TABLE ProviderProfile ADD COLUMN DescriptorJson TEXT NULL;"
+        }),
+        new Migration(11, "011_DropVendorDescriptorTable", new List<string>
+        {
             "DROP TABLE IF EXISTS VendorDescriptor;"
         })
     };
