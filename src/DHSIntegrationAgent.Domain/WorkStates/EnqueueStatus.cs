@@ -5,5 +5,6 @@ public enum EnqueueStatus
     NotSent = 0,
     InFlight = 1,
     Enqueued = 2,
-    Failed = 3
+    Failed = 3,
+    Invalid = 4
 }

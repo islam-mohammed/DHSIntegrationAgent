@@ -28,7 +28,6 @@ internal sealed class SqliteUnitOfWork : ISqliteUnitOfWork
         // Core settings + config repos
         AppSettings = new AppSettingsRepository(_conn, _tx);
         ProviderProfiles = new ProviderProfileRepository(_conn, _tx);
-        ProviderExtractionConfigs = new ProviderExtractionConfigRepository(_conn, _tx);
         ProviderConfigCache = new ProviderConfigCacheRepository(_conn, _tx);
         Payers = new PayerProfileRepository(_conn, _tx);
 
@@ -53,7 +52,6 @@ internal sealed class SqliteUnitOfWork : ISqliteUnitOfWork
 
     public IAppSettingsRepository AppSettings { get; }
     public IProviderProfileRepository ProviderProfiles { get; }
-    public IProviderExtractionConfigRepository ProviderExtractionConfigs { get; }
     public IProviderConfigCacheRepository ProviderConfigCache { get; }
     public IPayerProfileRepository Payers { get; }
 

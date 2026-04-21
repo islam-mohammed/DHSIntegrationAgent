@@ -21,5 +21,9 @@ public interface IApiCallLogRepository
 
     Task<IReadOnlyList<ApiCallLogItem>> GetRecentApiCallsAsync(int limit, CancellationToken cancellationToken);
 
+    Task<int> CountApiCallsAsync(CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<ApiCallLogItem>> GetApiCallsPagedAsync(int pageIndex, int pageSize, CancellationToken cancellationToken);
+
     Task<DateTimeOffset?> GetLastSuccessfulCallUtcAsync(string providerDhsCode, string endpointName, CancellationToken cancellationToken);
 }

@@ -13,9 +13,9 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
         await using var cmd = CreateCommand(
             """
             INSERT INTO ProviderProfile
-            (ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread, PayersToDropZeroAmountServicesCsv, ClaimSplitFollowupDays, DefaultTreatmentCountryCode, DefaultSubmissionReasonCode, DefaultPriority, DefaultErPbmDuration, SfdaServiceTypeIdentifier, DescriptorJson)
+            (ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread, PayersToDropZeroAmountServicesCsv, ClaimSplitFollowupDays, DefaultTreatmentCountryCode, DefaultSubmissionReasonCode, DefaultPriority, DefaultErPbmDuration, SfdaServiceTypeIdentifier, VendorDescriptor)
             VALUES
-            ($pc, $pd, $db, $it, $cs, $kid, $a, $c, $u, $ebs, $bsc, $fcc, $pdzc, $csfd, $dtcc, $dsrc, $dp, $depbmd, $sfda, $dj)
+            ($pc, $pd, $db, $it, $cs, $kid, $a, $c, $u, $ebs, $bsc, $fcc, $pdzc, $csfd, $dtcc, $dsrc, $dp, $depbmd, $sfda, $vd)
             ON CONFLICT(ProviderCode)
             DO UPDATE SET
                 ProviderDhsCode = excluded.ProviderDhsCode,
@@ -35,7 +35,7 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
                 DefaultPriority = excluded.DefaultPriority,
                 DefaultErPbmDuration = excluded.DefaultErPbmDuration,
                 SfdaServiceTypeIdentifier = excluded.SfdaServiceTypeIdentifier,
-                DescriptorJson = excluded.DescriptorJson;
+                VendorDescriptor = COALESCE(excluded.VendorDescriptor, VendorDescriptor);
             """);
         SqliteSqlBuilder.AddParam(cmd, "$pc",     row.ProviderCode);
         SqliteSqlBuilder.AddParam(cmd, "$pd",     row.ProviderDhsCode);
@@ -56,7 +56,7 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
         SqliteSqlBuilder.AddParam(cmd, "$dp",     row.DefaultPriority);
         SqliteSqlBuilder.AddParam(cmd, "$depbmd", row.DefaultErPbmDuration);
         SqliteSqlBuilder.AddParam(cmd, "$sfda",   row.SfdaServiceTypeIdentifier);
-        SqliteSqlBuilder.AddParam(cmd, "$dj",     row.DescriptorJson);
+        SqliteSqlBuilder.AddParam(cmd, "$vd",     row.VendorDescriptor);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -65,7 +65,7 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
     {
         await using var cmd = CreateCommand(
             """
-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread, PayersToDropZeroAmountServicesCsv, ClaimSplitFollowupDays, DefaultTreatmentCountryCode, DefaultSubmissionReasonCode, DefaultPriority, DefaultErPbmDuration, SfdaServiceTypeIdentifier, DescriptorJson
+            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread, PayersToDropZeroAmountServicesCsv, ClaimSplitFollowupDays, DefaultTreatmentCountryCode, DefaultSubmissionReasonCode, DefaultPriority, DefaultErPbmDuration, SfdaServiceTypeIdentifier, VendorDescriptor
             FROM ProviderProfile
             WHERE ProviderCode = $pc
             LIMIT 1;
@@ -82,7 +82,7 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
     {
         await using var cmd = CreateCommand(
             """
-            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread, PayersToDropZeroAmountServicesCsv, ClaimSplitFollowupDays, DefaultTreatmentCountryCode, DefaultSubmissionReasonCode, DefaultPriority, DefaultErPbmDuration, SfdaServiceTypeIdentifier, DescriptorJson
+            SELECT ProviderCode, ProviderDhsCode, DbEngine, IntegrationType, EncryptedConnectionString, EncryptionKeyId, IsActive, CreatedUtc, UpdatedUtc, EncryptedBlobStorageConnectionString, BlobStorageContainerName, FetchClaimCountPerThread, PayersToDropZeroAmountServicesCsv, ClaimSplitFollowupDays, DefaultTreatmentCountryCode, DefaultSubmissionReasonCode, DefaultPriority, DefaultErPbmDuration, SfdaServiceTypeIdentifier, VendorDescriptor
             FROM ProviderProfile
             WHERE ProviderDhsCode = $pd AND IsActive = 1
             LIMIT 1;
@@ -110,6 +110,33 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<string?> GetVendorDescriptorAsync(string providerDhsCode, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            SELECT VendorDescriptor FROM ProviderProfile
+            WHERE ProviderDhsCode = $pd
+            LIMIT 1;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$pd", providerDhsCode);
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await r.ReadAsync(cancellationToken)) return null;
+        return r.IsDBNull(0) ? null : r.GetString(0);
+    }
+
+    public async Task UpdateVendorDescriptorAsync(string providerDhsCode, string vendorDescriptor, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            UPDATE ProviderProfile
+            SET VendorDescriptor = $vd
+            WHERE ProviderDhsCode = $pd;
+            """);
+        SqliteSqlBuilder.AddParam(cmd, "$vd", vendorDescriptor);
+        SqliteSqlBuilder.AddParam(cmd, "$pd", providerDhsCode);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     private static ProviderProfileRow ReadRow(DbDataReader r)
         => new(
             ProviderCode: r.GetString(0),
@@ -131,5 +158,5 @@ internal sealed class ProviderProfileRepository : SqliteRepositoryBase, IProvide
             DefaultPriority: r.IsDBNull(16) ? null : r.GetString(16),
             DefaultErPbmDuration: r.IsDBNull(17) ? 1 : r.GetInt32(17),
             SfdaServiceTypeIdentifier: r.IsDBNull(18) ? null : r.GetString(18),
-            DescriptorJson: r.IsDBNull(19) ? null : r.GetString(19));
+            VendorDescriptor: r.IsDBNull(19) ? null : r.GetString(19));
 }

@@ -20,12 +20,12 @@ public sealed class DescriptorResolver
             return cached;
 
         await using var uow = await _uowFactory.CreateAsync(ct);
-        var row = await uow.ProviderProfiles.GetActiveByProviderDhsCodeAsync(providerDhsCode, ct);
+        var descriptorJson = await uow.ProviderProfiles.GetVendorDescriptorAsync(providerDhsCode, ct);
 
-        if (row is null || string.IsNullOrWhiteSpace(row.DescriptorJson))
+        if (string.IsNullOrWhiteSpace(descriptorJson))
             throw new DescriptorNotFoundException(providerDhsCode);
 
-        var descriptor = VendorDescriptor.Deserialize(row.DescriptorJson);
+        var descriptor = VendorDescriptor.Deserialize(descriptorJson);
         _cache[providerDhsCode] = descriptor;
         return descriptor;
     }

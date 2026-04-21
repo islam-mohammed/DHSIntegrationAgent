@@ -1,6 +1,6 @@
 using DHSIntegrationAgent.Contracts.Claims;
 using DHSIntegrationAgent.Contracts.Persistence;
-﻿using System.Data.Common;
+using System.Data.Common;
 using DHSIntegrationAgent.Application.Persistence.Repositories;
 using DHSIntegrationAgent.Domain.WorkStates;
 
@@ -9,6 +9,55 @@ namespace DHSIntegrationAgent.Infrastructure.Persistence.Sqlite.Repositories;
 internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
 {
     public ClaimRepository(DbConnection conn, DbTransaction tx) : base(conn, tx) { }
+
+    public async Task UpsertInvalidAsync(
+        string providerDhsCode,
+        int proIdClaim,
+        string companyCode,
+        string monthKey,
+        long? batchId,
+        string? bcrId,
+        string invalidReason,
+        DateTimeOffset utcNow,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand(
+            """
+            INSERT INTO Claim
+            (ProviderDhsCode, ProIdClaim, CompanyCode, MonthKey, BatchId, BcrId,
+             EnqueueStatus, CompletionStatus, LockedBy, InFlightUntilUtc,
+             AttemptCount, NextRetryUtc, LastError, LastResumeCheckUtc,
+             RequeueAttemptCount, NextRequeueUtc, LastRequeueError,
+             LastEnqueuedUtc, FirstSeenUtc, LastUpdatedUtc)
+            VALUES
+            ($p, $id, $cc, $mk, $bid, $bcr,
+             $es, $cs, NULL, NULL,
+             0, NULL, $err, NULL,
+             0, NULL, NULL,
+             NULL, $now, $now)
+            ON CONFLICT(ProviderDhsCode, ProIdClaim)
+            DO UPDATE SET
+                BatchId = excluded.BatchId,
+                BcrId = excluded.BcrId,
+                EnqueueStatus = $es,
+                LastError = excluded.LastError,
+                LastUpdatedUtc = excluded.LastUpdatedUtc;
+            """);
+
+        var nowIso = SqliteUtc.ToIso(utcNow);
+        SqliteSqlBuilder.AddParam(cmd, "$p",   providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$id",  proIdClaim);
+        SqliteSqlBuilder.AddParam(cmd, "$cc",  companyCode);
+        SqliteSqlBuilder.AddParam(cmd, "$mk",  monthKey);
+        SqliteSqlBuilder.AddParam(cmd, "$bid", batchId);
+        SqliteSqlBuilder.AddParam(cmd, "$bcr", bcrId);
+        SqliteSqlBuilder.AddParam(cmd, "$es",  (int)EnqueueStatus.Invalid);
+        SqliteSqlBuilder.AddParam(cmd, "$cs",  (int)CompletionStatus.Unknown);
+        SqliteSqlBuilder.AddParam(cmd, "$err", invalidReason);
+        SqliteSqlBuilder.AddParam(cmd, "$now", nowIso);
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
 
     public async Task UpsertStagedAsync(
         string providerDhsCode,
@@ -618,5 +667,60 @@ internal sealed class ClaimRepository : SqliteRepositoryBase, IClaimRepository
         }
 
         return (0, 0, 0, 0);
+    }
+
+    public async Task<int> CountFailedClaimsAsync(string providerDhsCode, CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand("""
+            SELECT COUNT(*)
+            FROM Claim
+            WHERE ProviderDhsCode = $p
+              AND EnqueueStatus = $failed
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$failed", (int)EnqueueStatus.Failed);
+
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return result is long l ? (int)l : 0;
+    }
+
+    public async Task<IReadOnlyList<FailedClaimPageItem>> GetFailedClaimsPagedAsync(
+        string providerDhsCode,
+        int pageIndex,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = CreateCommand("""
+            SELECT ProviderDhsCode, ProIdClaim, CompanyCode, MonthKey,
+                   BatchId, AttemptCount, LastError, LastUpdatedUtc
+            FROM Claim
+            WHERE ProviderDhsCode = $p
+              AND EnqueueStatus = $failed
+            ORDER BY LastUpdatedUtc DESC
+            LIMIT $limit OFFSET $offset
+            """);
+
+        SqliteSqlBuilder.AddParam(cmd, "$p", providerDhsCode);
+        SqliteSqlBuilder.AddParam(cmd, "$failed", (int)EnqueueStatus.Failed);
+        SqliteSqlBuilder.AddParam(cmd, "$limit", pageSize);
+        SqliteSqlBuilder.AddParam(cmd, "$offset", pageIndex * pageSize);
+
+        var results = new List<FailedClaimPageItem>();
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken))
+        {
+            results.Add(new FailedClaimPageItem(
+                ProviderDhsCode: r.GetString(0),
+                ProIdClaim: r.GetInt32(1),
+                CompanyCode: r.GetString(2),
+                MonthKey: r.GetString(3),
+                BatchId: r.IsDBNull(4) ? null : r.GetInt64(4),
+                AttemptCount: r.GetInt32(5),
+                LastError: r.IsDBNull(6) ? null : r.GetString(6),
+                LastUpdatedUtc: SqliteUtc.FromIso(r.GetString(7))));
+        }
+
+        return results;
     }
 }

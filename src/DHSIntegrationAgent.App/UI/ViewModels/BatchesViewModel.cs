@@ -970,6 +970,33 @@ public sealed class BatchesViewModel : ViewModelBase
                 }
             }
 
+            // Orphan cleanup: runs whether backend returned 0 or N batches.
+            // A filtered response legitimately omits batches outside the filter, so only
+            // run cleanup when all three filters are inactive (unfiltered = full picture).
+            if (!filterMonth.HasValue && !filterYear.HasValue && !filterPayerId.HasValue)
+            {
+                try
+                {
+                    var backendBcrIdSet = result.Data != null
+                        ? new HashSet<string>(result.Data.Select(x => x.BcrId.ToString()), StringComparer.OrdinalIgnoreCase)
+                        : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    await using var cleanupUow = await _unitOfWorkFactory.CreateAsync(default);
+                    var allSynced = await cleanupUow.Batches.ListSyncedAsync(default);
+                    var orphans = allSynced.Where(b => !backendBcrIdSet.Contains(b.BcrId!)).ToList();
+                    if (orphans.Count > 0)
+                    {
+                        foreach (var orphan in orphans)
+                            await cleanupUow.Batches.HardDeleteAsync(orphan.BatchId, default);
+                        await cleanupUow.CommitAsync(default);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error during orphan cleanup: {ex.Message}");
+                }
+            }
+
             // Also load any local Draft or Fetching batches that don't have a backend BcrId yet,
             // or aren't returned by the API yet.
             try
@@ -1113,7 +1140,16 @@ public sealed class BatchRow : ViewModelBase
         private bool _hasFailedDispatches;
 
         public long? LocalBatchId { get => _localBatchId; set => SetProperty(ref _localBatchId, value); }
-        public int BcrId { get => _bcrId; set => SetProperty(ref _bcrId, value); }
+        public int BcrId
+        {
+            get => _bcrId;
+            set
+            {
+                if (SetProperty(ref _bcrId, value))
+                    OnPropertyChanged(nameof(BcrIdDisplay));
+            }
+        }
+        public string BcrIdDisplay => BcrId > 0 ? BcrId.ToString() : "—";
         public DateTime BcrCreatedOn { get => _bcrCreatedOn; set => SetProperty(ref _bcrCreatedOn, value); }
         public int BcrMonth { get => _bcrMonth; set => SetProperty(ref _bcrMonth, value); }
         public int BcrYear { get => _bcrYear; set => SetProperty(ref _bcrYear, value); }

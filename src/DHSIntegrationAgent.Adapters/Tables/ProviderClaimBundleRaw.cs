@@ -13,4 +13,5 @@ public sealed record ProviderClaimBundleRaw(
     JsonArray Attachments,
     JsonArray OpticalVitalSigns,
     JsonArray ItemDetails,
-    JsonArray Achi);
+    JsonArray Achi,
+    IReadOnlyList<string>? CoercionErrors = null);

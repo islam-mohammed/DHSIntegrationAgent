@@ -19,9 +19,6 @@ public sealed class VendorDescriptor
     [JsonPropertyName("vendorId")]
     public string VendorId { get; init; } = "";
 
-    [JsonPropertyName("schemaVersion")]
-    public string SchemaVersion { get; init; } = "1.0.0";
-
     [JsonPropertyName("dbEngine")]
     public string DbEngine { get; init; } = "sqlserver";
 

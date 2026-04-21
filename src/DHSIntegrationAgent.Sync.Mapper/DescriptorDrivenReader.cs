@@ -9,12 +9,14 @@ public static class DescriptorDrivenReader
     // Reads one row into a JsonObject keyed by CANONICAL names.
     // Columns absent from the manifest are dropped.
     // isServiceEntity: when true, ProIdClaim is coerced to string (invariant §18.2).
+    // coercionErrors: when provided, type coercion failures are appended here instead of being silently swallowed.
     public static JsonObject ReadRow(
         DbDataReader reader,
         ColumnManifest manifest,
         TypeCoercionMap typeMap,
         bool isServiceEntity = false,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        List<string>? coercionErrors = null)
     {
         var obj = new JsonObject();
         for (var i = 0; i < reader.FieldCount; i++)
@@ -25,7 +27,6 @@ public static class DescriptorDrivenReader
             var canonical  = manifest.ResolveCanonical(sourceName);
             if (canonical is null) continue;
 
-            // Descriptor-declared type takes precedence; TypeCoercionMap is the fallback.
             var clrType = manifest.GetTargetType(canonical) ?? typeMap.GetTargetType(canonical);
 
             // Service entity invariant: proidclaim must be string regardless of declared type.
@@ -35,7 +36,7 @@ public static class DescriptorDrivenReader
                 clrType = typeof(string);
             }
 
-            obj[canonical] = CoerceToJsonNode(reader.GetValue(i), clrType, canonical, logger);
+            obj[canonical] = CoerceToJsonNode(reader.GetValue(i), clrType, canonical, logger, coercionErrors);
         }
         return obj;
     }
@@ -54,9 +55,15 @@ public static class DescriptorDrivenReader
         return arr;
     }
 
-    private static JsonNode? CoerceToJsonNode(object value, Type? clrType, string canonicalName, ILogger? logger)
+    private static JsonNode? CoerceToJsonNode(
+        object value,
+        Type? clrType,
+        string canonicalName,
+        ILogger? logger,
+        List<string>? coercionErrors)
     {
         if (value is null || value == DBNull.Value) return null;
+        if (value is string str && string.IsNullOrWhiteSpace(str)) return null;
 
         if (clrType is not null)
         {
@@ -71,9 +78,10 @@ public static class DescriptorDrivenReader
             }
             catch (Exception ex)
             {
-                logger?.LogWarning(
-                    "Type coercion failed for field '{Field}': could not convert value '{Value}' (runtime type {RuntimeType}) to declared type {DeclaredType}. Falling back to native DB type. {Error}",
-                    canonicalName, value, value.GetType().Name, clrType.Name, ex.Message);
+                var error = $"Field '{canonicalName}': cannot convert value '{value}' ({value.GetType().Name}) to {clrType.Name} — {ex.Message}";
+                logger?.LogWarning("Type coercion failed: {Error}", error);
+                coercionErrors?.Add(error);
+                // Fall through to native-type conversion below.
             }
         }
 

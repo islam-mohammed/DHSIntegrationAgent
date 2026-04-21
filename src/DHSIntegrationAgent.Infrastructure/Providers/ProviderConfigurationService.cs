@@ -60,12 +60,12 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             return false;
         }
 
-        // The GetProviderInfo endpoint returns the providerInfo object directly in the data property
-        // But TryUpsertProviderProfileFromConfigAsync expects it under a "providerInfo" key
-        var wrappedPayload = new JsonObject { ["providerInfo"] = payload };
+        // Clone the node before reparenting — JsonNode can only belong to one parent at a time.
+        var payloadClone = JsonNode.Parse(payload.ToJsonString()) as JsonObject;
+        var wrappedPayload = new JsonObject { ["providerInfo"] = payloadClone };
 
         await using var uow = await _uowFactory.CreateAsync(ct);
-        await TryUpsertProviderProfileFromConfigAsync(uow, providerDhsCode, wrappedPayload, now, ct, descriptorPayload: payload);
+        await TryUpsertProviderProfileFromConfigAsync(uow, providerDhsCode, wrappedPayload, now, ct);
         await uow.CommitAsync(ct);
 
         _logger.LogInformation("Successfully refreshed provider profile for {ProviderDhsCode}", providerDhsCode);
@@ -374,8 +374,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
         string providerDhsCode,
         JsonObject payload,
         DateTimeOffset now,
-        CancellationToken ct,
-        JsonObject? descriptorPayload = null)
+        CancellationToken ct)
     {
         try
         {
@@ -383,14 +382,10 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
             if (providerInfo is null)
                 return;
 
-            // Look for vendorDescriptor: first at the top level of descriptorPayload (RefreshProviderProfileAsync path
-            // passes the raw GetProviderInfo response here), then at the top level of payload (LoadAsync path).
-            var descriptorSource = descriptorPayload ?? payload;
-            var descriptorNode = GetCaseInsensitive(descriptorSource, "vendorDescriptor") as JsonObject
-                ?? GetCaseInsensitive(providerInfo, "vendorDescriptor") as JsonObject;
-            var descriptorJson = descriptorNode?.ToJsonString(new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            var vendorDescriptor = GetString(providerInfo, "vendorDescriptor");
 
-            var connectionString = GetString(providerInfo, "connectionString");
+               var connectionString = GetString(providerInfo, "connectionString");
+            connectionString = "Server=Dev\\SQLEXPRESS;Database=DHSA;User Id=root; Password=root;Encrypt=True;TrustServerCertificate=True;\r\n ";
             if (string.IsNullOrWhiteSpace(connectionString))
                 return;
 
@@ -428,7 +423,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
                 EncryptedBlobStorageConnectionString: encryptedBlobStorageConnectionString,
                 BlobStorageContainerName: blobStorageContainerName,
                 FetchClaimCountPerThread: fetchClaimCountPerThread,
-                DescriptorJson: descriptorJson);
+                VendorDescriptor: vendorDescriptor);
 
             await uow.ProviderProfiles.UpsertAsync(row, ct);
         }

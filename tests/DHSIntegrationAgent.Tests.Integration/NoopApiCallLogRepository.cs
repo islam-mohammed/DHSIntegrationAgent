@@ -20,5 +20,15 @@ namespace DHSIntegrationAgent.Tests.Integration
         {
             return Task.FromResult<DateTimeOffset?>(null);
         }
+
+        public Task<int> CountApiCallsAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(0);
+        }
+
+        public Task<IReadOnlyList<ApiCallLogItem>> GetApiCallsPagedAsync(int pageIndex, int pageSize, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<ApiCallLogItem>>(Array.Empty<ApiCallLogItem>());
+        }
     }
 }

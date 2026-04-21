@@ -13,4 +13,8 @@ public interface IProviderProfileRepository
     Task<ProviderProfileRow?> GetActiveByProviderDhsCodeAsync(string providerDhsCode, CancellationToken cancellationToken);
 
     Task SetActiveAsync(ProviderKey key, bool isActive, DateTimeOffset utcNow, CancellationToken cancellationToken);
+
+    Task UpdateVendorDescriptorAsync(string providerDhsCode, string vendorDescriptor, CancellationToken cancellationToken);
+
+    Task<string?> GetVendorDescriptorAsync(string providerDhsCode, CancellationToken cancellationToken);
 }

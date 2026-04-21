@@ -20,4 +20,4 @@ public sealed record ProviderProfileRow(
     string? DefaultPriority = null,
     int DefaultErPbmDuration = 1,
     string? SfdaServiceTypeIdentifier = null,
-    string? DescriptorJson = null);
+    string? VendorDescriptor = null);

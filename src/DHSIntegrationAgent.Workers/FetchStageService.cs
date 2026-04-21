@@ -50,10 +50,18 @@ public sealed class FetchStageService : IFetchStageService
     {
         _logger.LogInformation("Processing batch {BatchId} for {CompanyCode} {MonthKey}", batch.BatchId, batch.CompanyCode, batch.MonthKey);
 
-        // 0. Schema validation — runs once per provider per session.
+        // 0. Schema validation — runs once per provider per session (column existence only).
         if (batch.BatchStatus == BatchStatus.Draft)
         {
-            await _pipeline.ValidateSchemaAsync(batch.ProviderDhsCode, ct);
+            var schemaIssues = await _pipeline.ValidateSchemaAsync(batch.ProviderDhsCode, ct);
+            foreach (var issue in schemaIssues)
+            {
+                progress.Report(new WorkerProgressReport("StreamA",
+                    $"Schema {issue.Severity} [{issue.Gate}] {issue.Entity}" +
+                    (string.IsNullOrEmpty(issue.Column) ? "" : $".{issue.Column}") +
+                    $": {issue.Message}",
+                    BatchId: batch.BatchId));
+            }
         }
 
         // 1. Update status to Fetching
@@ -92,7 +100,7 @@ public sealed class FetchStageService : IFetchStageService
             var result = await _batchClient.CreateBatchAsync(new[] { request }, ct);
 
             if (!result.Succeeded)
-                throw new InvalidOperationException($"Failed to create batch on backend: {result.ErrorMessage}");
+                throw new InvalidOperationException(result.ErrorMessage ?? "Failed to create batch on the server.");
 
             bcrId = result.BatchId.ToString();
 
@@ -219,7 +227,11 @@ public sealed class FetchStageService : IFetchStageService
                     sha256 = ComputeSha256(payloadBytes);
                 }
 
-                workItems.Add(new StageWorkItem(rawBundle.ProIdClaim, buildResult, payloadBytes, sha256));
+                var invalidReason = rawBundle.CoercionErrors is { Count: > 0 }
+                    ? string.Join("; ", rawBundle.CoercionErrors)
+                    : null;
+
+                workItems.Add(new StageWorkItem(rawBundle.ProIdClaim, buildResult, payloadBytes, sha256, invalidReason));
                 processedCount++;
 
                 if (processedCount % pageSize == 0 || processedCount == totalClaims)
@@ -243,7 +255,14 @@ public sealed class FetchStageService : IFetchStageService
 
                 foreach (var item in chunk)
                 {
-                    if (item.BuildResult.Succeeded && item.BuildResult.Bundle is not null
+                    if (item.InvalidReason is not null)
+                    {
+                        await uow.Claims.UpsertInvalidAsync(
+                            batch.ProviderDhsCode, item.ProIdClaim,
+                            batch.CompanyCode, batch.MonthKey,
+                            batch.BatchId, bcrId, item.InvalidReason, _clock.UtcNow, ct);
+                    }
+                    else if (item.BuildResult.Succeeded && item.BuildResult.Bundle is not null
                         && item.PayloadBytes is not null && item.Sha256 is not null)
                     {
                         await uow.Claims.UpsertStagedAsync(
@@ -437,7 +456,8 @@ public sealed class FetchStageService : IFetchStageService
         int ProIdClaim,
         ClaimBundleBuildResult BuildResult,
         byte[]? PayloadBytes,
-        string? Sha256);
+        string? Sha256,
+        string? InvalidReason = null);
 
     private static readonly Regex UnUtf8Regex = new(@"[^\u0000-\u007F\u0600-\u06FF\\]+", RegexOptions.Compiled);
 

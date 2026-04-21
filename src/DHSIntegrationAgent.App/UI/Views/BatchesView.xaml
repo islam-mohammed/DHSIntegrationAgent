@@ -178,7 +178,11 @@
                               BorderThickness="0">
  
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Payer Name" 
+                            <DataGridTextColumn Header="Batch ID"
+                                                Binding="{Binding BcrIdDisplay}"
+                                                Width="80"/>
+
+                            <DataGridTextColumn Header="Payer Name"
                                                 Binding="{Binding PayerNameEn}" 
                                                 Width="*"
                                                 MinWidth="150"/>

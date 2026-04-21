@@ -1,4 +1,5 @@
 using System.Text;
+using System.Windows;
 ﻿using DHSIntegrationAgent.App.UI.Mvvm;
 using DHSIntegrationAgent.Application.Configuration;
 using DHSIntegrationAgent.Application.Abstractions;
@@ -196,19 +197,6 @@ public sealed class SettingsViewModel : ViewModelBase
                     CancellationToken.None);
             }
 
-            // Update general configuration
-            await uow.AppSettings.UpdateGeneralConfigurationAsync(
-                LeaseDurationSeconds,
-                StreamAIntervalSeconds,
-                ResumePollIntervalSeconds,
-                ApiTimeoutSeconds,
-                ConfigCacheTtlMinutes,
-                FetchIntervalMinutes,
-                ManualRetryCooldownMinutes,
-
-                _clock.UtcNow,
-                CancellationToken.None);
-
             await uow.CommitAsync(CancellationToken.None);
 
             // Fetch latest configuration from API if we have a provider code
@@ -272,29 +260,55 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         if (IsLoading) return;
 
+        if (string.IsNullOrWhiteSpace(ProviderDhsCode))
+        {
+            SaveError = "Cannot refresh provider profile: Provider DHS Code is missing.";
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            "Refreshing the provider profile will pull the latest configuration from the server.\n\n" +
+            "An application restart is required for all changes to take full effect.\n\n" +
+            "Do you want to continue?",
+            "Refresh Provider Profile",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
         try
         {
             IsLoading = true;
             SaveError = null;
             SaveMessage = null;
 
-            if (string.IsNullOrWhiteSpace(ProviderDhsCode))
-            {
-                SaveError = "Cannot refresh provider profile: Provider DHS Code is missing.";
-                return;
-            }
-
             var success = await _providerConfigurationService.RefreshProviderProfileAsync(ProviderDhsCode, CancellationToken.None);
 
             await LoadAsync();
 
-            if (success)
+            if (!success)
             {
-                SaveMessage = "Provider profile refreshed from API.";
+                SaveError = "Failed to refresh provider profile from the server. Check logs for details.";
+                return;
             }
-            else
+
+            SaveMessage = "Provider profile refreshed successfully.";
+
+            var restart = MessageBox.Show(
+                "Provider profile updated successfully.\n\n" +
+                "A restart is required for the new configuration to take full effect.\n\n" +
+                "Restart the application now?",
+                "Restart Required",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+
+            if (restart == MessageBoxResult.Yes)
             {
-                SaveError = "Failed to refresh provider profile from API.";
+                var exePath = Environment.ProcessPath ?? System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(exePath))
+                    System.Diagnostics.Process.Start(exePath);
+                System.Windows.Application.Current.Shutdown();
             }
         }
         catch (Exception ex)

@@ -6,7 +6,6 @@ public interface ISqliteUnitOfWork : IAsyncDisposable
 {
     IAppSettingsRepository AppSettings { get; }
     IProviderProfileRepository ProviderProfiles { get; }
-    IProviderExtractionConfigRepository ProviderExtractionConfigs { get; }
     IProviderConfigCacheRepository ProviderConfigCache { get; }
     IPayerProfileRepository Payers { get; }
 

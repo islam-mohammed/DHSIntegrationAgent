@@ -1,0 +1,49 @@
+<UserControl x:Class="DHSIntegrationAgent.App.UI.Controls.PaginationBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes">
+    <Border BorderBrush="{StaticResource BrushBorder}" BorderThickness="0,1,0,0" Padding="12,8">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Page size selector -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Rows per page:" VerticalAlignment="Center"
+                           Foreground="{StaticResource BrushMuted}" FontSize="12" Margin="0,0,8,0"/>
+                <ComboBox ItemsSource="{Binding PageSizeOptions}"
+                          SelectedItem="{Binding PageSize, Mode=TwoWay}"
+                          Width="64" Height="28" FontSize="12"
+                          VerticalContentAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Page info -->
+            <TextBlock Grid.Column="1" Text="{Binding PageInfo}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{StaticResource BrushMuted}" FontSize="12"/>
+
+            <!-- Navigation buttons -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Width="32" Height="32" Padding="0"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        materialDesign:ButtonAssist.CornerRadius="4"
+                        BorderBrush="#32729B" Foreground="#32729B"
+                        Command="{Binding PreviousPageCommand}"
+                        ToolTip="Previous page">
+                    <materialDesign:PackIcon Kind="ChevronLeft" Width="18" Height="18"/>
+                </Button>
+                <Button Width="32" Height="32" Padding="0" Margin="6,0,0,0"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        materialDesign:ButtonAssist.CornerRadius="4"
+                        BorderBrush="#32729B" Foreground="#32729B"
+                        Command="{Binding NextPageCommand}"
+                        ToolTip="Next page">
+                    <materialDesign:PackIcon Kind="ChevronRight" Width="18" Height="18"/>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

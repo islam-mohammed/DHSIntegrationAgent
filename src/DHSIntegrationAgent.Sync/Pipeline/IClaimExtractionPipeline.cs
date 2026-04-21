@@ -1,5 +1,6 @@
 using DHSIntegrationAgent.Adapters.Tables;
 using DHSIntegrationAgent.Application.Providers;
+using DHSIntegrationAgent.Sync.Validation;
 
 namespace DHSIntegrationAgent.Sync.Pipeline;
 
@@ -38,6 +39,6 @@ public interface IClaimExtractionPipeline
         IReadOnlyList<BaselineDomain> domains,
         CancellationToken ct);
 
-    // Runs schema validation gates; throws on first error-severity issue.
-    Task ValidateSchemaAsync(string providerDhsCode, CancellationToken ct);
+    // Runs schema validation gates (column existence only). Returns all issues found; does not throw.
+    Task<IReadOnlyList<SchemaValidationIssue>> ValidateSchemaAsync(string providerDhsCode, CancellationToken ct);
 }

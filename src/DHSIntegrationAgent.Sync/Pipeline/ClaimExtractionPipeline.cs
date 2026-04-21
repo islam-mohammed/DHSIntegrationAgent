@@ -10,6 +10,7 @@ using DHSIntegrationAgent.Sync.Rules;
 using DHSIntegrationAgent.Sync.Sql;
 using DHSIntegrationAgent.Sync.Validation;
 using Microsoft.Extensions.Logging;
+using SchemaIssueList = System.Collections.Generic.IReadOnlyList<DHSIntegrationAgent.Sync.Validation.SchemaValidationIssue>;
 
 namespace DHSIntegrationAgent.Sync.Pipeline;
 
@@ -49,9 +50,10 @@ public sealed class ClaimExtractionPipeline : IClaimExtractionPipeline
         _logger = logger;
     }
 
-    public async Task ValidateSchemaAsync(string providerDhsCode, CancellationToken ct)
+    public async Task<SchemaIssueList> ValidateSchemaAsync(string providerDhsCode, CancellationToken ct)
     {
-        if (_validatedProviders.ContainsKey(providerDhsCode)) return;
+        if (_validatedProviders.ContainsKey(providerDhsCode))
+            return Array.Empty<SchemaValidationIssue>();
 
         var descriptor = await _resolver.ResolveAsync(providerDhsCode, ct);
         var dialect    = _dialectFactory.ForEngine(descriptor.DbEngine);
@@ -63,16 +65,11 @@ public sealed class ClaimExtractionPipeline : IClaimExtractionPipeline
         foreach (var issue in result.Issues)
             _logger.Log(
                 issue.Severity == "Error" ? LogLevel.Error : LogLevel.Warning,
-                "[{Gate}] entity={Entity} col={Column}: {Message}",
+                "[Schema {Gate}] entity={Entity} col={Column}: {Message}",
                 issue.Gate, issue.Entity, issue.Column, issue.Message);
 
-        if (!result.IsValid)
-        {
-            var errors = string.Join("; ", result.Issues.Where(i => i.Severity == "Error").Select(i => i.Message));
-            throw new InvalidOperationException($"Schema validation failed for '{providerDhsCode}': {errors}");
-        }
-
         _validatedProviders[providerDhsCode] = true;
+        return result.Issues;
     }
 
     public async Task<int> CountClaimsAsync(
@@ -155,18 +152,23 @@ public sealed class ClaimExtractionPipeline : IClaimExtractionPipeline
 
         var isDistinctDoctor = descriptor.DistinctEntities?.Contains(CanonicalSchema.Doctor, StringComparer.OrdinalIgnoreCase) ?? false;
 
-        var headers     = await FetchHeadersAsync(conn, descriptor, claimKeys, dialect, ct);
-        var doctors     = await FetchManyAsync(conn, descriptor, CanonicalSchema.Doctor, claimKeys, dialect, isDistinctDoctor, false, ct);
-        var services    = await FetchManyAsync(conn, descriptor, CanonicalSchema.Service, claimKeys, dialect, false, true, ct);
-        var diagnoses   = await FetchManyAsync(conn, descriptor, CanonicalSchema.Diagnosis, claimKeys, dialect, false, false, ct);
-        var labs        = await FetchManyAsync(conn, descriptor, CanonicalSchema.Lab, claimKeys, dialect, false, false, ct);
-        var radiology   = await FetchManyAsync(conn, descriptor, CanonicalSchema.Radiology, claimKeys, dialect, false, false, ct);
-        var attachments = await FetchManyAsync(conn, descriptor, CanonicalSchema.Attachment, claimKeys, dialect, false, false, ct);
+        // Collect type-coercion failures keyed by ProIdClaim across all entities.
+        var claimErrors = new Dictionary<int, List<string>>();
+
+        var headers     = await FetchHeadersAsync(conn, descriptor, claimKeys, dialect, claimErrors, ct);
+        var doctors     = await FetchManyAsync(conn, descriptor, CanonicalSchema.Doctor,    claimKeys, dialect, isDistinctDoctor, false, claimErrors, ct);
+        var services    = await FetchManyAsync(conn, descriptor, CanonicalSchema.Service,   claimKeys, dialect, false, true,  claimErrors, ct);
+        var diagnoses   = await FetchManyAsync(conn, descriptor, CanonicalSchema.Diagnosis, claimKeys, dialect, false, false, claimErrors, ct);
+        var labs        = await FetchManyAsync(conn, descriptor, CanonicalSchema.Lab,       claimKeys, dialect, false, false, claimErrors, ct);
+        var radiology   = await FetchManyAsync(conn, descriptor, CanonicalSchema.Radiology, claimKeys, dialect, false, false, claimErrors, ct);
+        var attachments = await FetchManyAsync(conn, descriptor, CanonicalSchema.Attachment,claimKeys, dialect, false, false, claimErrors, ct);
 
         var bundles = new List<ProviderClaimBundleRaw>(claimKeys.Count);
         foreach (var id in claimKeys)
         {
             if (!headers.TryGetValue(id, out var header)) continue;
+
+            claimErrors.TryGetValue(id, out var errors);
 
             var raw = new ProviderClaimBundleRaw(
                 ProIdClaim: id,
@@ -179,7 +181,8 @@ public sealed class ClaimExtractionPipeline : IClaimExtractionPipeline
                 Attachments: attachments.GetValueOrDefault(id, new JsonArray()),
                 OpticalVitalSigns: new JsonArray(),
                 ItemDetails: new JsonArray(),
-                Achi: new JsonArray());
+                Achi: new JsonArray(),
+                CoercionErrors: errors is { Count: > 0 } ? errors.AsReadOnly() : null);
 
             if (descriptor.PostLoadRules.Count > 0)
                 _ruleEngine.Apply(raw, descriptor.PostLoadRules);
@@ -279,6 +282,7 @@ public sealed class ClaimExtractionPipeline : IClaimExtractionPipeline
         VendorDescriptor descriptor,
         IReadOnlyList<int> claimKeys,
         ISqlDialect dialect,
+        Dictionary<int, List<string>> claimErrors,
         CancellationToken ct)
     {
         if (!TryGetEntitySource(descriptor, CanonicalSchema.Header, out var source, out var manifest))
@@ -296,9 +300,14 @@ public sealed class ClaimExtractionPipeline : IClaimExtractionPipeline
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            var row = DescriptorDrivenReader.ReadRow(reader, cm, _typeMap, logger: _logger);
+            var rowErrors = new List<string>();
+            var row = DescriptorDrivenReader.ReadRow(reader, cm, _typeMap, logger: _logger, coercionErrors: rowErrors);
             if (TryGetClaimId(row, descriptor.Filter.ClaimKeyColumn, out var id))
+            {
                 result[id] = row;
+                if (rowErrors.Count > 0)
+                    MergeErrors(claimErrors, id, rowErrors);
+            }
         }
         return result;
     }
@@ -311,6 +320,7 @@ public sealed class ClaimExtractionPipeline : IClaimExtractionPipeline
         ISqlDialect dialect,
         bool distinct,
         bool isServiceEntity,
+        Dictionary<int, List<string>> claimErrors,
         CancellationToken ct)
     {
         if (!TryGetEntitySource(descriptor, entityName, out var source, out var manifest))
@@ -328,7 +338,8 @@ public sealed class ClaimExtractionPipeline : IClaimExtractionPipeline
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
         {
-            var row = DescriptorDrivenReader.ReadRow(reader, cm, _typeMap, isServiceEntity, _logger);
+            var rowErrors = new List<string>();
+            var row = DescriptorDrivenReader.ReadRow(reader, cm, _typeMap, isServiceEntity, _logger, rowErrors);
             if (TryGetClaimId(row, descriptor.Filter.ClaimKeyColumn, out var id))
             {
                 if (!result.TryGetValue(id, out var arr))
@@ -337,9 +348,21 @@ public sealed class ClaimExtractionPipeline : IClaimExtractionPipeline
                     result[id] = arr;
                 }
                 arr.Add(row);
+                if (rowErrors.Count > 0)
+                    MergeErrors(claimErrors, id, rowErrors);
             }
         }
         return result;
+    }
+
+    private static void MergeErrors(Dictionary<int, List<string>> claimErrors, int id, List<string> newErrors)
+    {
+        if (!claimErrors.TryGetValue(id, out var existing))
+        {
+            existing = new List<string>();
+            claimErrors[id] = existing;
+        }
+        existing.AddRange(newErrors);
     }
 
     private static bool TryGetEntitySource(

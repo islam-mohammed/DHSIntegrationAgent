@@ -7,6 +7,17 @@ namespace DHSIntegrationAgent.Application.Persistence.Repositories;
 public interface IClaimRepository
 {
     // Stream A staging support (no business logic; just persistence)
+    Task UpsertInvalidAsync(
+        string providerDhsCode,
+        int proIdClaim,
+        string companyCode,
+        string monthKey,
+        long? batchId,
+        string? bcrId,
+        string invalidReason,
+        DateTimeOffset utcNow,
+        CancellationToken cancellationToken);
+
     Task UpsertStagedAsync(
         string providerDhsCode,
         int proIdClaim,
@@ -70,4 +81,8 @@ public interface IClaimRepository
     Task<int?> GetMaxProIdClaimAsync(long batchId, CancellationToken cancellationToken);
 
     Task<(int Staged, int Enqueued, int Completed, int Failed)> GetDashboardCountsAsync(string providerDhsCode, string? companyCode, CancellationToken cancellationToken);
+
+    Task<int> CountFailedClaimsAsync(string providerDhsCode, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<FailedClaimPageItem>> GetFailedClaimsPagedAsync(string providerDhsCode, int pageIndex, int pageSize, CancellationToken cancellationToken);
 }

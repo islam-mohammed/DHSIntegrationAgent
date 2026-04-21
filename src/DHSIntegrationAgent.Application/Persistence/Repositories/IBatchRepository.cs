@@ -49,5 +49,9 @@ public interface IBatchRepository
 
     Task DeleteAsync(long batchId, CancellationToken cancellationToken);
 
+    Task HardDeleteAsync(long batchId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<BatchRow>> ListSyncedAsync(CancellationToken cancellationToken);
+
     Task ClearBatchDataAsync(long batchId, CancellationToken cancellationToken);
 }

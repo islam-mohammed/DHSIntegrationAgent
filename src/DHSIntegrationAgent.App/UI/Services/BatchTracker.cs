@@ -498,6 +498,7 @@ public sealed class BatchTracker : IBatchTracker
                     progressViewModel.StatusMessage = $"Error: {ex.Message}";
                     progressViewModel.IsError = true;
                     progressViewModel.IsCompleted = true;
+                    MessageBox.Show(ex.Message, "Batch Creation Failed", MessageBoxButton.OK, MessageBoxImage.Error);
                 });
             }
             finally

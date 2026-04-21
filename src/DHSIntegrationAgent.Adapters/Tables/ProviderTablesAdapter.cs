@@ -422,26 +422,31 @@ WHERE h.CompanyCode = @CompanyCode
             return cached;
 
         await using var uow = await _uowFactory.CreateAsync(ct);
-
         var profile = await uow.ProviderProfiles.GetActiveByProviderDhsCodeAsync(providerDhsCode, ct);
 
-        var extraction = profile is not null
-            ? await uow.ProviderExtractionConfigs.GetAsync(new ProviderKey(profile.ProviderCode), ct)
-            : null;
+        JsonNode? descriptor = null;
+        if (!string.IsNullOrWhiteSpace(profile?.VendorDescriptor))
+            descriptor = JsonNode.Parse(profile.VendorDescriptor);
+
+        var sources = descriptor?["sources"];
+        var filter  = descriptor?["filter"];
+
+        string Source(string entity, string @default) =>
+            sources?[entity]?.GetValue<string>() is { Length: > 0 } v ? v : @default;
 
         var config = new ProviderTablesConfig(
-            ClaimKeyColumnName: string.IsNullOrWhiteSpace(extraction?.ClaimKeyColumnName) ? DefaultClaimKeyColumn : extraction.ClaimKeyColumnName,
-            DateColumnName: string.IsNullOrWhiteSpace(extraction?.DateColumnName) ? DefaultHeaderDateColumn : extraction.DateColumnName,
-            HeaderSourceName: string.IsNullOrWhiteSpace(extraction?.HeaderSourceName) ? DefaultHeaderTable : extraction.HeaderSourceName,
-            DoctorSourceName: string.IsNullOrWhiteSpace(extraction?.DoctorSourceName) ? DefaultDoctorTable : extraction.DoctorSourceName,
-            ServiceSourceName: string.IsNullOrWhiteSpace(extraction?.ServiceSourceName) ? DefaultServiceTable : extraction.ServiceSourceName,
-            DiagnosisSourceName: string.IsNullOrWhiteSpace(extraction?.DiagnosisSourceName) ? DefaultDiagnosisTable : extraction.DiagnosisSourceName,
-            LabSourceName: string.IsNullOrWhiteSpace(extraction?.LabSourceName) ? DefaultLabTable : extraction.LabSourceName,
-            RadiologySourceName: string.IsNullOrWhiteSpace(extraction?.RadiologySourceName) ? DefaultRadiologyTable : extraction.RadiologySourceName,
-            AttachmentSourceName: string.IsNullOrWhiteSpace(extraction?.AttachmentSourceName) ? DefaultAttachmentTable : extraction.AttachmentSourceName,
-            OpticalSourceName: string.IsNullOrWhiteSpace(extraction?.OpticalSourceName) ? DefaultOpticalTable : extraction.OpticalSourceName,
-            ItemDetailsSourceName: string.IsNullOrWhiteSpace(extraction?.ItemDetailsSourceName) ? DefaultItemDetailsTable : extraction.ItemDetailsSourceName,
-            AchiSourceName: string.IsNullOrWhiteSpace(extraction?.AchiSourceName) ? DefaultAchiTable : extraction.AchiSourceName
+            ClaimKeyColumnName:   filter?["claimKeyColumn"]?.GetValue<string>() is { Length: > 0 } ck ? ck : DefaultClaimKeyColumn,
+            DateColumnName:       filter?["dateColumn"]?.GetValue<string>()      is { Length: > 0 } dc ? dc : DefaultHeaderDateColumn,
+            HeaderSourceName:     Source("header",      DefaultHeaderTable),
+            DoctorSourceName:     Source("doctor",      DefaultDoctorTable),
+            ServiceSourceName:    Source("service",     DefaultServiceTable),
+            DiagnosisSourceName:  Source("diagnosis",   DefaultDiagnosisTable),
+            LabSourceName:        Source("lab",         DefaultLabTable),
+            RadiologySourceName:  Source("radiology",   DefaultRadiologyTable),
+            AttachmentSourceName: Source("attachment",  DefaultAttachmentTable),
+            OpticalSourceName:    Source("optical",     DefaultOpticalTable),
+            ItemDetailsSourceName:Source("itemDetails", DefaultItemDetailsTable),
+            AchiSourceName:       Source("achi",        DefaultAchiTable)
         );
 
         _configCache.TryAdd(providerDhsCode, config);

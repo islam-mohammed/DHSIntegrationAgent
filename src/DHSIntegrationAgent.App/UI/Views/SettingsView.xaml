@@ -50,15 +50,6 @@
                                 VerticalAlignment="Bottom"
                                  >
 
-                                <Button   FontSize="13.5" Height="33" Margin="5,0" BorderBrush="#32729B"  Foreground="#32729B"
-                                    Style="{StaticResource MaterialDesignOutlinedButton}" materialDesign:ButtonAssist.CornerRadius="5" 
-                                    Command="{Binding LoadCommand}"
-                                    IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBooleanConverter}}">
-                                    <StackPanel  Margin="0,0,0,0" Orientation="Horizontal" HorizontalAlignment="Left">
-                                        <materialDesign:PackIcon Kind="Sync" Width="17" Height="17" Margin="0,0,5,0"/>
-                                        <TextBlock  VerticalAlignment="Center" Foreground="#32729B" > Refresh </TextBlock>
-                                    </StackPanel>
-                                </Button>
                                 <Button   FontSize="13.5" Height="33"  Margin="5,0" BorderBrush="#32729B"  Foreground="#32729B"
                                     Style="{StaticResource MaterialDesignOutlinedButton}" materialDesign:ButtonAssist.CornerRadius="5" 
                                     Command="{Binding ReloadProviderConfigCommand}"
@@ -129,7 +120,7 @@ materialDesign:HintAssist.Hint="Enter Provider Code"  Text="{Binding ProviderDhs
 
                         <!-- ===== Scheduling Card ===== -->
                         <Border Grid.Row="0" Grid.Column="1"
-                    Margin="10,0,10,12" 
+                    Margin="10,0,10,12"
                             Style="{StaticResource DashboardCardStyle}">
 
                             <StackPanel>
@@ -139,11 +130,11 @@ materialDesign:HintAssist.Hint="Enter Provider Code"  Text="{Binding ProviderDhs
                                Margin="0,0,0,16"/>
                                 <StackPanel Margin="8">
                                     <TextBlock  Style="{StaticResource FormLabel}" Text="Fetch Interval (Minutes)"/>
-                                    <TextBox  Text="{Binding FetchIntervalMinutes}" Margin="0,0,0,16"/>
+                                    <TextBox  Text="{Binding FetchIntervalMinutes}" Margin="0,0,0,16" IsReadOnly="True"/>
 
                                     <TextBlock Style="{StaticResource FormLabel}" Text="Config Cache TTL (Minutes)"/>
-                                    <TextBox  Text="{Binding ConfigCacheTtlMinutes}"/>
-                                </StackPanel> 
+                                    <TextBox  Text="{Binding ConfigCacheTtlMinutes}" IsReadOnly="True"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 
@@ -189,27 +180,27 @@ materialDesign:HintAssist.Hint="Enter Provider Code"  Text="{Binding ProviderDhs
 
                                     <StackPanel Margin="8">
                                         <TextBlock Style="{StaticResource FormLabel}" Text="Lease Duration (Seconds)"/>
-                                        <TextBox Text="{Binding LeaseDurationSeconds}"  />
+                                        <TextBox Text="{Binding LeaseDurationSeconds}" IsReadOnly="True"/>
                                     </StackPanel>
 
                                     <StackPanel Margin="8">
                                         <TextBlock Style="{StaticResource FormLabel}" Text="Stream Interval (Seconds)"/>
-                                        <TextBox  Text="{Binding StreamAIntervalSeconds}" />
+                                        <TextBox Text="{Binding StreamAIntervalSeconds}" IsReadOnly="True"/>
                                     </StackPanel>
 
                                     <StackPanel Margin="8">
                                         <TextBlock Style="{StaticResource FormLabel}" Text="Resume Poll Interval"/>
-                                        <TextBox Text="{Binding ResumePollIntervalSeconds}" />
+                                        <TextBox Text="{Binding ResumePollIntervalSeconds}" IsReadOnly="True"/>
                                     </StackPanel>
 
                                     <StackPanel Margin="8">
                                         <TextBlock Style="{StaticResource FormLabel}" Text="API Timeout (Seconds)"/>
-                                        <TextBox Text="{Binding ApiTimeoutSeconds}" />
+                                        <TextBox Text="{Binding ApiTimeoutSeconds}" IsReadOnly="True"/>
                                     </StackPanel>
 
                                     <StackPanel Margin="8">
                                         <TextBlock Style="{StaticResource FormLabel}" Text="Manual Retry Cooldown"/>
-                                        <TextBox Text="{Binding ManualRetryCooldownMinutes}"/>
+                                        <TextBox Text="{Binding ManualRetryCooldownMinutes}" IsReadOnly="True"/>
                                     </StackPanel>
 
                                 </UniformGrid>

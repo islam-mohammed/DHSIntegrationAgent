@@ -48,6 +48,14 @@ internal static class SqliteMigrations
         new Migration(11, "011_DropVendorDescriptorTable", new List<string>
         {
             "DROP TABLE IF EXISTS VendorDescriptor;"
+        }),
+        new Migration(12, "012_RenameDescriptorJsonToVendorDescriptor", new List<string>
+        {
+            "ALTER TABLE ProviderProfile RENAME COLUMN DescriptorJson TO VendorDescriptor;"
+        }),
+        new Migration(13, "013_DropProviderExtractionConfigTable", new List<string>
+        {
+            "DROP TABLE IF EXISTS ProviderExtractionConfig;"
         })
     };
 

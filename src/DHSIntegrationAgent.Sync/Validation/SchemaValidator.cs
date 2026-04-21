@@ -9,12 +9,10 @@ namespace DHSIntegrationAgent.Sync.Validation;
 
 public sealed class SchemaValidator
 {
-    private readonly TypeCoercionMap _typeMap;
     private readonly ILogger<SchemaValidator> _logger;
 
-    public SchemaValidator(TypeCoercionMap typeMap, ILogger<SchemaValidator> logger)
+    public SchemaValidator(ILogger<SchemaValidator> logger)
     {
-        _typeMap = typeMap;
         _logger = logger;
     }
 
@@ -26,21 +24,18 @@ public sealed class SchemaValidator
     {
         var issues = new List<SchemaValidationIssue>();
 
-        // G1 — Descriptor version: major version must be 1.
-        RunG1(descriptor, issues);
+        // DbConnectivity — vendor database must be reachable.
+        if (!await CheckDbConnectivityAsync(conn, issues, ct)) return new SchemaValidationResult(false, issues);
 
-        // G2 — Engine reachability.
-        if (!await RunG2Async(conn, issues, ct)) return new SchemaValidationResult(false, issues);
-
-        // G3/G4/G5 — Source existence and column presence (topologies 1 & 2).
+        // SourceExists / ColumnExists — source tables and mapped columns must exist (topologies 1 & 2).
         if (descriptor.Topology is "tableToTable" or "viewToTable")
         {
             foreach (var (entity, sourceName) in descriptor.Sources)
             {
-                await RunG3Async(conn, entity, sourceName, issues, ct);
+                await CheckSourceExistsAsync(conn, entity, sourceName, issues, ct);
 
                 if (descriptor.ColumnManifests.TryGetValue(entity, out var manifest))
-                    await RunG4G5Async(conn, entity, sourceName, manifest, issues, ct);
+                    await CheckColumnExistsAsync(conn, entity, sourceName, manifest, issues, ct);
             }
         }
 
@@ -48,18 +43,7 @@ public sealed class SchemaValidator
         return new SchemaValidationResult(!hasError, issues);
     }
 
-    private static void RunG1(VendorDescriptor descriptor, List<SchemaValidationIssue> issues)
-    {
-        var parts = descriptor.SchemaVersion.Split('.');
-        if (!int.TryParse(parts[0], out var major) || major != 1)
-        {
-            issues.Add(new SchemaValidationIssue(
-                "G1", "", "", "Error",
-                $"SchemaVersion '{descriptor.SchemaVersion}' has unsupported major version. Expected 1.x.x."));
-        }
-    }
-
-    private static async Task<bool> RunG2Async(DbConnection conn, List<SchemaValidationIssue> issues, CancellationToken ct)
+    private static async Task<bool> CheckDbConnectivityAsync(DbConnection conn, List<SchemaValidationIssue> issues, CancellationToken ct)
     {
         try
         {
@@ -71,12 +55,12 @@ public sealed class SchemaValidator
         }
         catch (Exception ex)
         {
-            issues.Add(new SchemaValidationIssue("G2", "", "", "Error", $"Cannot reach vendor database: {ex.Message}"));
+            issues.Add(new SchemaValidationIssue("DbConnectivity", "", "", "Error", $"Cannot reach vendor database: {ex.Message}"));
             return false;
         }
     }
 
-    private static async Task RunG3Async(
+    private static async Task CheckSourceExistsAsync(
         DbConnection conn,
         string entity,
         string sourceName,
@@ -99,18 +83,20 @@ public sealed class SchemaValidator
             if (count == 0)
             {
                 issues.Add(new SchemaValidationIssue(
-                    "G3", entity, "", "Error",
+                    "SourceExists", entity, "", "Error",
                     $"Source '{sourceName}' (entity '{entity}') does not exist."));
             }
         }
         catch (Exception ex)
         {
-            issues.Add(new SchemaValidationIssue("G3", entity, "", "Error",
+            issues.Add(new SchemaValidationIssue("SourceExists", entity, "", "Error",
                 $"Failed to check source existence for '{sourceName}': {ex.Message}"));
         }
     }
 
-    private async Task RunG4G5Async(
+    // Checks that every source column named in the descriptor exists in the physical table.
+    // No type compatibility is checked here; type coercion happens at fetch time.
+    private static async Task CheckColumnExistsAsync(
         DbConnection conn,
         string entity,
         string sourceName,
@@ -120,14 +106,14 @@ public sealed class SchemaValidator
     {
         var (schema, table) = ParseSourceName(sourceName);
 
-        Dictionary<string, string> physicalColumns;
+        HashSet<string> physicalColumns;
         try
         {
-            physicalColumns = await GetPhysicalColumnsAsync(conn, schema, table, ct);
+            physicalColumns = await GetPhysicalColumnNamesAsync(conn, schema, table, ct);
         }
         catch (Exception ex)
         {
-            issues.Add(new SchemaValidationIssue("G4", entity, "", "Error",
+            issues.Add(new SchemaValidationIssue("ColumnExists", entity, "", "Error",
                 $"Failed to read column metadata for '{sourceName}': {ex.Message}"));
             return;
         }
@@ -135,60 +121,34 @@ public sealed class SchemaValidator
         foreach (var (canonical, field) in manifest)
         {
             var sourceCol = field?.Source;
-            if (sourceCol is null) continue; // null entry or null source = skip column
+            if (sourceCol is null) continue;
 
-            // G4 — Column presence.
-            if (!physicalColumns.ContainsKey(sourceCol.ToUpperInvariant()))
+            if (!physicalColumns.Contains(sourceCol.ToUpperInvariant()))
             {
-                issues.Add(new SchemaValidationIssue("G4", entity, sourceCol, "Error",
+                issues.Add(new SchemaValidationIssue("ColumnExists", entity, sourceCol, "Error",
                     $"Column '{sourceCol}' (canonical '{canonical}') not found in '{sourceName}'."));
-                continue;
-            }
-
-            // G5 — Type compatibility (warning only).
-            // Descriptor-declared type takes precedence over TypeCoercionMap.
-            var expectedClrType = field?.ClrType ?? _typeMap.GetTargetType(canonical);
-            if (expectedClrType is not null)
-            {
-                var sqlType = physicalColumns[sourceCol.ToUpperInvariant()];
-                if (!IsCompatible(sqlType, expectedClrType))
-                {
-                    issues.Add(new SchemaValidationIssue("G5", entity, sourceCol, "Warning",
-                        $"Column '{sourceCol}' has SQL type '{sqlType}' which may not coerce cleanly to '{expectedClrType.Name}'."));
-                }
             }
         }
     }
 
-    private static async Task<Dictionary<string, string>> GetPhysicalColumnsAsync(
+    private static async Task<HashSet<string>> GetPhysicalColumnNamesAsync(
         DbConnection conn, string schema, string table, CancellationToken ct)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 30;
         cmd.CommandText = """
-            SELECT COLUMN_NAME, DATA_TYPE
+            SELECT COLUMN_NAME
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
             """;
         AddParam(cmd, "@schema", schema);
         AddParam(cmd, "@table", table);
 
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         while (await reader.ReadAsync(ct))
-            result[reader.GetString(0).ToUpperInvariant()] = reader.GetString(1);
+            result.Add(reader.GetString(0).ToUpperInvariant());
         return result;
-    }
-
-    private static bool IsCompatible(string sqlType, Type clrType)
-    {
-        var t = sqlType.ToLowerInvariant();
-        if (clrType == typeof(int))      return t is "int" or "smallint" or "tinyint" or "bigint";
-        if (clrType == typeof(decimal))  return t is "decimal" or "numeric" or "money" or "smallmoney" or "float" or "real";
-        if (clrType == typeof(DateTime)) return t is "datetime" or "datetime2" or "date" or "smalldatetime";
-        if (clrType == typeof(bool))     return t is "bit";
-        if (clrType == typeof(string))   return true; // any type can be represented as string
-        return true;
     }
 
     private static (string schema, string table) ParseSourceName(string sourceName)

@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using DHSIntegrationAgent.App.UI.Mvvm;
 using DHSIntegrationAgent.Application.Abstractions;
 using DHSIntegrationAgent.Application.Persistence;
@@ -10,13 +10,27 @@ public sealed class DiagnosticsViewModel : ViewModelBase
     private readonly ISqliteUnitOfWorkFactory _unitOfWorkFactory;
     private readonly IHealthClient _healthClient;
 
+    // ── API Call Logs tab ────────────────────────────────────────────────────
     public ObservableCollection<ApiCallRow> ApiCalls { get; } = new();
+    public PaginationViewModel ApiCallsPagination { get; } = new();
 
+    // ── Failed Claims tab ────────────────────────────────────────────────────
+    public ObservableCollection<FailedClaimRow> FailedClaims { get; } = new();
+    public PaginationViewModel FailedClaimsPagination { get; } = new();
+
+    // ── Shared state ─────────────────────────────────────────────────────────
     private bool _isLoading;
     public bool IsLoading
     {
         get => _isLoading;
         set => SetProperty(ref _isLoading, value);
+    }
+
+    private bool _isLoadingClaims;
+    public bool IsLoadingClaims
+    {
+        get => _isLoadingClaims;
+        set => SetProperty(ref _isLoadingClaims, value);
     }
 
     private bool _isCheckingHealth;
@@ -33,7 +47,9 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         set => SetProperty(ref _apiHealthMessage, value);
     }
 
+    // ── Commands ─────────────────────────────────────────────────────────────
     public AsyncRelayCommand RefreshCommand { get; }
+    public AsyncRelayCommand RefreshFailedClaimsCommand { get; }
     public RelayCommand ExportSupportBundleCommand { get; }
     public AsyncRelayCommand CheckHealthCommand { get; }
 
@@ -45,15 +61,15 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         _healthClient = healthClient ?? throw new ArgumentNullException(nameof(healthClient));
 
         RefreshCommand = new AsyncRelayCommand(LoadApiCallsAsync);
+        RefreshFailedClaimsCommand = new AsyncRelayCommand(LoadFailedClaimsAsync);
         CheckHealthCommand = new AsyncRelayCommand(CheckHealthAsync);
-        ExportSupportBundleCommand = new RelayCommand(() =>
-        {
-            // Screen-only: real export is WBS 6.2 + 5.8 wiring
-            // Must remain PHI-safe (no payloads/attachments).
-        });
+        ExportSupportBundleCommand = new RelayCommand(() => { });
 
-        // Load data on initialization
+        ApiCallsPagination.PageChanged += (_, _) => _ = LoadApiCallsAsync();
+        FailedClaimsPagination.PageChanged += (_, _) => _ = LoadFailedClaimsAsync();
+
         _ = LoadApiCallsAsync();
+        _ = LoadFailedClaimsAsync();
     }
 
     private async Task CheckHealthAsync()
@@ -66,16 +82,10 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         try
         {
             var result = await _healthClient.CheckApiHealthAsync(CancellationToken.None);
-            if (result.Succeeded)
-            {
-                ApiHealthMessage = $"✅ Connection successful ({DHSIntegrationAgent.Application.Helpers.DateTimeHelper.GetKSADateTime():HH:mm:ss})";
-            }
-            else
-            {
-                ApiHealthMessage = $"❌ Health check failed: {result.Message}";
-            }
+            ApiHealthMessage = result.Succeeded
+                ? $"✅ Connection successful ({DHSIntegrationAgent.Application.Helpers.DateTimeHelper.GetKSADateTime():HH:mm:ss})"
+                : $"❌ Health check failed: {result.Message}";
 
-            // Immediately refresh the API Call Log grid so the health check appears
             await LoadApiCallsAsync();
         }
         catch (Exception ex)
@@ -93,15 +103,18 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         IsLoading = true;
         try
         {
-            // Add 2000ms delay to show loading animation
-            await Task.Delay(2000);
+            await using var uow = await _unitOfWorkFactory.CreateAsync(default);
+
+            var totalCount = await uow.ApiCallLogs.CountApiCallsAsync(default);
+            ApiCallsPagination.SetTotalCount(totalCount);
+
+            var logs = await uow.ApiCallLogs.GetApiCallsPagedAsync(
+                ApiCallsPagination.CurrentPage - 1,
+                ApiCallsPagination.PageSize,
+                default);
 
             ApiCalls.Clear();
-
-            await using var uow = await _unitOfWorkFactory.CreateAsync(default);
-            var apiCallLogs = await uow.ApiCallLogs.GetRecentApiCallsAsync(limit: 100, default);
-
-            foreach (var log in apiCallLogs)
+            foreach (var log in logs)
             {
                 ApiCalls.Add(new ApiCallRow
                 {
@@ -130,21 +143,48 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         }
     }
 
-    private static string ExtractMethod(string endpointName)
+    private async Task LoadFailedClaimsAsync()
     {
-        // Try to extract HTTP method from endpoint name
-        // Examples: "POST /api/batch", "GET /api/config"
-        if (endpointName.StartsWith("GET ", StringComparison.OrdinalIgnoreCase))
-            return "GET";
-        if (endpointName.StartsWith("POST ", StringComparison.OrdinalIgnoreCase))
-            return "POST";
-        if (endpointName.StartsWith("PUT ", StringComparison.OrdinalIgnoreCase))
-            return "PUT";
-        if (endpointName.StartsWith("DELETE ", StringComparison.OrdinalIgnoreCase))
-            return "DELETE";
+        IsLoadingClaims = true;
+        try
+        {
+            await using var uow = await _unitOfWorkFactory.CreateAsync(default);
 
-        // Default to GET if no method prefix
-        return "GET";
+            var settings = await uow.AppSettings.GetAsync(default);
+            var providerDhsCode = settings.ProviderDhsCode ?? "";
+
+            var totalCount = await uow.Claims.CountFailedClaimsAsync(providerDhsCode, default);
+            FailedClaimsPagination.SetTotalCount(totalCount);
+
+            var items = await uow.Claims.GetFailedClaimsPagedAsync(
+                providerDhsCode,
+                FailedClaimsPagination.CurrentPage - 1,
+                FailedClaimsPagination.PageSize,
+                default);
+
+            FailedClaims.Clear();
+            foreach (var item in items)
+            {
+                FailedClaims.Add(new FailedClaimRow
+                {
+                    ProIdClaim = item.ProIdClaim.ToString(),
+                    CompanyCode = item.CompanyCode,
+                    MonthKey = item.MonthKey,
+                    BatchId = item.BatchId?.ToString() ?? "—",
+                    AttemptCount = item.AttemptCount.ToString(),
+                    LastError = item.LastError ?? "—",
+                    LastUpdatedUtc = item.LastUpdatedUtc.ToString("yyyy-MM-dd HH:mm:ss")
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading failed claims: {ex.Message}");
+        }
+        finally
+        {
+            IsLoadingClaims = false;
+        }
     }
 
     public sealed class ApiCallRow
@@ -161,5 +201,16 @@ public sealed class DiagnosticsViewModel : ViewModelBase
         public string RequestBytes { get; set; } = "";
         public string ResponseBytes { get; set; } = "";
         public string WasGzipRequest { get; set; } = "";
+    }
+
+    public sealed class FailedClaimRow
+    {
+        public string ProIdClaim { get; set; } = "";
+        public string CompanyCode { get; set; } = "";
+        public string MonthKey { get; set; } = "";
+        public string BatchId { get; set; } = "";
+        public string AttemptCount { get; set; } = "";
+        public string LastError { get; set; } = "";
+        public string LastUpdatedUtc { get; set; } = "";
     }
 }

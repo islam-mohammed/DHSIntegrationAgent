@@ -59,6 +59,56 @@ internal sealed class ApiCallLogRepository : IApiCallLogRepository
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<int> CountApiCallsAsync(CancellationToken cancellationToken)
+    {
+        await using var cmd = _conn.CreateCommand();
+        cmd.Transaction = _tx;
+        cmd.CommandText = "SELECT COUNT(*) FROM ApiCallLog;";
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return result is long l ? (int)l : 0;
+    }
+
+    public async Task<IReadOnlyList<ApiCallLogItem>> GetApiCallsPagedAsync(int pageIndex, int pageSize, CancellationToken cancellationToken)
+    {
+        await using var cmd = _conn.CreateCommand();
+        cmd.Transaction = _tx;
+        cmd.CommandText =
+            """
+            SELECT
+                ApiCallLogId, ProviderDhsCode, EndpointName, CorrelationId,
+                RequestUtc, ResponseUtc, DurationMs, HttpStatusCode,
+                Succeeded, ErrorMessage, RequestBytes, ResponseBytes, WasGzipRequest
+            FROM ApiCallLog
+            ORDER BY RequestUtc DESC
+            LIMIT $limit OFFSET $offset;
+            """;
+
+        SqliteSqlBuilder.AddParam(cmd, "$limit", pageSize);
+        SqliteSqlBuilder.AddParam(cmd, "$offset", pageIndex * pageSize);
+
+        var list = new List<ApiCallLogItem>();
+        await using var r = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await r.ReadAsync(cancellationToken))
+        {
+            list.Add(new ApiCallLogItem(
+                ApiCallLogId: r.GetInt32(0),
+                ProviderDhsCode: r.IsDBNull(1) ? null : r.GetString(1),
+                EndpointName: r.GetString(2),
+                CorrelationId: r.IsDBNull(3) ? null : r.GetString(3),
+                RequestUtc: SqliteUtc.FromIso(r.GetString(4)),
+                ResponseUtc: r.IsDBNull(5) ? null : SqliteUtc.FromIso(r.GetString(5)),
+                DurationMs: r.IsDBNull(6) ? null : r.GetInt32(6),
+                HttpStatusCode: r.IsDBNull(7) ? null : r.GetInt32(7),
+                Succeeded: r.GetInt32(8) == 1,
+                ErrorMessage: r.IsDBNull(9) ? null : r.GetString(9),
+                RequestBytes: r.IsDBNull(10) ? null : r.GetInt64(10),
+                ResponseBytes: r.IsDBNull(11) ? null : r.GetInt64(11),
+                WasGzipRequest: r.GetInt32(12) == 1
+            ));
+        }
+        return list;
+    }
+
     public async Task<DateTimeOffset?> GetLastSuccessfulCallUtcAsync(string providerDhsCode, string endpointName, CancellationToken cancellationToken)
     {
         await using var cmd = _conn.CreateCommand();
