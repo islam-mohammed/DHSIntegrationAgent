@@ -11,8 +11,11 @@ public static class AdaptersServiceCollectionExtensions
         IConfiguration configuration)
     {
         // WBS 3.1: Provider DB connection factory.
-        // This release supports SQL Server provider HIS databases.
-        services.AddSingleton<IProviderDbFactory, SqlServerProviderDbFactory>();
+        // Engine-specific factories are registered directly so RoutingProviderDbFactory
+        // can inject them without going through the IProviderDbFactory abstraction.
+        services.AddSingleton<SqlServerProviderDbFactory>();
+        services.AddSingleton<OracleProviderDbFactory>();
+        services.AddSingleton<IProviderDbFactory, RoutingProviderDbFactory>();
         services.AddSingleton<IProviderTablesAdapter, ProviderTablesAdapter>();
 
         return services;

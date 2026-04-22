@@ -20,9 +20,17 @@ public sealed class SqlServerDialect : ISqlDialect
 
     public string CurrentTimestamp() => "GETDATE()";
 
+    public string ConnectivityCheckQuery() => "SELECT 1";
+
+    public string SourceExistenceQuery(string schema, string table)
+        => $"""
+            SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = '{table}'
+            """;
+
     public string ColumnMetadataQuery(string schema, string table)
         => $"""
-            SELECT COLUMN_NAME, DATA_TYPE
+            SELECT COLUMN_NAME
             FROM INFORMATION_SCHEMA.COLUMNS
             WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = '{table}'
             """;

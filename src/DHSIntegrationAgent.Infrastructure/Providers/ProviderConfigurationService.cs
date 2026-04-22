@@ -384,8 +384,7 @@ public sealed class ProviderConfigurationService : IProviderConfigurationService
 
             var vendorDescriptor = GetString(providerInfo, "vendorDescriptor");
 
-               var connectionString = GetString(providerInfo, "connectionString");
-            connectionString = "Server=Dev\\SQLEXPRESS;Database=DHSA;User Id=root; Password=root;Encrypt=True;TrustServerCertificate=True;\r\n ";
+            var connectionString = GetString(providerInfo, "connectionString");
             if (string.IsNullOrWhiteSpace(connectionString))
                 return;
 

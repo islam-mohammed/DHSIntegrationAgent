@@ -1,4 +1,3 @@
-using System.Data;
 using System.Data.Common;
 using DHSIntegrationAgent.Sync.Mapper;
 using DHSIntegrationAgent.Sync.Pipeline;
@@ -25,17 +24,17 @@ public sealed class SchemaValidator
         var issues = new List<SchemaValidationIssue>();
 
         // DbConnectivity — vendor database must be reachable.
-        if (!await CheckDbConnectivityAsync(conn, issues, ct)) return new SchemaValidationResult(false, issues);
+        if (!await CheckDbConnectivityAsync(conn, dialect, issues, ct)) return new SchemaValidationResult(false, issues);
 
         // SourceExists / ColumnExists — source tables and mapped columns must exist (topologies 1 & 2).
         if (descriptor.Topology is "tableToTable" or "viewToTable")
         {
             foreach (var (entity, sourceName) in descriptor.Sources)
             {
-                await CheckSourceExistsAsync(conn, entity, sourceName, issues, ct);
+                await CheckSourceExistsAsync(conn, entity, sourceName, dialect, issues, ct);
 
                 if (descriptor.ColumnManifests.TryGetValue(entity, out var manifest))
-                    await CheckColumnExistsAsync(conn, entity, sourceName, manifest, issues, ct);
+                    await CheckColumnExistsAsync(conn, entity, sourceName, manifest, dialect, issues, ct);
             }
         }
 
@@ -43,12 +42,13 @@ public sealed class SchemaValidator
         return new SchemaValidationResult(!hasError, issues);
     }
 
-    private static async Task<bool> CheckDbConnectivityAsync(DbConnection conn, List<SchemaValidationIssue> issues, CancellationToken ct)
+    private static async Task<bool> CheckDbConnectivityAsync(
+        DbConnection conn, ISqlDialect dialect, List<SchemaValidationIssue> issues, CancellationToken ct)
     {
         try
         {
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT 1";
+            cmd.CommandText = dialect.ConnectivityCheckQuery();
             cmd.CommandTimeout = 10;
             await cmd.ExecuteScalarAsync(ct);
             return true;
@@ -64,6 +64,7 @@ public sealed class SchemaValidator
         DbConnection conn,
         string entity,
         string sourceName,
+        ISqlDialect dialect,
         List<SchemaValidationIssue> issues,
         CancellationToken ct)
     {
@@ -72,12 +73,7 @@ public sealed class SchemaValidator
         {
             using var cmd = conn.CreateCommand();
             cmd.CommandTimeout = 30;
-            cmd.CommandText = """
-                SELECT COUNT(1) FROM INFORMATION_SCHEMA.TABLES
-                WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
-                """;
-            AddParam(cmd, "@schema", schema);
-            AddParam(cmd, "@table", table);
+            cmd.CommandText = dialect.SourceExistenceQuery(schema, table);
 
             var count = Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));
             if (count == 0)
@@ -101,6 +97,7 @@ public sealed class SchemaValidator
         string entity,
         string sourceName,
         Dictionary<string, ColumnFieldDescriptor?> manifest,
+        ISqlDialect dialect,
         List<SchemaValidationIssue> issues,
         CancellationToken ct)
     {
@@ -109,7 +106,7 @@ public sealed class SchemaValidator
         HashSet<string> physicalColumns;
         try
         {
-            physicalColumns = await GetPhysicalColumnNamesAsync(conn, schema, table, ct);
+            physicalColumns = await GetPhysicalColumnNamesAsync(conn, schema, table, dialect, ct);
         }
         catch (Exception ex)
         {
@@ -132,17 +129,11 @@ public sealed class SchemaValidator
     }
 
     private static async Task<HashSet<string>> GetPhysicalColumnNamesAsync(
-        DbConnection conn, string schema, string table, CancellationToken ct)
+        DbConnection conn, string schema, string table, ISqlDialect dialect, CancellationToken ct)
     {
         using var cmd = conn.CreateCommand();
         cmd.CommandTimeout = 30;
-        cmd.CommandText = """
-            SELECT COLUMN_NAME
-            FROM INFORMATION_SCHEMA.COLUMNS
-            WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @table
-            """;
-        AddParam(cmd, "@schema", schema);
-        AddParam(cmd, "@table", table);
+        cmd.CommandText = dialect.ColumnMetadataQuery(schema, table);
 
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
@@ -157,11 +148,4 @@ public sealed class SchemaValidator
         return parts.Length >= 2 ? (parts[0], parts[1]) : ("dbo", parts[0]);
     }
 
-    private static void AddParam(DbCommand cmd, string name, object? value)
-    {
-        var p = cmd.CreateParameter();
-        p.ParameterName = name;
-        p.Value = value ?? DBNull.Value;
-        cmd.Parameters.Add(p);
-    }
 }

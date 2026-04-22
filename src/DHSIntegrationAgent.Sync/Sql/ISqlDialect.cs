@@ -18,6 +18,14 @@ public interface ISqlDialect
     // Current-timestamp function: GETDATE() / SYSDATE / NOW()
     string CurrentTimestamp();
 
-    // Column metadata query for schema validation.
+    // Simple connectivity probe: "SELECT 1" (SQL Server/MySQL) or "SELECT 1 FROM DUAL" (Oracle).
+    string ConnectivityCheckQuery();
+
+    // Returns a query that produces COUNT(1) >= 1 when the table or view exists.
+    // Schema and table are inlined (values come from trusted descriptor, not user input).
+    string SourceExistenceQuery(string schema, string table);
+
+    // Returns a query that produces one COLUMN_NAME row per physical column.
+    // Schema and table are inlined.
     string ColumnMetadataQuery(string schema, string table);
 }

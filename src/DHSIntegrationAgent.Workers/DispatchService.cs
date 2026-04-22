@@ -201,6 +201,9 @@ public sealed class DispatchService : IDispatchService
                                 header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
+                                var (batchStartDate, batchEndDate) = ComputeBatchDates(batch);
+                                header["batchStartDate"] = batchStartDate;
+                                header["batchEndDate"] = batchEndDate;
 
                                 EnrichClaimHeader(header, mappingLookup);
                             }
@@ -453,6 +456,9 @@ public sealed class DispatchService : IDispatchService
                                 header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
+                                var (batchStartDate, batchEndDate) = ComputeBatchDates(batch);
+                                header["batchStartDate"] = batchStartDate;
+                                header["batchEndDate"] = batchEndDate;
 
                                 EnrichClaimHeader(header, mappingLookup);
                             }
@@ -635,6 +641,7 @@ public sealed class DispatchService : IDispatchService
         DispatchRow? originalDispatch;
         IReadOnlyList<DispatchItemRow> originalItems;
         AppSettingsRow? appSettings;
+        DHSIntegrationAgent.Contracts.Persistence.BatchRow? batchForRetry = null;
 
         await using (var uow = await _uowFactory.CreateAsync(ct))
         {
@@ -651,6 +658,7 @@ public sealed class DispatchService : IDispatchService
             }
 
             appSettings = await uow.AppSettings.GetAsync(ct);
+            batchForRetry = await uow.Batches.GetByIdAsync(originalDispatch.BatchId, ct);
         }
 
         if (appSettings == null)
@@ -738,6 +746,12 @@ public sealed class DispatchService : IDispatchService
                             header["providerCode"] = originalDispatch.ProviderDhsCode;
                             if (!string.IsNullOrEmpty(originalDispatch.BcrId) && long.TryParse(originalDispatch.BcrId, out var bcrIdLong))
                                 header["bCR_Id"] = bcrIdLong;
+                            if (batchForRetry != null)
+                            {
+                                var (batchStartDate, batchEndDate) = ComputeBatchDates(batchForRetry);
+                                header["batchStartDate"] = batchStartDate;
+                                header["batchEndDate"] = batchEndDate;
+                            }
 
                             EnrichClaimHeader(header, mappingLookup);
                         }
@@ -961,6 +975,9 @@ public sealed class DispatchService : IDispatchService
                                 header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
+                                var (batchStartDate, batchEndDate) = ComputeBatchDates(batch);
+                                header["batchStartDate"] = batchStartDate;
+                                header["batchEndDate"] = batchEndDate;
 
                                 EnrichClaimHeader(header, mappingLookup);
                             }
@@ -1267,6 +1284,9 @@ public sealed class DispatchService : IDispatchService
                                 header["providerCode"] = batch.ProviderDhsCode;
                                 if (long.TryParse(batch.BcrId, out var bcrIdLong))
                                     header["bCR_Id"] = bcrIdLong;
+                                var (batchStartDate, batchEndDate) = ComputeBatchDates(batch);
+                                header["batchStartDate"] = batchStartDate;
+                                header["batchEndDate"] = batchEndDate;
 
                                 EnrichClaimHeader(header, mappingLookup);
                             }
@@ -1483,6 +1503,22 @@ public sealed class DispatchService : IDispatchService
                 obj[e.TargetField] = e.Value;
             }
         }
+    }
+
+    private static (string startDate, string endDate) ComputeBatchDates(DHSIntegrationAgent.Contracts.Persistence.BatchRow batch)
+    {
+        var start = batch.StartDateUtc ?? DeriveBatchStart(batch.MonthKey);
+        var end   = batch.EndDateUtc   ?? start.AddMonths(1).AddTicks(-1);
+        return (start.ToString("yyyy-MM-dd"), end.ToString("yyyy-MM-dd"));
+    }
+
+    private static DateTimeOffset DeriveBatchStart(string? monthKey)
+    {
+        if (monthKey?.Length == 6
+            && int.TryParse(monthKey[..4], out var year)
+            && int.TryParse(monthKey[4..], out var month))
+            return new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
+        return DateTimeOffset.UtcNow;
     }
 
     private static void RemoveOldIdentifiers(JsonNode? node)
