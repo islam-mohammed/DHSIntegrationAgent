@@ -776,12 +776,19 @@ public sealed class BatchesViewModel : ViewModelBase
                                 bool needsUpdate = false;
                                 var targetStatus = lb.BatchStatus;
 
-                                if (!string.IsNullOrEmpty(apiItem.BatchStatus) && Enum.TryParse<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(apiItem.BatchStatus, true, out var apiStatus))
+                                var apiStatus = MapApiStatus(apiItem.BatchStatus);
+                                if (apiStatus.HasValue)
                                 {
-                                    // Do not revert a locally Deleted batch to a non-deleted status returned by the API
-                                    if (lb.BatchStatus != apiStatus && lb.BatchStatus != DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Deleted)
+                                    // Never overwrite statuses that StreamA owns locally.
+                                    // Never revert an explicitly deleted batch.
+                                    bool locallyOwned = lb.BatchStatus is
+                                        DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Draft or
+                                        DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Fetching or
+                                        DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Deleted;
+
+                                    if (!locallyOwned && lb.BatchStatus != apiStatus.Value)
                                     {
-                                        targetStatus = apiStatus;
+                                        targetStatus = apiStatus.Value;
                                         needsUpdate = true;
                                     }
                                 }
@@ -1120,7 +1127,25 @@ public sealed class BatchesViewModel : ViewModelBase
         }
     }
 
-public sealed class BatchRow : ViewModelBase
+private static DHSIntegrationAgent.Domain.WorkStates.BatchStatus? MapApiStatus(string? apiStatus)
+    {
+        if (string.IsNullOrWhiteSpace(apiStatus)) return null;
+
+        if (Enum.TryParse<DHSIntegrationAgent.Domain.WorkStates.BatchStatus>(apiStatus, ignoreCase: true, out var direct))
+            return direct;
+
+        // Map backend status strings that don't match enum names exactly.
+        return apiStatus.ToLowerInvariant().Replace("-", "").Replace("_", "").Replace(" ", "") switch
+        {
+            "inprogress" or "processing" or "running" => DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Enqueued,
+            "done" or "success" or "succeeded"        => DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Completed,
+            "error" or "errored" or "faulted"         => DHSIntegrationAgent.Domain.WorkStates.BatchStatus.Failed,
+            "paused" or "suspended" or "hasresume"    => DHSIntegrationAgent.Domain.WorkStates.BatchStatus.HasResume,
+            _                                         => null  // Unknown — don't touch local status
+        };
+    }
+
+    public sealed class BatchRow : ViewModelBase
     {
         private long? _localBatchId;
         private int _bcrId;
